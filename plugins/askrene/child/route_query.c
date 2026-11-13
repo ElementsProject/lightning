@@ -133,35 +133,16 @@ static struct channel_bounds *fetch_bounds(const tal_t *ctx,
 static void update_bound_from_intel(struct channel_bounds *bounds,
 				    const struct channel_intel_out *intel)
 {
-	struct amount_msat current_imp;
 	int dir;
 
 	dir = intel->scidd.dir;
 
 	/* Naive implementation! */
 	if (intel->is_impression) {
-		current_imp = intel->value.impression;
-
-		/* We made payment along this channel?  Capacity has
-		 * reduced */
-		if (!amount_msat_sub(&bounds->half[dir].min,
-				     bounds->half[dir].min, current_imp))
-			bounds->half[dir].min = AMOUNT_MSAT(0);
-		if (!amount_msat_sub(&bounds->half[dir].max,
-				     bounds->half[dir].max, current_imp))
-			bounds->half[dir].max = AMOUNT_MSAT(0);
-
-		/* this impression caused the liquidity to go down, we need to
-		 * blame this layer */
-		bounds->half[dir].layer = intel->layer;
-
-		/* We made the other way?  Capacity has increased */
-		if (!amount_msat_add(&bounds->half[!dir].min,
-				     bounds->half[!dir].min, current_imp))
-			bounds->half[!dir].min = AMOUNT_MSAT(UINT64_MAX);
-		if (!amount_msat_add(&bounds->half[!dir].max,
-				     bounds->half[!dir].max, current_imp))
-			bounds->half[!dir].max = AMOUNT_MSAT(UINT64_MAX);
+		/* Impressions from askrene-inform-channel are no longer
+		 * considered.  The equivalent abstraction is an observation of
+		 * "succeeded". */
+		return;
 	} else {
 		bounds->half[dir].min = amount_msat_max(
 		    bounds->half[dir].min, intel->value.min_max.min);

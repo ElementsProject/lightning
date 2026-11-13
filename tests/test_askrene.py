@@ -216,25 +216,26 @@ def test_layers(node_factory):
 
     # askrene should reject invalid inform channel types
     with pytest.raises(RpcError, match=r"invalid token"):
-        l2.rpc.askrene_inform_channel('test_layers',
-                                      '0x0x1/1',
-                                      100000,
-                                      'imadethisup')
+        l2.rpc.askrene_channel_observation('test_layers',
+                                           '0x0x1/1',
+                                           100000,
+                                           'imadethisup')
 
     # We can tell it about made up channels...
     first_timestamp = int(time.time())
-    l2.rpc.askrene_inform_channel('test_layers',
-                                  '0x0x1/1',
-                                  100000,
-                                  'unconstrained')
+    l2.rpc.askrene_channel_observation('test_layers',
+                                       '0x0x1/1',
+                                       100000,
+                                       'accepted')
     last_timestamp = int(time.time()) + 1
-    expect['constraints'].append({'short_channel_id_dir': '0x0x1/1',
-                                  'minimum_msat': 100000})
+    expect['observations'].append({'short_channel_id_dir': '0x0x1/1',
+                                   'amount_msat': 100000,
+                                   'result': 'accepted'})
     # Check timestamp first.
     listlayers = l2.rpc.askrene_listlayers('test_layers')
-    ts1 = only_one(only_one(listlayers['layers'])['constraints'])['timestamp']
+    ts1 = only_one(only_one(listlayers['layers'])['observations'])['timestamp']
     assert first_timestamp <= ts1 <= last_timestamp
-    expect['constraints'][0]['timestamp'] = ts1
+    expect['observations'][0]['timestamp'] = ts1
     assert listlayers == {'layers': [expect]}
 
     # Make sure timestamps differ!
@@ -244,24 +245,26 @@ def test_layers(node_factory):
     scid12 = first_scid(l1, l2)
     first_timestamp = int(time.time())
     scid12dir = f"{scid12}/{direction(l2.info['id'], l1.info['id'])}"
-    l2.rpc.askrene_inform_channel(layer='test_layers',
-                                  short_channel_id_dir=scid12dir,
-                                  amount_msat=12341235,
-                                  inform='constrained')
+    l2.rpc.askrene_channel_observation(layer='test_layers',
+                                       short_channel_id_dir=scid12dir,
+                                       amount_msat=12341235,
+                                       result='failed')
     last_timestamp = int(time.time()) + 1
-    expect['constraints'].append({'short_channel_id_dir': scid12dir,
-                                  'timestamp': first_timestamp,
-                                  'maximum_msat': 12341234})
+    expect['observations'].append({'short_channel_id_dir': scid12dir,
+                                   'timestamp': first_timestamp,
+                                   'amount_msat': 12341235,
+                                   'result': 'failed'})
     # Check timestamp first.
     listlayers = l2.rpc.askrene_listlayers('test_layers')
-    ts2 = only_one([c['timestamp'] for c in only_one(listlayers['layers'])['constraints'] if c['short_channel_id_dir'] == scid12dir])
+    ts2 = only_one([c['timestamp'] for c in only_one(listlayers['layers'])['observations'] if c['short_channel_id_dir'] == scid12dir])
     assert first_timestamp <= ts2 <= last_timestamp
-    expect['constraints'][1]['timestamp'] = ts2
+    expect['observations'][1]['timestamp'] = ts2
 
     # Could be either order!
     actual = expect.copy()
-    if only_one(listlayers['layers'])['constraints'][0]['short_channel_id_dir'] == scid12dir:
-        actual['constraints'] = [expect['constraints'][1], expect['constraints'][0]]
+    if only_one(listlayers['layers'])['observations'][0]['short_channel_id_dir'] == scid12dir:
+        actual['observations'] = [expect['observations'][1],
+                                  expect['observations'][0]]
     assert listlayers == {'layers': [actual]}
 
     # Now test aging: ts1 does nothing.
@@ -271,37 +274,36 @@ def test_layers(node_factory):
 
     # ts1+1 removes first inform
     assert l2.rpc.askrene_age('test_layers', ts1 + 1) == {'layer': 'test_layers', 'num_removed': 1}
-    del expect['constraints'][0]
+    del expect['observations'][0]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
     # ts2+1 removes other.
     assert l2.rpc.askrene_age('test_layers', ts2 + 1) == {'layer': 'test_layers', 'num_removed': 1}
-    del expect['constraints'][0]
+    del expect['observations'][0]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
-    # Test succeeded inform creates an impression (not a constraint).
+    # askrene_constrain_channel creates a constraint (not an observation).
     first_timestamp = int(time.time())
-    r = l2.rpc.askrene_inform_channel('test_layers', scid12dir, 50000, 'succeeded')
+    r = l2.rpc.askrene_constrain_channel('test_layers', scid12dir, 50000)
     last_timestamp = int(time.time()) + 1
-    assert r['constraints'] == []
-    assert len(r['impressions']) == 1
-    assert r['impressions'][0]['amount_msat'] == 50000
+    assert len(r['constraints']) == 1
+    assert r['constraints'][0]['maximum_msat'] == 50000
 
     listlayers = l2.rpc.askrene_listlayers('test_layers')
-    ts_imp = only_one(only_one(listlayers['layers'])['impressions'])['timestamp']
-    assert first_timestamp <= ts_imp <= last_timestamp
-    expect['impressions'] = [{'short_channel_id_dir': scid12dir,
-                              'timestamp': ts_imp,
-                              'amount_msat': 50000}]
+    ts_constr = only_one(only_one(listlayers['layers'])['constraints'])['timestamp']
+    assert first_timestamp <= ts_constr <= last_timestamp
+    expect['constraints'] = [{'short_channel_id_dir': scid12dir,
+                              'timestamp': ts_constr,
+                              'maximum_msat': 50000}]
     assert listlayers == {'layers': [expect]}
 
     # Impression aging: ts_imp does nothing.
-    assert l2.rpc.askrene_age('test_layers', ts_imp) == {'layer': 'test_layers', 'num_removed': 0}
+    assert l2.rpc.askrene_age('test_layers', ts_constr) == {'layer': 'test_layers', 'num_removed': 0}
     # ts_imp+1 removes it.
-    assert l2.rpc.askrene_age('test_layers', ts_imp + 1) == {'layer': 'test_layers', 'num_removed': 1}
-    expect['impressions'] = []
+    assert l2.rpc.askrene_age('test_layers', ts_constr + 1) == {'layer': 'test_layers', 'num_removed': 1}
+    expect['constraints'] = []
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
 
     with pytest.raises(RpcError, match="Unknown layer"):
@@ -688,20 +690,20 @@ def test_layer_persistence(node_factory):
                                   short_channel_id_dir='0x0x1/0',
                                   enabled=True,
                                   cltv_expiry_delta=19)
-    l1.rpc.askrene_inform_channel('test_layer_persistence',
-                                  '0x0x1/1',
-                                  100000,
-                                  'unconstrained')
+    l1.rpc.askrene_channel_observation('test_layer_persistence',
+                                       '0x0x1/1',
+                                       100000,
+                                       'accepted')
     scid12 = first_scid(l1, l2)
     scid12dir = f"{scid12}/{direction(l1.info['id'], l2.info['id'])}"
-    l1.rpc.askrene_inform_channel(layer='test_layer_persistence',
-                                  short_channel_id_dir=scid12dir,
-                                  amount_msat=12341235,
-                                  inform='constrained')
-    l1.rpc.askrene_inform_channel(layer='test_layer_persistence',
-                                  short_channel_id_dir=scid12dir,
-                                  amount_msat=50000,
-                                  inform='succeeded')
+    l1.rpc.askrene_channel_observation(layer='test_layer_persistence',
+                                       short_channel_id_dir=scid12dir,
+                                       amount_msat=12341235,
+                                       result='failed')
+    l1.rpc.askrene_channel_observation(layer='test_layer_persistence',
+                                       short_channel_id_dir=scid12dir,
+                                       amount_msat=50000,
+                                       result='succeeded')
 
     expect = l1.rpc.askrene_listlayers('test_layer_persistence')
 
@@ -1315,10 +1317,9 @@ def test_fees_dont_exceed_constraints(node_factory):
 
     chan = only_one([c for c in l1.rpc.listchannels(source=nodemap[0])['channels'] if c['destination'] == nodemap[1]])
     l1.rpc.askrene_create_layer('test_layers')
-    l1.rpc.askrene_inform_channel(layer='test_layers',
-                                  short_channel_id_dir=f"{chan['short_channel_id']}/{chan['direction']}",
-                                  amount_msat=max_msat + 1,
-                                  inform='constrained')
+    l1.rpc.askrene_constrain_channel(layer='test_layers',
+                                     short_channel_id_dir=f"{chan['short_channel_id']}/{chan['direction']}",
+                                     amount_msat=max_msat)
 
     routes = l1.rpc.getroutes(source=nodemap[0],
                               destination=nodemap[3],
@@ -1474,14 +1475,14 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
     # This makes min == max, just like we do for auto.localchans spendable.
     l1.rpc.askrene_create_layer('localchans')
     for scidd, amount in spendable.items():
-        l1.rpc.askrene_inform_channel(layer='localchans',
-                                      short_channel_id_dir=scidd,
-                                      amount_msat=amount,
-                                      inform='unconstrained')
-        l1.rpc.askrene_inform_channel(layer='localchans',
-                                      short_channel_id_dir=scidd,
-                                      amount_msat=amount + 1,
-                                      inform='constrained')
+        l1.rpc.askrene_channel_observation(layer='localchans',
+                                           short_channel_id_dir=scidd,
+                                           amount_msat=amount,
+                                           result='accepted')
+        l1.rpc.askrene_channel_observation(layer='localchans',
+                                           short_channel_id_dir=scidd,
+                                           amount_msat=amount + 1,
+                                           result='failed')
 
     routes = l1.rpc.getroutes(
         source=nodemap[0],
@@ -1548,10 +1549,10 @@ def test_max_htlc(node_factory, bitcoind):
 
     # If we can't use channel 2, we fail.
     l1.rpc.askrene_create_layer('removechan2')
-    l1.rpc.askrene_inform_channel(layer='removechan2',
-                                  short_channel_id_dir=f'1x1x1/{dir01}',
-                                  amount_msat=1,
-                                  inform='constrained')
+    l1.rpc.askrene_channel_observation(layer='removechan2',
+                                       short_channel_id_dir=f'1x1x1/{dir01}',
+                                       amount_msat=1,
+                                       result='failed')
 
     with pytest.raises(RpcError, match=rf"We could not find a usable set of paths. The shortest path is 0x1x0, but 0x1x0/{dir01} exceeds htlc_maximum_msat ~1000448msat"):
         l1.rpc.getroutes(source=nodemap[0],
@@ -1918,23 +1919,23 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
                     # Timeout means this one succeeded!
                     if err.error['data']['failcode'] == MPP_TIMEOUT:
                         for h in r['path']:
-                            l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                          h['short_channel_id_dir'],
-                                                          h['amount_in_msat'],
-                                                          'unconstrained')
+                            l1.rpc.askrene_channel_observation('test_askrene_fake_channeld',
+                                                               h['short_channel_id_dir'],
+                                                               h['amount_in_msat'],
+                                                               'accepted')
                     elif err.error['data']['failcode'] == TEMPORARY_CHANNEL_FAILURE:
                         # We succeeded up to here
                         failpoint = err.error['data']['erring_index']
                         for h in r['path'][:failpoint]:
-                            l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                          h['short_channel_id_dir'],
-                                                          h['amount_in_msat'],
-                                                          'unconstrained')
+                            l1.rpc.askrene_channel_observation('test_askrene_fake_channeld',
+                                                               h['short_channel_id_dir'],
+                                                               h['amount_in_msat'],
+                                                               'accepted')
                         h = r['path'][failpoint]
-                        l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                      h['short_channel_id_dir'],
-                                                      h['amount_in_msat'],
-                                                      'constrained')
+                        l1.rpc.askrene_channel_observation('test_askrene_fake_channeld',
+                                                           h['short_channel_id_dir'],
+                                                           h['amount_in_msat'],
+                                                           'failed')
                     else:
                         raise err
 
@@ -2912,57 +2913,6 @@ def test_explain_source_dest_failures(node_factory, bitcoind):
     assert err.value.error['code'] == PAY_DESTINATION_INSUFFICIENT_CAPACITY
 
 
-def test_constraint_impression_ordering(node_factory):
-    """Constraints and impressions must be applied in timestamp order.
-
-    An impression at T1 (older) followed by a constraint at T2 (newer) means
-    the constraint supersedes the impression: the impression is applied on the
-    unconstrained capacity and the constraint then clamps the result.  A
-    constraint at T1 followed by an impression at T2 means the impression
-    reduces the constrained capacity.
-    """
-    # Single channel 0->1 with 1000 sat capacity
-    cap_msat = 1_000_000
-    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=cap_msat // 1000)])
-    l1 = node_factory.get_node(gossip_store_file=gsfile.name, opts={'disable-plugin': 'cln-xpay'})
-
-    chan_dir = scid_dir(nodemap, 0, 1, 0)
-
-    # --- Case 1: impression (T1, older) then tighter constraint (T2, newer) ---
-    # Impression says 300k was sent.  Constraint says max is 600k (newer info).
-    # Correct ordering: impression applied to unconstrained ∞, then constraint
-    # clamps to 600k.  Routing 400k should succeed.
-    l1.rpc.askrene_create_layer('test_ordering')
-    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 300_000, 'succeeded')
-    time.sleep(2)
-    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 600_001, 'constrained')
-
-    # Should succeed: effective max is 600k (constraint is newer, wins over impression)
-    routes = l1.rpc.getroutes(source=nodemap[0], destination=nodemap[1],
-                              amount_msat=400_000, layers=['test_ordering'],
-                              maxfee_msat=100_000, final_cltv=5)
-    assert routes['probability_ppm'] > 0
-
-    l1.rpc.askrene_remove_layer('test_ordering')
-
-    # --- Case 2: tighter constraint (T3, older) then impression (T4, newer) ---
-    # Constraint says max is 600k.  Impression says 300k was sent after that.
-    # Correct ordering: constraint applied first (max=600k), impression then
-    # reduces it to 300k.  Routing 400k should fail.
-    l1.rpc.askrene_create_layer('test_ordering')
-    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 600_001, 'constrained')
-    time.sleep(2)
-    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 300_000, 'succeeded')
-
-    # Should fail: effective max is 300k (impression is newer, reduces constrained capacity)
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
-        l1.rpc.getroutes(source=nodemap[0], destination=nodemap[1],
-                         amount_msat=400_000, layers=['test_ordering'],
-                         maxfee_msat=100_000, final_cltv=5)
-
-    l1.rpc.askrene_remove_layer('test_ordering')
-
-
 def maxhops_gossip(pricey_propfee, long_len):
     """A cheap long route from 0 to 1000 and a high fee short one."""
     cheap = GenChannel.Half(propfee=1)
@@ -3378,17 +3328,16 @@ def test_flows_account_for_fees(node_factory):
     )
     scidd02 = f"{chan02['short_channel_id']}/{chan02['direction']}"
     l1.rpc.askrene_create_layer("known_cap")
-    l1.rpc.askrene_inform_channel(
+    l1.rpc.askrene_constrain_channel(
         layer="known_cap",
         short_channel_id_dir=scidd01,
         amount_msat=known_min,
-        inform="unconstrained",
+        upper=False,
     )
-    l1.rpc.askrene_inform_channel(
+    l1.rpc.askrene_constrain_channel(
         layer="known_cap",
         short_channel_id_dir=scidd01,
-        amount_msat=known_max + 1,
-        inform="constrained",
+        amount_msat=known_max,
     )
 
     # A generous maxfee must not prevent us from using the known capacity.

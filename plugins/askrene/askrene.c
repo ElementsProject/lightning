@@ -1606,6 +1606,7 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-inform-channel",
 		json_askrene_inform_channel,
+		"v26.12", "v27.09",
 	},
 	{
 		"askrene-channel-observation",

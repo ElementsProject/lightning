@@ -4284,6 +4284,7 @@ impl Node for Server
         request: tonic::Request<pb::AskreneinformchannelRequest>,
     ) -> Result<tonic::Response<pb::AskreneinformchannelResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::AskreneinformchannelRequest = req.try_into()?;
         debug!("Client asked for ask_rene_inform_channel");
         trace!("ask_rene_inform_channel request: {:?}", req);
