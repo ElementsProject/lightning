@@ -561,6 +561,26 @@ static bool update_channel_update(const struct channel *channel,
 	return true;
 }
 
+/* We MAY disable a channel on loss of connectivity and re-enable it later
+ * (BOLT #7's channel_update `disable` bit). */
+static void set_channel_disabled(struct channel *channel, bool disabled)
+{
+	struct channel_gossip *cg = channel->channel_gossip;
+	struct lightningd *ld = channel->peer->ld;
+
+	if (!cg || cg->state != CGOSSIP_ANNOUNCED)
+		return;
+
+	if (!ld->gossip || ld->state == LD_STATE_GRACE
+	    || ld->state == LD_STATE_SHUTDOWN)
+		return;
+
+	if (update_channel_update(channel, !disabled))
+		broadcast_new_gossip(ld, cg->cupdate, NULL,
+				     disabled ? "channel disabled"
+					      : "channel enabled");
+}
+
 /* Using default logic, should this channel be enabled? */
 static bool channel_should_enable(const struct channel *channel,
 				  bool ok_if_disconnected)
@@ -1240,6 +1260,9 @@ void channel_gossip_channel_reestablished(struct channel *channel,
 	/* We can re-xmit sigs once per reconnect */
 	channel->channel_gossip->sent_sigs = false;
 
+	/* We may have disabled this channel when the peer went away. */
+	set_channel_disabled(channel, false);
+
 	if (announcement_sigs_requested)
 		send_channel_announce_sigs(channel);
 
@@ -1279,6 +1302,10 @@ void channel_gossip_channel_disconnect(struct channel *channel)
 {
 	channel->stable_conn_timer = tal_free(channel->stable_conn_timer);
 	channel->reestablished = false;
+
+	/* Ignore unsaved channels */
+	if (channel->channel_gossip)
+		set_channel_disabled(channel, true);
 }
 
 /* We *could* send channel_updates for private channels, or
