@@ -23,11 +23,12 @@ use cln_rpc::{
     model::{
         requests::{
             DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest,
-            DelinvoiceStatus, ListdatastoreRequest, ListinvoicesRequest, ListpeersRequest,
+            DelinvoiceStatus, ListdatastoreRequest, ListinvoicesRequest, ListpeerchannelsRequest,
+            ListpeersRequest,
         },
-        responses::InvoiceResponse,
+        responses::{InvoiceResponse, ListdatastoreDatastore},
     },
-    primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId},
+    primitives::{Amount, AmountOrAny, ChannelState, PublicKey, ShortChannelId},
 };
 use log::{debug, info, warn};
 use lsps_types::{
@@ -39,6 +40,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr as _;
+use std::sync::Arc;
 
 /// An option to enable this service.
 const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
@@ -54,6 +56,8 @@ pub struct State {
     sender: ClnSender,
     pending: PendingRequests,
     timeout: std::time::Duration,
+    /// Held while reading or changing the zero-conf approvals.
+    approvals: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl State {
@@ -63,6 +67,7 @@ impl State {
             rpc_path,
             pending: PendingRequests::new(),
             timeout,
+            approvals: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -124,6 +129,8 @@ async fn main() -> Result<(), anyhow::Error> {
         .hook("invoice_payment", on_invoice_payment)
         .hook("htlc_accepted", on_htlc_accepted)
         .hook("openchannel", on_openchannel)
+        .hook("peer_connected", on_peer_connected)
+        .subscribe("channel_opened", on_channel_opened)
         .configure()
         .await?
     {
@@ -273,22 +280,47 @@ async fn on_lsps_lsps2_approve(
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
     let req: ClnRpcLsps2Approve = serde_json::from_value(v)?;
-    let ds_rec = DatastoreRecord {
-        jit_channel_scid: req.jit_channel_scid.clone(),
-        client_trusts_lsp: req.client_trusts_lsp.unwrap_or_default(),
-    };
-    let ds_rec_json = serde_json::to_string(&ds_rec)?;
 
     let mut cln_client = p.state().rpc().await?;
 
-    let ds_req = DatastoreRequest {
-        generation: None,
-        hex: None,
-        mode: Some(DatastoreMode::CREATE_OR_REPLACE),
-        string: Some(ds_rec_json),
-        key: vec!["lsps".to_string(), "client".to_string(), req.lsp_id.clone()],
+    // The approval lasts as long as the invoice of the buy: the LSP's channel
+    // can't pay it after that.
+    let invoices = cln_client
+        .call_typed(&ListinvoicesRequest {
+            index: None,
+            invstring: None,
+            label: None,
+            limit: None,
+            offer_id: None,
+            payment_hash: Some(req.payment_hash.clone()),
+            start: None,
+        })
+        .await?;
+    let invoice = invoices
+        .invoices
+        .first()
+        .ok_or_else(|| anyhow!("No invoice with payment_hash {}", req.payment_hash))?;
+
+    let mut key = approvals_key(&req.lsp_id);
+    key.push(req.jit_channel_scid.to_string());
+    let approval = Approval {
+        key,
+        record: DatastoreRecord {
+            jit_channel_scid: req.jit_channel_scid,
+            client_trusts_lsp: req.client_trusts_lsp.unwrap_or_default(),
+            expires_at: invoice.expires_at,
+            funding_txid: None,
+            given_back_from: Vec::new(),
+        },
     };
-    let _ds_res = cln_client.call_typed(&ds_req).await?;
+    {
+        let _lock = p.state().approvals.lock().await;
+        // Also deletes the single record per LSP of older versions, which
+        // would keep us from creating the key for this buy below it.
+        live_approvals(&mut cln_client, &req.lsp_id, unix_now()).await?;
+        save_approval(&mut cln_client, &approval).await?;
+    }
+
     let ds_req = DatastoreRequest {
         generation: None,
         hex: None,
@@ -558,15 +590,36 @@ async fn on_invoice_payment(
 
     // Delete DS-entries.
     let mut cln_client = ok_or_continue!(p.state().rpc().await);
+    let invoice_key = vec!["lsps".to_string(), "invoice".to_string(), hash.to_string()];
+    let lsp_id = ok_or_continue!(
+        cln_client
+            .call_typed(&ListdatastoreRequest {
+                key: Some(invoice_key.clone()),
+            })
+            .await
+            .context("failed to read datastore record")
+    )
+    .datastore
+    .into_iter()
+    .find(|e| e.key == invoice_key)
+    .and_then(|e| e.string);
     ok_or_continue!(
         cln_client
             .call_typed(&DeldatastoreRequest {
-                key: vec!["lsps".to_string(), "invoice".to_string(), hash.to_string()],
+                key: invoice_key,
                 generation: None,
             })
             .await
             .context("failed to delete datastore record")
     );
+
+    // The buy's channel is open: its spent approval is done with.
+    if let Some(lsp_id) = lsp_id {
+        let _lock = p.state().approvals.lock().await;
+        if let Err(e) = settle_spent_approvals(&mut cln_client, &lsp_id, false).await {
+            warn!("Failed to delete spent zero-conf approvals: {:#}", e);
+        }
+    }
 
     Ok(serde_json::json!({"result": "continue"}))
 }
@@ -683,7 +736,13 @@ async fn on_htlc_accepted(
     Ok(value)
 }
 
-/// Allows `zero_conf` channels to the client if the LSP is on the allowlist.
+/// Allows a `zero_conf` channel from an LSP if one of its buys has an
+/// approval left.
+///
+/// The open_channel message doesn't say which buy the channel is for, so
+/// any approval left will do. The approval isn't spent here but once the
+/// channel is open, in `on_channel_opened`: an open that fails after this
+/// hook leaves the approval to the LSP's retry.
 async fn on_openchannel(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
@@ -696,48 +755,287 @@ async fn on_openchannel(
 
     let mut cln_client = ok_or_continue!(p.state().rpc().await);
 
-    let ds_req = ListdatastoreRequest {
-        key: Some(vec![
-            "lsps".to_string(),
-            "client".to_string(),
-            req.openchannel.id.clone(),
-        ]),
-    };
-    let ds_res = ok_or_continue!(
-        cln_client
-            .call_typed(&ds_req)
-            .await
-            .context("failed to get datastore record")
-    );
+    let _lock = p.state().approvals.lock().await;
+    let approvals =
+        ok_or_continue!(live_approvals(&mut cln_client, &req.openchannel.id, unix_now()).await);
 
-    if let Some(_rec) = ds_res.datastore.iter().next() {
+    if approvals.iter().any(|a| a.record.funding_txid.is_none()) {
         info!(
             "Allowing zero-conf channel from LSP {}",
             &req.openchannel.id
         );
-        let ds_req = DeldatastoreRequest {
-            generation: None,
-            key: vec![
-                "lsps".to_string(),
-                "client".to_string(),
-                req.openchannel.id.clone(),
-            ],
-        };
-        if let Some(err) = cln_client.call_typed(&ds_req).await.err() {
-            // We can do nothing but report that there was an issue deleting the
-            // datastore record.
-            warn!("Failed to delete LSP record from datastore: {}", err);
-        }
         // Fixme: Check that we actually use client-trusts-LSP mode - can be
         // found in the ds record.
-        return Ok(serde_json::json!({
+        Ok(serde_json::json!({
             "result": "continue",
             "mindepth": 0,
-        }));
+        }))
     } else {
         // Not a requested JIT-channel opening, continue.
         Ok(serde_json::json!({"result": "continue"}))
     }
+}
+
+/// Spends an approval of the LSP once its channel is open.
+///
+/// lightningd saves the channel and sends this notification before it sends
+/// `funding_signed`, so the LSP can't open again before the notification is
+/// on its way. The `openchannel` hook for that next open runs as a task of
+/// its own, though, and may still take the approvals lock first.
+async fn on_channel_opened(
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<(), anyhow::Error> {
+    #[derive(Deserialize)]
+    struct ChannelOpened {
+        id: String,
+        funding_txid: String,
+    }
+    #[derive(Deserialize)]
+    struct Notification {
+        channel_opened: ChannelOpened,
+    }
+    let opened = serde_json::from_value::<Notification>(v)
+        .context("failed to deserialize channel_opened notification JSON")?
+        .channel_opened;
+
+    // Queue up for the lock before anything else: the lock is fair, so the
+    // `openchannel` hook for the LSP's next open, which can only arrive
+    // after our `funding_signed`, waits for this notification.
+    let _lock = p.state().approvals.lock().await;
+
+    let mut cln_client = p.state().rpc().await?;
+
+    let approvals = live_approvals(&mut cln_client, &opened.id, unix_now()).await?;
+    // We can't tell which buy the channel is for: spend the approval that
+    // expires first.
+    if let Some(mut approval) = approvals
+        .into_iter()
+        .find(|a| a.record.funding_txid.is_none())
+    {
+        info!(
+            "Channel {} from LSP {} is open, spending the zero-conf approval for {}",
+            opened.funding_txid, opened.id, approval.record.jit_channel_scid
+        );
+        approval.record.funding_txid = Some(opened.funding_txid);
+        save_approval(&mut cln_client, &approval).await?;
+    }
+    Ok(())
+}
+
+/// Gives back the approvals spent on channels that never got going.
+///
+/// If the connection to the LSP drops before it gets our `funding_signed`,
+/// the channel is saved on our side but the LSP will never fund it, and
+/// opens a new one for the payer's retry (bLIP-52). On reconnect such a
+/// channel is still waiting for `channel_ready`, or already gone.
+async fn on_peer_connected(
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let lsp_id = some_or_continue!(
+        v["peer"]["id"].as_str(),
+        "peer_connected without peer id, continue"
+    );
+
+    let mut cln_client = ok_or_continue!(p.state().rpc().await);
+
+    let _lock = p.state().approvals.lock().await;
+    ok_or_continue!(settle_spent_approvals(&mut cln_client, lsp_id, true).await);
+    continue_ok()
+}
+
+/// Deletes the LSP's approvals spent on a channel that got going: they
+/// can't come back. That includes approvals given back from a channel that
+/// got going after all. If the LSP has `reconnected`, gives back the other
+/// spent approvals, see `on_peer_connected`. Call it with the approvals
+/// lock held.
+async fn settle_spent_approvals(
+    cln_client: &mut ClnRpc,
+    lsp_id: &str,
+    reconnected: bool,
+) -> Result<(), anyhow::Error> {
+    let spent: Vec<Approval> = live_approvals(cln_client, lsp_id, unix_now())
+        .await?
+        .into_iter()
+        .filter(|a| a.record.funding_txid.is_some() || !a.record.given_back_from.is_empty())
+        .collect();
+    if spent.is_empty() {
+        return Ok(());
+    }
+
+    let channels = cln_client
+        .call_typed(&ListpeerchannelsRequest {
+            id: Some(PublicKey::from_str(lsp_id)?),
+            channel_id: None,
+            short_channel_id: None,
+        })
+        .await
+        .context("failed to list channels of LSP")?
+        .channels;
+
+    let state_of = |txid: &str| {
+        channels
+            .iter()
+            .find(|c| c.funding_txid.as_deref() == Some(txid))
+            .map(|c| c.state)
+    };
+    for mut approval in spent {
+        match settle(&approval.record, state_of, reconnected) {
+            Settle::Delete => {
+                debug!(
+                    "A channel from LSP {} got going, deleting the zero-conf approval for {}",
+                    lsp_id, approval.record.jit_channel_scid
+                );
+                if let Err(e) = cln_client
+                    .call_typed(&DeldatastoreRequest {
+                        key: approval.key,
+                        generation: None,
+                    })
+                    .await
+                {
+                    warn!("Failed to delete spent zero-conf approval: {:#}", e);
+                }
+            }
+            Settle::GiveBack => {
+                info!(
+                    "Channel {:?} from LSP {} never got going, returning the zero-conf approval for {}",
+                    approval.record.funding_txid, lsp_id, approval.record.jit_channel_scid
+                );
+                let txid = approval.record.funding_txid.take();
+                approval.record.given_back_from.extend(txid);
+                if let Err(e) = save_approval(cln_client, &approval).await {
+                    warn!("Failed to return zero-conf approval: {:#}", e);
+                }
+            }
+            Settle::Keep => {}
+        }
+    }
+    Ok(())
+}
+
+/// What `settle_spent_approvals` does with an approval.
+#[derive(Debug, PartialEq)]
+enum Settle {
+    Keep,
+    Delete,
+    GiveBack,
+}
+
+/// Decides what to do with an approval, from the state of the LSP's
+/// channels by funding txid: delete it if a channel it was spent on, or
+/// given back from, got going; give it back if it is spent and the LSP has
+/// `reconnected`; keep it otherwise.
+fn settle(
+    record: &DatastoreRecord,
+    state_of: impl Fn(&str) -> Option<ChannelState>,
+    reconnected: bool,
+) -> Settle {
+    let got_going = record
+        .funding_txid
+        .iter()
+        .chain(&record.given_back_from)
+        .any(|txid| !never_got_going(state_of(txid)));
+    if got_going {
+        Settle::Delete
+    } else if reconnected && record.funding_txid.is_some() {
+        Settle::GiveBack
+    } else {
+        Settle::Keep
+    }
+}
+
+/// Whether the channel an approval was spent on never got going, from its
+/// state: still waiting for `channel_ready`, or gone.
+fn never_got_going(state: Option<ChannelState>) -> bool {
+    state.is_none_or(|s| s == ChannelState::CHANNELD_AWAITING_LOCKIN)
+}
+
+/// Datastore key under which the zero-conf approvals for the buys from an
+/// LSP are kept, one per `jit_channel_scid`.
+fn approvals_key(lsp_id: &str) -> Vec<String> {
+    vec!["lsps".to_string(), "client".to_string(), lsp_id.to_string()]
+}
+
+fn unix_now() -> u64 {
+    u64::try_from(Utc::now().timestamp()).unwrap_or_default()
+}
+
+/// A zero-conf approval for one buy, and its datastore key.
+#[derive(Debug, Clone, PartialEq)]
+struct Approval {
+    key: Vec<String>,
+    record: DatastoreRecord,
+}
+
+/// Splits the datastore entries under an LSP's approvals key into its live
+/// approvals, soonest expiry first, and the keys to delete:
+/// approvals that expired, and entries we can't read, such as the single
+/// record per LSP that older versions kept.
+fn sort_approvals(
+    entries: Vec<ListdatastoreDatastore>,
+    now: u64,
+) -> (Vec<Approval>, Vec<Vec<String>>) {
+    let mut live = Vec::new();
+    let mut stale = Vec::new();
+    for entry in entries {
+        let record = entry
+            .string
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<DatastoreRecord>(s).ok());
+        match record {
+            Some(record) if record.expires_at > now => live.push(Approval {
+                key: entry.key,
+                record,
+            }),
+            _ => stale.push(entry.key),
+        }
+    }
+    live.sort_by(|a, b| (a.record.expires_at, &a.key).cmp(&(b.record.expires_at, &b.key)));
+    (live, stale)
+}
+
+/// Returns the live zero-conf approvals for the buys from `lsp_id`, see
+/// `sort_approvals`, and deletes the stale ones.
+async fn live_approvals(
+    cln_client: &mut ClnRpc,
+    lsp_id: &str,
+    now: u64,
+) -> Result<Vec<Approval>, anyhow::Error> {
+    let res = cln_client
+        .call_typed(&ListdatastoreRequest {
+            key: Some(approvals_key(lsp_id)),
+        })
+        .await
+        .context("failed to list zero-conf approvals")?;
+    let (live, stale) = sort_approvals(res.datastore, now);
+    for key in stale {
+        debug!("Deleting stale zero-conf approval {:?}", key);
+        if let Err(e) = cln_client
+            .call_typed(&DeldatastoreRequest {
+                key,
+                generation: None,
+            })
+            .await
+        {
+            warn!("Failed to delete stale zero-conf approval: {:#}", e);
+        }
+    }
+    Ok(live)
+}
+
+async fn save_approval(cln_client: &mut ClnRpc, approval: &Approval) -> Result<(), anyhow::Error> {
+    cln_client
+        .call_typed(&DatastoreRequest {
+            generation: None,
+            hex: None,
+            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
+            string: Some(serde_json::to_string(&approval.record)?),
+            key: approval.key.clone(),
+        })
+        .await
+        .context("failed to save zero-conf approval")?;
+    Ok(())
 }
 
 async fn on_lsps_listprotocols(
@@ -935,10 +1233,21 @@ struct ClnRpcLsps2Approve {
     client_trusts_lsp: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// The zero-conf approval for one buy.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct DatastoreRecord {
     jit_channel_scid: ShortChannelId,
     client_trusts_lsp: bool,
+    /// When the invoice of the buy expires, in seconds since the epoch.
+    expires_at: u64,
+    /// The funding txid of the channel the approval was spent on, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    funding_txid: Option<String>,
+    /// The funding txids of the channels the approval was given back from,
+    /// see `on_peer_connected`. If one of them gets going after all, the
+    /// approval was spent on it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    given_back_from: Vec<String>,
 }
 
 #[cfg(test)]
@@ -991,6 +1300,130 @@ mod tests {
         let menu = vec![soon, params(1_000, 2_000, "later")];
         let selected = select_opening_fee_params(&menu, now()).unwrap();
         assert_eq!(selected.promise.as_str(), "later");
+    }
+
+    fn entry(key: &str, string: Option<&str>) -> ListdatastoreDatastore {
+        ListdatastoreDatastore {
+            generation: Some(0),
+            hex: None,
+            string: string.map(str::to_string),
+            key: key.split('/').map(str::to_string).collect(),
+        }
+    }
+
+    fn record(scid: &str, expires_at: u64, funding_txid: Option<&str>) -> String {
+        serde_json::to_string(&DatastoreRecord {
+            jit_channel_scid: ShortChannelId::from_str(scid).unwrap(),
+            client_trusts_lsp: false,
+            expires_at,
+            funding_txid: funding_txid.map(str::to_string),
+            given_back_from: Vec::new(),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn sort_approvals_orders_live_ones_by_expiry() {
+        let entries = vec![
+            entry("lsps/client/lsp/1x2x0", Some(&record("1x2x0", 300, None))),
+            entry(
+                "lsps/client/lsp/1x1x0",
+                Some(&record("1x1x0", 200, Some("ab"))),
+            ),
+        ];
+        let (live, stale) = sort_approvals(entries, 100);
+        assert!(stale.is_empty());
+        let scids: Vec<String> = live
+            .iter()
+            .map(|a| a.record.jit_channel_scid.to_string())
+            .collect();
+        assert_eq!(scids, ["1x1x0", "1x2x0"]);
+        assert_eq!(live[0].record.funding_txid.as_deref(), Some("ab"));
+    }
+
+    #[test]
+    fn sort_approvals_drops_expired_and_unreadable_entries() {
+        let entries = vec![
+            entry("lsps/client/lsp/1x1x0", Some(&record("1x1x0", 100, None))),
+            // The single record per LSP of older versions, without expiry.
+            entry(
+                "lsps/client/lsp",
+                Some(r#"{"jit_channel_scid":"1x1x0","client_trusts_lsp":false}"#),
+            ),
+            entry("lsps/client/lsp/1x2x0", None),
+            entry("lsps/client/lsp/1x3x0", Some(&record("1x3x0", 101, None))),
+        ];
+        let (live, stale) = sort_approvals(entries, 100);
+        assert_eq!(live.len(), 1);
+        assert_eq!(live[0].record.jit_channel_scid.to_string(), "1x3x0");
+        assert_eq!(
+            stale,
+            [
+                vec!["lsps", "client", "lsp", "1x1x0"],
+                vec!["lsps", "client", "lsp"],
+                vec!["lsps", "client", "lsp", "1x2x0"],
+            ]
+        );
+    }
+
+    #[test]
+    fn spent_approvals_come_back_only_from_channels_that_never_got_going() {
+        assert!(never_got_going(None));
+        assert!(never_got_going(Some(
+            ChannelState::CHANNELD_AWAITING_LOCKIN
+        )));
+        assert!(!never_got_going(Some(ChannelState::CHANNELD_NORMAL)));
+        assert!(!never_got_going(Some(ChannelState::ONCHAIN)));
+    }
+
+    #[test]
+    fn settle_deletes_approvals_whose_channel_got_going() {
+        let approval = |funding_txid: Option<&str>, given_back_from: &[&str]| DatastoreRecord {
+            jit_channel_scid: ShortChannelId::from_str("1x1x0").unwrap(),
+            client_trusts_lsp: false,
+            expires_at: 100,
+            funding_txid: funding_txid.map(str::to_string),
+            given_back_from: given_back_from.iter().map(|s| s.to_string()).collect(),
+        };
+        // "going" got going, "waiting" waits for channel_ready, others are
+        // gone.
+        let state_of = |txid: &str| match txid {
+            "going" => Some(ChannelState::CHANNELD_NORMAL),
+            "waiting" => Some(ChannelState::CHANNELD_AWAITING_LOCKIN),
+            _ => None,
+        };
+        let cases = [
+            (approval(Some("going"), &[]), Settle::Delete, Settle::Delete),
+            (
+                approval(Some("waiting"), &[]),
+                Settle::Keep,
+                Settle::GiveBack,
+            ),
+            (approval(Some("gone"), &[]), Settle::Keep, Settle::GiveBack),
+            // Given back from a channel that got going after all.
+            (approval(None, &["going"]), Settle::Delete, Settle::Delete),
+            (approval(None, &["waiting"]), Settle::Keep, Settle::Keep),
+            // Spent again after it was given back.
+            (
+                approval(Some("waiting"), &["going"]),
+                Settle::Delete,
+                Settle::Delete,
+            ),
+            (
+                approval(Some("going"), &["gone"]),
+                Settle::Delete,
+                Settle::Delete,
+            ),
+            (
+                approval(Some("gone"), &["waiting"]),
+                Settle::Keep,
+                Settle::GiveBack,
+            ),
+        ];
+        for (record, paid, reconnected) in cases {
+            assert_eq!(settle(&record, state_of, false), paid, "{record:?}");
+            assert_eq!(settle(&record, state_of, true), reconnected, "{record:?}");
+        }
     }
 
     #[test]
