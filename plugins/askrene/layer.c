@@ -1312,6 +1312,8 @@ void layer_get_observations(const struct layer *layer,
 	struct channel_observations_htable_iter it;
 	struct channel_observation_out current;
 	struct observation *o;
+	const struct channel_intel *intelarr;
+	struct channel_intel_hash_iter intelit;
 
 	current.layer = layer;
 	for (chan_obs = channel_observations_htable_first(
@@ -1326,6 +1328,26 @@ void layer_get_observations(const struct layer *layer,
 			current.timestamp = o->timestamp;
 			current.amount = o->amount;
 			tal_arr_expand(out_observations, current);
+		}
+	}
+
+	/* FIXME: pretend for a while that an impression (deprecated) is an
+	 * observation. */
+	for (intelarr =
+		 channel_intel_hash_first(layer->channel_intels, &intelit);
+	     intelarr; intelarr = channel_intel_hash_next(layer->channel_intels,
+							  &intelit)) {
+		for (size_t i = 0; i < tal_count(intelarr); i++) {
+			if (intelarr[i].constraint) {
+				continue;
+			} else {
+				current.result = OBSERVATION_HTLC_FORWARDED;
+				current.scidd = intelarr[i].impression->scidd;
+				current.timestamp =
+				    intelarr[i].impression->timestamp;
+				current.amount = intelarr[i].impression->amount;
+				tal_arr_expand(out_observations, current);
+			}
 		}
 	}
 }
