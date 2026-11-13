@@ -22,10 +22,6 @@
           program = "${self'.packages.cln}/bin/lightning-hsmtool";
           meta.description = "Core Lightning HSM tool";
         };
-        reckless = {
-          program = "${self'.packages.cln}/bin/reckless";
-          meta.description = "Core Lightning reckless tool";
-        };
       };
     };
 }
