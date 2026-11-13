@@ -3347,6 +3347,120 @@ def test_partial_payment(node_factory, bitcoind, executor):
             groupid=1)
 
 
+def test_retry_after_success_pending_straggler(node_factory, bitcoind):
+    """A success is final: retrying a payment_hash which already
+    succeeded must not be blocked by a straggling HTLC from the original
+    attempt, because we will not send an HTLC in any case.
+
+    We make the straggler (partid 1) the first row in the wallet, so the
+    check must aggregate the payment rows before deciding: the pending
+    straggler may not shadow the later success.
+    """
+    l1 = node_factory.get_node()
+    # l2 never acknowledges: part 1 is stuck pending forever (but in db).
+    l2 = node_factory.get_node(options={'dev-disable-commit-after': 0})
+    l3, l4 = node_factory.get_nodes(2)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 100000)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fundchannel(l3, 100000)
+    l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    scid24, _ = l2.fundchannel(l4, 100000)
+    l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    scid34, _ = l3.fundchannel(l4, 100000)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
+
+    # Wait until l1 knows about all channels.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
+
+    inv = l4.rpc.invoice(1000, 'inv', 'inv', preimage='00' * 32)
+    paysecret = l4.rpc.decode(inv['bolt11'])['payment_secret']
+
+    # Separate routes for each part: r124 delivers 999 of the 1000,
+    # r134 delivers the whole 1000 (so it succeeds on its own).
+    l1.rpc.askrene_create_layer(layer='excl_l2l4')
+    l1.rpc.askrene_update_channel(layer='excl_l2l4', short_channel_id_dir=scid24 + '/0', enabled=False)
+    l1.rpc.askrene_update_channel(layer='excl_l2l4', short_channel_id_dir=scid24 + '/1', enabled=False)
+    r134 = only_one(l1.rpc.getroutes(l1.info['id'], l4.info['id'], 1000, layers=['excl_l2l4', 'auto.localchans', 'auto.sourcefree'], maxfee_msat=10000000, final_cltv=9, maxparts=1)['routes'])['path']
+    l1.rpc.askrene_remove_layer(layer='excl_l2l4')
+
+    l1.rpc.askrene_create_layer(layer='excl_l3l4')
+    l1.rpc.askrene_update_channel(layer='excl_l3l4', short_channel_id_dir=scid34 + '/0', enabled=False)
+    l1.rpc.askrene_update_channel(layer='excl_l3l4', short_channel_id_dir=scid34 + '/1', enabled=False)
+    r124 = only_one(l1.rpc.getroutes(l1.info['id'], l4.info['id'], 999, layers=['excl_l3l4', 'auto.localchans', 'auto.sourcefree'], maxfee_msat=10000000, final_cltv=9, maxparts=1)['routes'])['path']
+    l1.rpc.askrene_remove_layer(layer='excl_l3l4')
+
+    # Part 1 goes via l2 and is stuck pending, but in the wallet.
+    l1.rpc.sendpay(
+        route=r124,
+        payment_hash=inv['payment_hash'],
+        amount_msat=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=1,
+        groupid=1,
+    )
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_ADD_HTLC')
+
+    # Part 2 goes via l3, delivering the whole amount: invoice paid.
+    l1.rpc.sendpay(
+        route=r134,
+        payment_hash=inv['payment_hash'],
+        amount_msat=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=2,
+        groupid=1,
+    )
+    res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=2,
+                             groupid=1, timeout=TIMEOUT)
+    assert res['status'] == 'complete'
+
+    # The straggler is still pending when we retry.
+    pays = l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments']
+    assert len(pays) == 2
+    assert sorted([p['status'] for p in pays]) == ['complete', 'pending']
+
+    # Retrying partid 2 with a new group succeeds immediately: we know
+    # the preimage, so no HTLC is sent.  It must *not* be stopped by the
+    # (earlier-created, so scanned first!) pending straggler.
+    pay = l1.rpc.sendpay(
+        route=r134,
+        payment_hash=inv['payment_hash'],
+        amount_msat=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=2,
+        groupid=2,
+    )
+    assert pay['status'] == 'complete'
+    assert pay['payment_preimage'] == '00' * 32
+
+    # Retrying with the stuck part's partid is refused with "Already
+    # succeeded", *not* "still in progress": a success is final.
+    with pytest.raises(RpcError, match=r'Already succeeded'):
+        l1.rpc.sendpay(
+            route=r134,
+            payment_hash=inv['payment_hash'],
+            amount_msat=1000,
+            bolt11=inv['bolt11'],
+            payment_secret=paysecret,
+            partid=1,
+            groupid=2,
+        )
+
+    # In no case did we send another HTLC for this hash.
+    assert len(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments']) == 2
+
+    # Let the straggler through: it fails, since the invoice is paid.
+    l2.rpc.dev_reenable_commit(l4.info['id'])
+    l2.rpc.dev_reenable_commit(l1.info['id'])
+    with pytest.raises(RpcError, match=r'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
+        l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=1,
+                           groupid=1, timeout=TIMEOUT)
+
+
 def test_partial_payment_timeout(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
 
