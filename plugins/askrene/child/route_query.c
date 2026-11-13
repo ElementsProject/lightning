@@ -136,24 +136,7 @@ static void update_bound_from_intel(struct channel_bounds *bounds,
 
 	/* Naive implementation! */
 	if (intel->is_impression) {
-		current_imp = intel->value.impression;
-
-		/* We made payment along this channel?  Capacity has
-		 * reduced */
-		if (!amount_msat_sub(&bounds->half[dir].min,
-				     bounds->half[dir].min, current_imp))
-			bounds->half[dir].min = AMOUNT_MSAT(0);
-		if (!amount_msat_sub(&bounds->half[dir].max,
-				     bounds->half[dir].max, current_imp))
-			bounds->half[dir].max = AMOUNT_MSAT(0);
-
-		/* We made the other way?  Capacity has increased */
-		if (!amount_msat_add(&bounds->half[!dir].min,
-				     bounds->half[!dir].min, current_imp))
-			bounds->half[!dir].min = AMOUNT_MSAT(-1ULL);
-		if (!amount_msat_add(&bounds->half[!dir].max,
-				     bounds->half[!dir].max, current_imp))
-			bounds->half[!dir].max = AMOUNT_MSAT(-1ULL);
+		return;
 	} else {
 		bounds->half[dir].min = amount_msat_max(
 		    bounds->half[dir].min, intel->value.min_max.min);
