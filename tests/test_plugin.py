@@ -3393,6 +3393,51 @@ def test_plugin_shutdown(node_factory):
                              'test_libplugin: failed to self-terminate in time, killing.'])
 
 
+@unittest.skipIf(VALGRIND, "Under valgrind, restarting l2 takes longer than the 30 second plugin shutdown wait")
+def test_shutdown_peer_reconnect(node_factory, bitcoind, executor):
+    """A peer can reconnect while lightningd waits for plugins to exit, and
+    make it fail the channel.  lightningd must not ask bcli to broadcast the
+    close once bcli has exited: it broadcasts it on restart."""
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'dev-fast-reconnect': None})
+
+    # l2 forgets the channel, so it answers l1's reestablish with an error.
+    l1.stop()
+    l2.rpc.dev_forget_channel(l1.info['id'], force=True)
+    l2.stop()
+
+    # This plugin doesn't exit when asked to, so shutdown waits up to 30
+    # seconds for it, long after bcli has exited.
+    l1.daemon.opts['plugin'] = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1.daemon.opts['dont_shutdown'] = None
+    l1.start()
+    line = l1.daemon.is_in_log(r'started\([0-9]*\).*test_libplugin')
+    plugin_pid = int(re.search(r'started\(([0-9]*)\)', line).group(1))
+    # l2 is down, so l1 keeps trying to reconnect.
+    l1.daemon.wait_for_log('Failed connected out')
+
+    stop = executor.submit(l1.stop)
+    l1.daemon.wait_for_log('plugin-bcli: Killing plugin: exited during normal operation')
+    l2.start()
+
+    # l1 reconnects, gets l2's error and fails the channel.
+    l1.daemon.wait_for_log('State changed from CHANNELD_NORMAL to AWAITING_UNILATERAL')
+    txid = l1.daemon.wait_for_log('Broadcasting txid').split()[-1]
+    # It doesn't send the close to bcli, which has exited.
+    l1.daemon.wait_for_log('Shutting down: not sending sendrawtransaction')
+
+    # Don't wait out the 30 seconds: once the plugin is gone, l1 exits
+    # cleanly.
+    os.kill(plugin_pid, signal.SIGKILL)
+    stop.result(TIMEOUT)
+    assert txid not in bitcoind.rpc.getrawmempool()
+
+    # It broadcasts the close on restart.
+    del l1.daemon.opts['dont_shutdown']
+    l1.start()
+    wait_for(lambda: txid in bitcoind.rpc.getrawmempool())
+
+
 def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
                                      opts={'log-level': 'io'})

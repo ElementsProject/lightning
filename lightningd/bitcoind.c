@@ -22,9 +22,16 @@ static const char *methods[] = {"getchaininfo", "getrawblockbyheight",
 
 static void bitcoin_destructor(struct plugin *p)
 {
-	if (p->plugins->ld->state == LD_STATE_SHUTDOWN)
-		return;
-	fatal("The Bitcoin backend died.");
+	struct bitcoind *bitcoind = p->plugins->ld->topology->bitcoind;
+
+	if (p->plugins->ld->state != LD_STATE_SHUTDOWN)
+		fatal("The Bitcoin backend died.");
+
+	/* Don't leave pluginsmap pointing at the freed plugin. */
+	for (size_t i = 0; i < ARRAY_SIZE(methods); i++) {
+		if (strmap_get(&bitcoind->pluginsmap, methods[i]) == p)
+			strmap_del(&bitcoind->pluginsmap, methods[i], NULL);
+	}
 }
 
 static void plugin_config_cb(const char *buffer,
@@ -146,7 +153,18 @@ static const jsmntok_t *get_bitcoin_result(struct bitcoind *bitcoind,
 static void bitcoin_plugin_send(struct bitcoind *bitcoind,
 				struct jsonrpc_request *req)
 {
-	struct plugin *plugin = strmap_get(&bitcoind->pluginsmap, req->method);
+	struct plugin *plugin;
+
+	/* Once we're shutting down, the plugin can exit at any time (and
+	 * drop out of pluginsmap): don't ask it.  A close we don't broadcast
+	 * now, resend_closing_transactions() broadcasts on restart. */
+	if (bitcoind->ld->state == LD_STATE_SHUTDOWN) {
+		log_debug(bitcoind->log, "Shutting down: not sending %s",
+			  req->method);
+		return;
+	}
+
+	plugin = strmap_get(&bitcoind->pluginsmap, req->method);
 	if (!plugin)
 		fatal("Bitcoin backend plugin for %s died.", req->method);
 
@@ -328,8 +346,7 @@ void bitcoind_estimate_fees_(const tal_t *ctx,
 				    bitcoind->log,
 				    NULL, estimatefees_callback, call);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
-				       "estimatefees"), req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* `sendrawtransaction`
