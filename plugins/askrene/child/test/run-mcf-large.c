@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define ASKRENE_UNITTEST
-#include "../child/algorithm.c"
+#include "../algorithm.c"
 
 #ifdef HAVE_ZLIB
 #include <zlib.h>
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 {
 #ifdef HAVE_ZLIB
 	common_setup(argv[0]);
-	infile = gzopen("plugins/askrene/test/data/linear_mcf.gz", "r");
+	infile = gzopen("plugins/askrene/child/test/data/linear_mcf.gz", "r");
 	CHECK(infile);
 	const tal_t *ctx = tal(NULL, tal_t);
 	CHECK(ctx);

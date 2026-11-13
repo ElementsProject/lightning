@@ -17,6 +17,71 @@ struct askrene;
 struct command;
 struct layer;
 struct json_stream;
+struct channel_observations;
+
+/* A public version of channel_intel, it contains a reference to the layer that
+ * produced it. */
+struct channel_intel_out {
+	/* Which layer contained it */
+	const struct layer *layer;
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	bool is_impression;
+	union {
+		struct {
+			struct amount_msat min, max;
+		} min_max;
+		struct amount_msat impression;
+	} value;
+
+	/* Position before sorting, order after combining all layers. */
+	size_t index;
+};
+
+enum observation_result {
+	/* Temporary failure, usually not enough liquidity.  Use this to
+	 * indicate that we tried x amount but the current hop returned
+	 * TEMPORARY_CHANNEL_FAILURE. */
+	OBSERVATION_HTLC_FAILED,
+
+	/* The HTLC was accepted and the channel commitment advanced, it does
+	 * not necessarily means the funds moved.  Use this to communicate that
+	 * up to this hop the x amount was accepted, but the payment failed
+	 * further in the route. */
+	OBSERVATION_HTLC_ACCEPTED,
+
+	/* The HTLC was accepted and the funds moved to the other side of the
+	 * channel.  Use this to communicate that the payment succeeded. */
+	OBSERVATION_HTLC_FORWARDED,
+};
+
+/* An observation reflects the outcome of a payment attempt through a channel. */
+struct channel_observation_out {
+	/* Which layer contained it */
+	const struct layer *layer;
+
+	/* Which channel and direction. */
+	struct short_channel_id_dir scidd;
+
+	/* Outcome of the attempt. */
+	enum observation_result result;
+
+	/* Time this observation was gathered. */
+	u64 timestamp;
+
+	/* The HTLC amount. */
+	struct amount_msat amount;
+
+	/* Position before sorting, order after combining all layers. */
+	size_t index;
+};
+
+void layer_get_intels(const struct layer *layer,
+		      struct channel_intel_out **intels);
+
+void layer_get_observations(const struct layer *layer,
+			    struct channel_observation_out **observations);
 
 /* Create a layer hash table */
 struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
@@ -95,13 +160,6 @@ void layer_clear_overridden_capacities(const struct layer *layer,
 				       const struct gossmap *gossmap,
 				       fp16_t *capacities);
 
-/* Apply constraints from a layer (reduce min, increase max). */
-void layer_apply_constraints(const struct layer *layer,
-			     const struct short_channel_id_dir *scidd,
-			     struct amount_msat *min,
-			     struct amount_msat *max)
-	NO_NULL_ARGS;
-
 /* Apply biases from a layer. */
 void layer_apply_biases(const struct layer *layer,
 			const struct gossmap *gossmap,
@@ -149,6 +207,13 @@ void json_add_impression(struct json_stream *js,
 			       const struct impression *imp,
 			       const struct layer *layer);
 
+/* Serializes a channel_observation object. It can contain multiple observation
+ * events all related to the same channel. */
+void json_add_observations(struct json_stream *js,
+			   const char *fieldname,
+			   const struct channel_observations *chan_obs,
+			   const struct layer *layer);
+
 /* Print a single bias */
 void json_add_bias(struct json_stream *js,
 		   const char *fieldname,
@@ -168,5 +233,12 @@ bool layer_disables_chan(const struct layer *layer, const struct short_channel_i
 
 /* For explain_failure: did this layer disable this node? */
 bool layer_disables_node(const struct layer *layer, const struct node_id *node);
+
+/* Add channel observation to this layer. */
+const struct channel_observations *layer_add_observation(struct layer *layer,
+							 const struct short_channel_id_dir *scidd,
+							 enum observation_result result,
+							 u64 timestamp,
+							 const struct amount_msat amount);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_LAYER_H */

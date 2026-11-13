@@ -182,32 +182,6 @@ static void json_add_getroutes(struct json_stream *js,
 	json_array_end(js);
 }
 
-
-static struct route_query *new_route_query(const tal_t *ctx,
-					   const struct gossmap *gossmap,
-					   const char *cmd_id,
-					   const struct layer **layers,
-					   const s8 *biases,
-					   const struct additional_cost_htable *additional_costs,
-					   struct reserve_htable *reserved,
-					   fp16_t *capacities TAKES)
-{
-	struct route_query *rq = tal(ctx, struct route_query);
-
-	rq->gossmap = gossmap;
-	rq->cmd_id = tal_strdup(rq, cmd_id);
-	rq->layers = layers;
-	rq->biases = biases;
-	rq->additional_costs = additional_costs;
-	rq->reserved = reserved;
-	rq->capacities = tal_dup_talarr(rq, fp16_t, capacities);
-	rq->disabled_chans =
-	    tal_arrz(rq, bitmap,
-		     2 * BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
-
-	return rq;
-}
-
 void run_child(const struct gossmap *gossmap,
 	       const struct layer **layers,
 	       const s8 *biases,

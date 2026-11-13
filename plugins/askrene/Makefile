@@ -29,4 +29,4 @@ PLUGIN_ALL_HEADER += $(PLUGIN_ASKRENE_HEADER)
 
 plugins/cln-askrene: $(PLUGIN_ASKRENE_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-include plugins/askrene/test/Makefile
+include plugins/askrene/child/test/Makefile

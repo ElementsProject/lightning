@@ -30,17 +30,40 @@ struct route_query {
 
 	/* channels we disable during computation to meet constraints */
 	bitmap *disabled_chans;
+
+	/* Cache of channel bounds across the selected layers. */
+	struct channel_bounds_htable *bounds_htable;
 };
 
-/* Given a gossmap channel, get the current known min/max */
+/* Given a gossmap channel, get the current known min/max.  Called
+ * get_constraints for historical reasons, it combines observations, user
+ * constraints and reservations. */
 void get_constraints(const struct route_query *rq,
 		     const struct gossmap_chan *chan,
 		     int dir,
 		     struct amount_msat *min,
 		     struct amount_msat *max);
 
+/* Get the min/max derived from the layers alone (no reservations), and the
+ * layer responsible for the max (NULL if none).  Returns false if no layer
+ * has information about this channel. */
+bool get_layer_bounds(const struct route_query *rq,
+		      const struct short_channel_id_dir *scidd,
+		      struct amount_msat *min,
+		      struct amount_msat *max,
+		      const struct layer **layer);
+
 /* Is there a known additional per-htlc cost for this channel? */
 struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 						const struct short_channel_id_dir *scidd);
+
+struct route_query *new_route_query(const tal_t *ctx,
+				    const struct gossmap *gossmap,
+				    const char *cmd_id,
+				    const struct layer **layers,
+				    const s8 *biases,
+				    const struct additional_cost_htable *additional_costs,
+				    struct reserve_htable *reserved,
+				    fp16_t *capacities TAKES);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_ROUTE_QUERY_H */

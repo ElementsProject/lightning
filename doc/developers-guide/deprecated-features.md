@@ -26,6 +26,7 @@ privacy:
 | renepaystatus                                      | Command            | v26.06           | v27.03         | Use `xpay` notifications and `listpays` or `listsendpays` instead.                                                        |
 | invokerune                                         | Command            | v26.12           | v27.09         | Alias for `createrune`: use `createrune` instead.                                                                         |
 | destroyrune                                        | Command            | v26.12           | v27.09         | Alias for `blacklistrune`: use `blacklistrune` instead.                                                                   |
+| askrene-inform-channel   | Command                 | v26.12             | v27.09           | Use `askrene-constraint-channel` for hard constraints and `askrene-channel-observation` to inform the outcome of payment attemts.          |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
