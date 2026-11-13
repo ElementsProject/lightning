@@ -43,12 +43,17 @@ class GrpcGenerator(IGenerator):
         else:
             self.dest.write(text)
 
+    @staticmethod
+    def field_map_key(message_name) -> str:
+        """Key for grpc-field-map: the raw name, so it is JSON-serializable."""
+        if isinstance(message_name, TypeName):
+            return message_name.name
+        return str(message_name)
+
     def field2number(self, message_name: TypeName, field, taken=()):
         m = self.meta["grpc-field-map"]
 
-        message_name = (
-            message_name.name
-        )  # TypeName is not JSON-serializable, use the unaltered name.
+        message_name = self.field_map_key(message_name)
 
         # Wrap each field mapping by the message_name, since otherwise
         # requests and responses share the same number space (just
@@ -240,8 +245,9 @@ class GrpcGenerator(IGenerator):
         pbname = str(typename_override(message.typename))
         contract = self.meta["grpc-wire-contract"].setdefault(pbname, {})
         emitted = []
+        field_key = typename_override(message.typename)
 
-        for i, f in self.enumerate_fields(message.typename, message.fields):
+        for i, f in self.enumerate_fields(field_key, message.fields):
             if f.omit():
                 continue
 
@@ -269,7 +275,7 @@ class GrpcGenerator(IGenerator):
                 )
                 name = f"{name}_sat"
                 i = self.field2number(
-                    message.typename,
+                    field_key,
                     wire.RenumberedField(f.path),
                     taken=[int(n) for n in contract],
                 )
@@ -300,14 +306,13 @@ class GrpcGenerator(IGenerator):
 
         used = {e[0] for e in emitted}
         known = {int(n) for n in contract}
-        known |= set(
-            self.meta["grpc-field-map"].get(message.typename.name, {}).values()
-        )
+        key = self.field_map_key(field_key)
+        known |= set(self.meta["grpc-field-map"].get(key, {}).values())
         reserved = sorted(known - used)
         names = {
             num: path.split(".")[-1].replace("[]", "")
             for path, num in self.meta["grpc-field-map"]
-            .get(message.typename.name, {})
+            .get(key, {})
             .items()
         }
         emitted_names = {e[3] for e in emitted}

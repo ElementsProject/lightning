@@ -260,6 +260,7 @@ message ListpeersRequest {
 		INFO = 2;
 		UNUSUAL = 3;
 		TRACE = 4;
+		BROKEN = 5;
 	}
 	optional bytes id = 1;
 	optional ListpeersLevel level = 2;
@@ -284,7 +285,7 @@ message ListpeersPeers {
 message ListpeersPeersLog {
 	// ListPeers.peers[].log[].type
 	enum ListpeersPeersLogType {
-		SKIPPED = 0;
+		SKIPPED = 0 [deprecated = true];
 		BROKEN = 1;
 		UNUSUAL = 2;
 		INFO = 3;
@@ -294,12 +295,13 @@ message ListpeersPeersLog {
 		TRACE = 7;
 	}
 	ListpeersPeersLogType item_type = 1;
-	optional uint32 num_skipped = 2;
 	optional string time = 3;
 	optional string source = 4;
 	optional string log = 5;
 	optional bytes node_id = 6;
 	optional bytes data = 7;
+	reserved 2;
+	reserved "num_skipped";
 }
 
 message ListfundsRequest {
@@ -341,6 +343,8 @@ message ListfundsOutputs {
 	optional uint32 blockheight = 8;
 	bool reserved = 9;
 	optional uint32 reserved_to_block = 10;
+	optional uint32 csv_lock = 11;
+	optional uint32 spendable_at = 12;
 }
 
 message SendpayRequest {
@@ -622,11 +626,14 @@ message ConnectAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5;
+		UNRESOLVED = 6;
 	}
 	ConnectAddressType item_type = 1;
 	optional string socket = 2;
 	optional string address = 3;
 	optional uint32 port = 4;
+	optional string name = 5;
 }
 
 message CreateinvoiceRequest {
@@ -1496,7 +1503,6 @@ message ListpeerchannelsChannels {
 	optional string initial_feerate = 12;
 	optional string last_feerate = 13;
 	optional string next_feerate = 14;
-	optional uint32 next_fee_step = 15;
 	repeated ListpeerchannelsChannelsInflight inflight = 16;
 	optional bytes close_to = 17;
 	optional bool private = 18;
@@ -1543,8 +1549,8 @@ message ListpeerchannelsChannels {
 	optional Amount their_max_htlc_value_in_flight_msat = 61;
 	optional Amount our_max_htlc_value_in_flight_msat = 62;
 	repeated string features = 63;
-	reserved 21, 30;
-	reserved "max_total_htlc_in_msat";
+	reserved 15, 21, 30;
+	reserved "max_total_htlc_in_msat", "next_fee_step";
 }
 
 message ListpeerchannelsChannelsAlias {
@@ -2270,7 +2276,7 @@ message GetlogResponse {
 message GetlogLog {
 	// GetLog.log[].type
 	enum GetlogLogType {
-		SKIPPED = 0;
+		SKIPPED = 0 [deprecated = true];
 		BROKEN = 1;
 		UNUSUAL = 2;
 		INFO = 3;
@@ -2280,12 +2286,13 @@ message GetlogLog {
 		TRACE = 7;
 	}
 	GetlogLogType item_type = 1;
-	optional uint32 num_skipped = 2;
 	optional string time = 3;
 	optional string source = 4;
 	optional string log = 5;
 	optional bytes node_id = 6;
 	optional bytes data = 7;
+	reserved 2;
+	reserved "num_skipped";
 }
 
 message FunderupdateRequest {
@@ -3031,8 +3038,9 @@ message SpliceinRequest {
 
 message SpliceinResponse {
 	optional string psbt = 1;
-	optional string tx = 2;
 	optional string txid = 3;
+	reserved 2;
+	reserved "tx";
 }
 
 message SpliceoutRequest {
@@ -3044,8 +3052,9 @@ message SpliceoutRequest {
 
 message SpliceoutResponse {
 	optional string psbt = 1;
-	optional string tx = 2;
 	optional string txid = 3;
+	reserved 2;
+	reserved "tx";
 }
 
 message DevspliceRequest {
@@ -4841,11 +4850,13 @@ message PeerConnectAddress {
 		TORV2 = 3;
 		TORV3 = 4;
 		WEBSOCKET = 5;
+		UNRESOLVED = 6;
 	}
 	PeerConnectAddressType item_type = 1;
 	optional string socket = 2;
 	optional string address = 3;
 	optional uint32 port = 4;
+	optional string name = 5;
 }
 
 message StreamCoinMovementRequest {
@@ -4979,6 +4990,10 @@ message ForwardEventNotification {
 	double received_time = 11;
 	optional double resolved_time = 12;
 	optional ForwardEventFailureReason failure_reason = 13;
+	optional uint64 created_index = 14;
+	optional uint64 in_htlc_id = 15;
+	optional bytes preimage = 16;
+	optional uint64 updated_index = 17;
 }
 
 message StreamInvoiceCreationRequest {
