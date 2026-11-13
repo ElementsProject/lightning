@@ -4380,38 +4380,38 @@ message AskrenedisablenodeResponse {
 message AskreneinformchannelRequest {
 	// AskRene-Inform-Channel.inform
 	enum AskreneinformchannelInform {
-		CONSTRAINED = 0;
-		UNCONSTRAINED = 1;
-		SUCCEEDED = 2;
+		CONSTRAINED = 0 [deprecated = true];
+		UNCONSTRAINED = 1 [deprecated = true];
+		SUCCEEDED = 2 [deprecated = true];
 	}
-	string layer = 1;
-	string short_channel_id_dir = 6;
-	Amount amount_msat = 7;
-	AskreneinformchannelInform inform = 8;
+	string layer = 1 [deprecated = true];
+	string short_channel_id_dir = 6 [deprecated = true];
+	Amount amount_msat = 7 [deprecated = true];
+	AskreneinformchannelInform inform = 8 [deprecated = true];
 	reserved 2, 3, 4, 5;
 	reserved "direction", "maximum_msat", "minimum_msat", "short_channel_id";
 }
 
 message AskreneinformchannelResponse {
-	repeated AskreneinformchannelConstraints constraints = 2;
-	repeated AskreneinformchannelImpressions impressions = 3;
+	repeated AskreneinformchannelConstraints constraints = 2 [deprecated = true];
+	repeated AskreneinformchannelImpressions impressions = 3 [deprecated = true];
 	reserved 1;
 	reserved "constraint";
 }
 
 message AskreneinformchannelConstraints {
-	string short_channel_id_dir = 1;
-	string layer = 2;
-	uint64 timestamp = 3;
-	optional Amount maximum_msat = 4;
-	optional Amount minimum_msat = 5;
+	string short_channel_id_dir = 1 [deprecated = true];
+	string layer = 2 [deprecated = true];
+	uint64 timestamp = 3 [deprecated = true];
+	optional Amount maximum_msat = 4 [deprecated = true];
+	optional Amount minimum_msat = 5 [deprecated = true];
 }
 
 message AskreneinformchannelImpressions {
-	Amount amount_msat = 1;
-	string layer = 2;
-	string short_channel_id_dir = 3;
-	uint64 timestamp = 4;
+	Amount amount_msat = 1 [deprecated = true];
+	string layer = 2 [deprecated = true];
+	string short_channel_id_dir = 3 [deprecated = true];
+	uint64 timestamp = 4 [deprecated = true];
 }
 
 message AskrenechannelobservationRequest {

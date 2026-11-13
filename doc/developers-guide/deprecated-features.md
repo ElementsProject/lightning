@@ -27,6 +27,7 @@ privacy:
 | invokerune                                         | Command            | v26.12           | v27.09         | Alias for `createrune`: use `createrune` instead.                                                                         |
 | destroyrune                                        | Command            | v26.12           | v27.09         | Alias for `blacklistrune`: use `blacklistrune` instead.                                                                   |
 | xpay-handle-pay                                    | Config             | v26.12           | v27.03         | `pay` is being deprecated and `xpay` for all payments is the default.                                                     |
+| askrene-inform-channel                             | Command            | v26.12           | v27.09         | Use `askrene-constrain-channel` and `askrene-channel-observation` instead.                                                |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

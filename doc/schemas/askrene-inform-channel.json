@@ -1,6 +1,10 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "deprecated": [
+    "v26.12",
+    "v27.09"
+  ],
   "rpc": "askrene-inform-channel",
   "title": "Command to add channel capacity restrictions to layer",
   "added": "v24.11",

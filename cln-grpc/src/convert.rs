@@ -4709,32 +4709,41 @@ impl From<responses::AskrenedisablenodeResponse> for pb::AskrenedisablenodeRespo
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::AskreneinformchannelConstraints> for pb::AskreneinformchannelConstraints {
     fn from(c: responses::AskreneinformchannelConstraints) -> Self {
         Self {
+            #[allow(deprecated)]
             layer: c.layer, // Rule #2 for type string
+            #[allow(deprecated)]
             maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
             minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            #[allow(deprecated)]
             timestamp: c.timestamp, // Rule #2 for type u64
         }
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::AskreneinformchannelImpressions> for pb::AskreneinformchannelImpressions {
     fn from(c: responses::AskreneinformchannelImpressions) -> Self {
         Self {
+            #[allow(deprecated)]
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            #[allow(deprecated)]
             layer: c.layer, // Rule #2 for type string
+            #[allow(deprecated)]
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            #[allow(deprecated)]
             timestamp: c.timestamp, // Rule #2 for type u64
         }
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::AskreneinformchannelResponse> for pb::AskreneinformchannelResponse {
     fn from(c: responses::AskreneinformchannelResponse) -> Self {
         Self {
@@ -7199,13 +7208,16 @@ impl From<requests::AskrenedisablenodeRequest> for pb::AskrenedisablenodeRequest
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::AskreneinformchannelRequest> for pb::AskreneinformchannelRequest {
     fn from(c: requests::AskreneinformchannelRequest) -> Self {
         Self {
+            #[allow(deprecated)]
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             inform: c.inform as i32,
+            #[allow(deprecated)]
             layer: c.layer, // Rule #2 for type string
+            #[allow(deprecated)]
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
         }
     }
@@ -9470,7 +9482,7 @@ impl TryFrom<pb::AskrenedisablenodeRequest> for requests::AskrenedisablenodeRequ
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::AskreneinformchannelRequest> for requests::AskreneinformchannelRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::AskreneinformchannelRequest) -> Result<Self, Self::Error> {

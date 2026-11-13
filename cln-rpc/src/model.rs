@@ -4752,6 +4752,7 @@ pub mod requests {
 	    }
 	}
 	/// ['Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)', 'If `succeeded`, then an `impression` is created and returned, otherwise a `constraint` is created and returned.']
+	#[deprecated]
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum AskreneinformchannelInform {
@@ -4785,13 +4786,17 @@ pub mod requests {
 	    }
 	}
 
+	#[deprecated = "deprecated since CLN v26.12"]
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelRequest {
+	    #[deprecated]
+	    pub amount_msat: Amount,
+	    #[deprecated]
+	    pub layer: String,
+	    #[deprecated]
+	    pub short_channel_id_dir: ShortChannelIdDir,
 	    // Path `AskRene-Inform-Channel.inform`
 	    pub inform: AskreneinformchannelInform,
-	    pub amount_msat: Amount,
-	    pub layer: String,
-	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
 
 	impl From<AskreneinformchannelRequest> for Request {
@@ -12933,29 +12938,43 @@ pub mod responses {
 	    }
 	}
 
+	#[deprecated = "deprecated since CLN v26.12"]
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelImpressions {
+	    #[deprecated]
 	    pub amount_msat: Amount,
+	    #[deprecated]
 	    pub layer: String,
+	    #[deprecated]
 	    pub short_channel_id_dir: ShortChannelIdDir,
+	    #[deprecated]
 	    pub timestamp: u64,
 	}
 
+	#[deprecated = "deprecated since CLN v26.12"]
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelConstraints {
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maximum_msat: Option<Amount>,
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minimum_msat: Option<Amount>,
+	    #[deprecated]
 	    pub layer: String,
+	    #[deprecated]
 	    pub short_channel_id_dir: ShortChannelIdDir,
+	    #[deprecated]
 	    pub timestamp: u64,
 	}
 
+	#[deprecated = "deprecated since CLN v26.12"]
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelResponse {
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub impressions: Option<Vec<AskreneinformchannelImpressions>>,
+	    #[deprecated]
 	    pub constraints: Vec<AskreneinformchannelConstraints>,
 	}
 

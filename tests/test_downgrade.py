@@ -143,7 +143,8 @@ def test_downgrade_impressions_and_observations(node_factory, executor):
         [GenChannel(0, 1, capacity_sats=cap_msat // 1000)]
     )
     l1 = node_factory.get_node(
-        gossip_store_file=gsfile.name, options={"database-upgrade": True}
+        gossip_store_file=gsfile.name, options={"database-upgrade": True,
+                                                "allow-deprecated-apis": True}
     )
 
     chan_dir = scid_dir(nodemap, 0, 1, 0)
