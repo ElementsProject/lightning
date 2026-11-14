@@ -1823,7 +1823,7 @@ static struct command_result *param_u64_nonzero(struct command *cmd,
 						u64 **val)
 {
 	struct command_result *res = param_u64(cmd, name, buffer, tok, val);
-	if (res == NULL && *val == 0)
+	if (res == NULL && **val == 0)
 		res = command_fail_badparam(cmd, name, buffer, tok,
 					    "Must be non-zero");
 	return res;
