@@ -5387,6 +5387,33 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
     assert l1.rpc.getinfo()['id'] == l1.info['id']
 
 
+@pytest.mark.openchannel('v1')
+def test_open_channel_zero_funding_txid(node_factory, bitcoind):
+    """An all-zero funding_txid in funding_created must not crash openingd."""
+    l1 = node_factory.get_node()
+
+    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    feerate = l1.rpc.feerates('perkw')['perkw']['opening']
+
+    lconn, channel_type = raw_peer_connect(l1)
+    temp_chan_id = os.urandom(32)
+    send_open_channel(lconn, chain_hash, temp_chan_id, 100000,
+                      0, feerate, channel_type)
+
+    mtype = read_channel_reply(lconn)
+    assert mtype == WIRE_ACCEPT_CHANNEL
+
+    # Send funding_created with an all-zero funding_txid
+    send_funding_created(lconn, temp_chan_id)
+
+    reply = read_channel_reply(lconn)
+    assert reply in (WIRE_WARNING, WIRE_ERROR)
+
+    l1.daemon.wait_for_log(r'funding_created has zero funding_txid')
+    assert not l1.daemon.is_in_log('Owning subdaemon openingd died')
+    assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
 def test_connect_proxy_maxlen_hostname(node_factory):
     """A maximum-length hostname must produce a well-formed SOCKS5 request.
 
