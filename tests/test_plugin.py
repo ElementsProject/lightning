@@ -6428,3 +6428,46 @@ def test_huge_log_entry(node_factory):
 
     # Still alive, and still answering.
     assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
+def test_peer_storage_refresh_three_peers(node_factory, bitcoind):
+    """Channel changes must refresh two of three peer-storage backups."""
+    l1, l2, l3, l4 = node_factory.get_nodes(
+        4, opts={'may_reconnect': True, 'dev-no-reconnect': None})
+    storage_peers = (l2, l3, l4)
+    key = ['chanbackup', 'peers', l1.info['id']]
+
+    def stored_backup(node):
+        entries = node.rpc.listdatastore(key).get('datastore', [])
+        return entries[0]['hex'] if entries else ''
+
+    for peer in storage_peers:
+        # The receiver loads its placeholder from the datastore on start.
+        peer.rpc.datastore(key, hex='')
+        peer.restart()
+        l1.rpc.connect(peer.info['id'], 'localhost', peer.port)
+
+    wait_for(lambda: all(stored_backup(peer) for peer in storage_peers))
+    time.sleep(2.0)
+    before = [stored_backup(peer) for peer in storage_peers]
+    assert all(before)
+
+    # Open with an existing storage peer, keeping exactly three eligible
+    # backup recipients; a new destination would add a fourth.
+    l1.openchannel(l2, wait_for_announce=False)
+    assert any(ch['peer_id'] == l2.info['id']
+               for ch in l1.rpc.listpeerchannels()['channels'])
+
+    deadline = time.monotonic() + 15
+    changed = []
+    while time.monotonic() < deadline:
+        after = [stored_backup(peer) for peer in storage_peers]
+        changed = [i for i in range(len(storage_peers))
+                   if after[i] != before[i]]
+        if len(changed) >= 2:
+            break
+        time.sleep(0.25)
+
+    assert len(changed) >= 2, (
+        f"Expected two refreshed peer backups, found {len(changed)}")
+    assert all(after)
