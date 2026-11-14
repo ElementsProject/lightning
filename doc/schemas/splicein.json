@@ -23,7 +23,7 @@
       "amount": {
         "type": "string",
         "description": [
-          "Amount in satoshis taken from the internal wallet and add to the channel. Format is the same as is used in `dev-splice`."
+          "Amount in satoshis taken from the internal wallet and add to the channel, or *all* to add the entire wallet balance less the onchain fee. Format is the same as is used in `dev-splice`."
         ]
       }
     }
