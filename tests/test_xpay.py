@@ -586,6 +586,21 @@ def test_xpay_preapprove(node_factory):
         l1.rpc.xpay(inv)
 
 
+def test_xpay_check_keeps_counter(node_factory):
+    """`check xpay` must not use up a payment id (issue #9281)"""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    inv = l2.rpc.invoice(100000, "test_xpay_check_keeps_counter", "test_xpay_check_keeps_counter")['bolt11']
+
+    l1.rpc.check('xpay', invstring=inv)
+    l1.rpc.check('xpay', invstring=inv)
+    l1.rpc.xpay(inv)
+
+    # The first real payment is still payment 0, not payment 2.
+    l1.daemon.wait_for_log(r'plugin-cln-xpay: 0: ')
+    assert not l1.daemon.is_in_log(r'plugin-cln-xpay: 2: ')
+
+
 def test_xpay_maxdelay(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 

@@ -2754,7 +2754,12 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->start_time = clock_time();
 	payment->pay_compat = as_pay;
-	payment->unique_id = xpay->counter++;
+	/* `check` never pays, so don't use up an id for it: the next real
+	 * payment can have this one. */
+	if (command_check_only(cmd))
+		payment->unique_id = xpay->counter;
+	else
+		payment->unique_id = xpay->counter++;
 	payment->private_layer = tal_fmt(payment,
 					 "xpay-%"PRIu64, payment->unique_id);
 	/* If we don't compute the onion budget ahead this is still a reference
