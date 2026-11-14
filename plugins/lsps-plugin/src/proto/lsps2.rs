@@ -6,8 +6,8 @@ use lsps_types::{
 use serde::{Deserialize, Serialize};
 
 pub mod failure_codes {
-    pub const TEMPORARY_CHANNEL_FAILURE: &'static str = "1007";
-    pub const UNKNOWN_NEXT_PEER: &'static str = "4010";
+    pub const TEMPORARY_CHANNEL_FAILURE: &'static str = "10070000";
+    pub const UNKNOWN_NEXT_PEER: &'static str = "400a";
 }
 
 pub trait ShortChannelIdJITExt {
