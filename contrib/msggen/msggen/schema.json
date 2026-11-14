@@ -29833,7 +29833,8 @@
                           "INTEGER",
                           "BLOB",
                           "TEXT",
-                          "REAL"
+                          "REAL",
+                          "SCID"
                         ],
                         "description": [
                           "The SQL type of the column."
@@ -29961,15 +29962,15 @@
                   },
                   {
                     "name": "short_channel_id",
-                    "type": "TEXT"
+                    "type": "SCID"
                   },
                   {
                     "name": "alias_local",
-                    "type": "TEXT"
+                    "type": "SCID"
                   },
                   {
                     "name": "alias_remote",
-                    "type": "TEXT"
+                    "type": "SCID"
                   },
                   {
                     "name": "opener",
@@ -38147,9 +38148,11 @@
         "  * JSON: string",
         "  * sqlite3: TEXT",
         "",
-        "* *short_channel_id*. A short-channel-id of form 1x2x3.",
+        "* *short_channel_id*. A short-channel-id of form 1x2x3.  Stored as an integer internally for efficient indexing.",
         "  * JSON: string",
-        "  * sqlite3: TEXT"
+        "  * sqlite3: SCID (INTEGER affinity)",
+        "",
+        "Filter a short_channel_id column with scid(), for example WHERE in_channel = scid('1x2x3'). A string literal is not rewritten and does not match the integer column. fmt_scid() turns an integer back into 1x2x3. scid() returns an integer argument unchanged, and rejects trailing junk such as 100x2x3-backup."
       ],
       "permitted_sqlite3_functions": [
         "Writing to the database is not permitted, and limits are placed on various other query parameters.",
@@ -38178,7 +38181,9 @@
         "* total",
         "* unixepoch",
         "* json_object",
-        "* json_group_array"
+        "* json_group_array",
+        "* scid",
+        "* fmt_scid"
       ],
       "tables": [
         "Note that tables which have a `created_index` field use that as the primary key (and `rowid` is an alias to this), otherwise an explicit `rowid` integer primary key is generated, whose value changes on each refresh.  This field is used for related tables to refer to specific rows in their parent. (sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key).",
