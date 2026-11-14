@@ -31,7 +31,9 @@
 #include <wire/peer_wire.h>
 
 #define PENDING_LIMIT 10000
-#define GOSSIP_STORE_COMPACT_FILENAME "gossip_store.compact"
+#ifndef GOSSIP_STORE_FUZZ_OVERRIDE
+#define GOSSIP_STORE_COMPACT_FILENAME GOSSIP_STORE_FILENAME ".compact"
+#endif
 
 struct pending_cannounce {
 	const u8 *scriptpubkey;
