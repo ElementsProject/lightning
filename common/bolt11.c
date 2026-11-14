@@ -7,6 +7,7 @@
 #include <common/bech32_util.h>
 #include <common/bolt11.h>
 #include <common/features.h>
+#include <common/overflows.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
@@ -862,12 +863,21 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		 *   not 0:
 		 *    - MUST fail the payment.
 		 */
-		if (amount * m10 % 10 != 0)
-			return decode_fail(b11, fail,
-					   "Invalid sub-millisatoshi amount"
-					   " '%sp'", amountstr);
-
-		*b11->msat = amount_msat(amount * m10 / 10);
+		if (m10 % 10 != 0) {
+			/* p: m10 == 1 */
+			if (amount % 10 != 0)
+				return decode_fail(b11, fail,
+						   "Invalid sub-millisatoshi amount"
+						   " '%sp'", amountstr);
+			*b11->msat = amount_msat(amount / 10);
+		} else {
+			/* Multiply in msat, so it can only wrap if the
+			 * amount itself doesn't fit in a u64 of msat. */
+			if (mul_overflows_u64(amount, m10 / 10))
+				return decode_fail(b11, fail,
+						   "Invalid amount '%s'", amountstr);
+			*b11->msat = amount_msat(amount * (m10 / 10));
+		}
 	}
 
 	/* BOLT #11:
