@@ -11,13 +11,13 @@ ALL_PROGRAMS += $(TOOLS)
 # We force make to relink this every time, to detect version changes.
 # Do it atomically, otherwise parallel builds can get upset!
 tools/headerversions: $(FORCE) tools/headerversions.o libccan.a
-	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.o) tools/headerversions.o libccan.a $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv -f $@.tmp.$$$$ $@
+	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.c) tools/headerversions.o libccan.a $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv -f $@.tmp.$$$$ $@
 
 $(TOOLS): libcommon.a
 
 tools/headerversions.o: ccan/config.h
 tools/lightning-hsmtool: tools/lightning-hsmtool.o
-tools/lightning-downgrade.o: CFLAGS:=$(CFLAGS) -DCLN_PREV_VERSION=$(CLN_PREV_VERSION)
+tools/lightning-downgrade.o: CPPFLAGS += -DCLN_PREV_VERSION=$(CLN_PREV_VERSION)
 
 tools/lightning-downgrade:			\
 	db/exec.o				\

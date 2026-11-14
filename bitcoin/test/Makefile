@@ -9,6 +9,6 @@ ALL_TEST_PROGRAMS += $(BITCOIN_TEST_PROGRAMS)
 ALL_C_SOURCES += $(BITCOIN_TEST_PROGRAMS:=.c)
 
 # This needs to know what level of optimization we're using.
-bitcoin/test/run-secret_eq_consttime.o: CFLAGS += -DCOPTFLAGS="\"${COPTFLAGS}\""
+bitcoin/test/run-secret_eq_consttime.o: CPPFLAGS += -DCOPTFLAGS="\"${COPTFLAGS}\""
 
 check-units: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)
