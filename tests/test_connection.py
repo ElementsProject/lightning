@@ -1,5 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from bitcoin.rpc import JSONRPCError
 from decimal import Decimal
 from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
@@ -20,12 +21,14 @@ from pyln.testing.utils import VALGRIND, ASAN, EXPERIMENTAL_DUAL_FUND, FUNDAMOUN
 import coincurve
 import hashlib
 import hmac
+import json
 import os
 import pytest
 import random
 import re
 import statistics
 import struct
+import subprocess
 import time
 import unittest
 import websocket
@@ -3247,6 +3250,253 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     # l2 should have it in wallet.
     assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "hsmtool recoverhtlc does not support Elements")
+@pytest.mark.parametrize("anchors", [False, True])
+def test_dataloss_protection_hsmtool_recoverhtlc(node_factory, bitcoind, tmp_path, anchors):
+    """l2 loses state with HTLCs pending in both directions, and l1 closes
+    with a commitment l2 never saw.  onchaind recovers to_remote, but it
+    cannot find the HTLC outputs without l1's per-commitment point (#9200).
+
+    l1 gives l2 that point (`hsmtool dumpcommitments --point-only`), and
+    `hsmtool recoverhtlc` must sign transactions we can really broadcast:
+    one timeout spend for both MPP parts l2 offered, and a preimage spend
+    for the HTLC l1 offered, which has the same payment hash."""
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')
+    # Both nodes hold incoming HTLCs, so an HTLC in each direction stays
+    # unresolved across the state l2 is about to lose.
+    opts = {'plugin': plugin,
+            'hold-time': 10000,
+            'hold-result': 'continue'}
+    if not anchors:
+        opts['dev-force-features'] = '-23'
+    l1 = node_factory.get_node(may_reconnect=True,
+                               allow_warning=True,
+                               options=opts,
+                               feerates=(7500, 7500, 7500, 7500))
+    l2 = node_factory.get_node(may_reconnect=True,
+                               options=opts,
+                               broken_log='Cannot broadcast our commitment tx: they have a future one|Unknown commitment .*, recovering our funds',
+                               feerates=(7500, 7500, 7500, 7500))
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l2 holds every payment, so push it funds to offer HTLCs with.
+    l1.fundchannel(l2, 10**6, push_msat=500000000)
+    scid = first_scid(l1, l2)
+
+    def send_held(src, dst, amt, inv, **kwargs):
+        route = [{'amount_msat': amt,
+                  'id': dst.info['id'],
+                  'delay': 10,
+                  'channel': scid}]
+        src.rpc.sendpay(route, inv['payment_hash'],
+                        payment_secret=inv['payment_secret'], **kwargs)
+        # The plugin sleeps in its first hook call, so it only logs once:
+        # lightningd logs every HTLC it hands over.
+        dst.daemon.wait_for_log('Calling htlc_accepted hook of plugin hold_htlcs.py')
+
+    def l2_htlcs(state):
+        return [h for h in l2.rpc.listhtlcs()['htlcs'] if h['state'] == state]
+
+    # The same hash and expiry in both directions.  The two MPP parts l2
+    # offers have identical scripts, so one transaction must sweep both
+    # without confusing them with l1's HTLC.
+    preimage = '55' * 32
+    amt = 200000000
+    inv_out = l1.rpc.invoice(2 * amt, 'held-out', 'desc', preimage=preimage)
+    for partid in (1, 2):
+        send_held(l2, l1, amt, inv_out,
+                  amount_msat=2 * amt, partid=partid, groupid=1)
+    # This one remains in channel state but is trimmed from the commitment.
+    inv_trim = l1.rpc.invoice(1000, 'held-trimmed', 'desc')
+    l2.rpc.sendpay([{'amount_msat': 1000,
+                     'id': l1.info['id'],
+                     'delay': 10,
+                     'channel': scid}],
+                   inv_trim['payment_hash'],
+                   payment_secret=inv_trim['payment_secret'])
+    inv_in = l2.rpc.invoice(amt, 'held-in', 'desc', preimage=preimage)
+    send_held(l1, l2, amt, inv_in)
+    payment_hash = inv_out['payment_hash']
+    assert inv_in['payment_hash'] == payment_hash
+
+    wait_for(lambda: len(l2_htlcs('SENT_ADD_ACK_REVOCATION')) == 3)
+    wait_for(lambda: len(l2_htlcs('RCVD_ADD_ACK_REVOCATION')) == 1)
+    cltv = only_one(list(set(h['expiry'] for h in l2.rpc.listhtlcs()['htlcs'])))
+
+    # Snapshot l2's db with the HTLCs pending.
+    l2.stop()
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
+    orig_db = Path(dbpath).read_bytes()
+    l2.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Any payment would be held too: fee updates make new commitments,
+    # so l1 ends up with one that l2's old db has never seen.
+    def l1_commit_num():
+        return only_one(l1.db_query("SELECT next_index_local FROM channels"))['next_index_local']
+
+    for rate in (8000, 8500):
+        before = l1_commit_num()
+        l1.rpc.call('dev-feerate', [l2.info['id'], rate])
+        wait_for(lambda: l1_commit_num() > before)
+    wait_for(lambda: len(only_one(l2.rpc.listpeerchannels()['channels'])['htlcs']) == 4)
+
+    # Now move l2 back in time.
+    l2.stop()
+    Path(dbpath).write_bytes(orig_db)
+    l2.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")
+
+    # l1 drops to chain (see test_dataloss_protection for the reconnect).
+    try:
+        l1.daemon.wait_for_log("They sent ERROR.*Awaiting unilateral close", timeout=10)
+    except TimeoutError:
+        try:
+            l1.rpc.disconnect(l2.info['id'], force=True)
+        except RpcError as err:
+            assert "Peer not connected" in err.error['message']
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.wait_for_channel_onchain(l2.info['id'])
+    closetxid = only_one(bitcoind.rpc.getrawmempool(False))
+    bitcoind.generate_block(1)
+
+    # onchaind only finds to_remote: the HTLC outputs are stranded.
+    line = l2.daemon.wait_for_log("ERROR: Unknown commitment #[0-9]+, recovering our funds!")
+    commit_num = int(re.search(r'Unknown commitment #([0-9]+)', line).group(1))
+
+    # l1 can give out exactly this point, and none of its secrets.
+    l1_hsm = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    l1_dbid = only_one(l1.db_query("SELECT id FROM channels"))['id']
+    point = subprocess.check_output(
+        ["tools/lightning-hsmtool", "dumpcommitments", "--point-only",
+         l2.info['id'], str(l1_dbid), str(commit_num), l1_hsm],
+        text=True).strip()
+    assert re.fullmatch(r'0[23][0-9a-f]{64}', point)
+    for bad_number in (' 1', '+1', '-1', '1x', ''):
+        bad = subprocess.run(
+            ["tools/lightning-hsmtool", "dumpcommitments", "--point-only",
+             l2.info['id'], bad_number, str(commit_num), l1_hsm],
+            capture_output=True, text=True)
+        assert bad.returncode != 0
+
+    # Everything else is in l2's stale db, or on the blockchain.
+    chan = only_one(l2.db_query("SELECT id, hex(htlc_basepoint_remote) AS hb FROM channels"))
+    l2_hsm = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    dest = l2.rpc.newaddr()['p2tr']
+    htlc_out = {'direction': 'out', 'payment_hash': payment_hash, 'cltv_expiry': cltv}
+    htlc_trimmed = {'direction': 'out',
+                    'payment_hash': inv_trim['payment_hash'],
+                    'cltv_expiry': cltv}
+    htlc_in = {'direction': 'in', 'preimage': preimage, 'cltv_expiry': cltv}
+    bundle = {'version': 1,
+              'network': TEST_NETWORK,
+              'peer_id': l1.info['id'],
+              'channel_dbid': chan['id'],
+              'remote_htlc_basepoint': chan['hb'].lower(),
+              'commitment_point': point,
+              'commitment_tx': bitcoind.rpc.getrawtransaction(closetxid),
+              'feerate_perkw': 7500,
+              # Listing both MPP parts must not sweep them twice.
+              'htlcs': [htlc_out, htlc_out, htlc_in]}
+
+    def recoverhtlc(**changes):
+        path = tmp_path / 'bundle.json'
+        path.write_text(json.dumps({**bundle, **changes}))
+        return subprocess.run(["tools/lightning-hsmtool", "recoverhtlc",
+                               str(path), dest, l2_hsm],
+                              capture_output=True, text=True)
+
+    def rawtxs(stdout):
+        """Each signed tx is printed on a line of its own, as bare hex."""
+        return re.findall(r'^[0-9a-f]+$', stdout, re.MULTILINE)
+
+    # A point which is not the one for this commitment matches nothing.
+    bad = recoverhtlc(commitment_point=l1.info['id'])
+    assert bad.returncode != 0
+    assert "no commitment output matches it" in bad.stderr
+    assert "No HTLC could be recovered" in bad.stderr
+    assert rawtxs(bad.stdout) == []
+
+    # A misspelt key is refused, rather than quietly ignored.
+    bad = recoverhtlc(feerate_per_kw=253)
+    assert bad.returncode != 0
+    assert "unknown key 'feerate_per_kw'" in bad.stderr
+    bad = recoverhtlc(allow_high_fee="yes")
+    assert bad.returncode != 0
+    assert "invalid allow_high_fee" in bad.stderr
+    bad = recoverhtlc(htlcs=[{**htlc_in, 'payment_hash': '11' * 32}])
+    assert bad.returncode != 0
+    assert "preimage does not match its payment_hash" in bad.stderr
+    bad = recoverhtlc(htlcs=[{'direction': 'sideways'}])
+    assert bad.returncode != 0
+    assert "direction is not 'in' or 'out'" in bad.stderr
+
+    # An HTLC which is not there (wrong expiry), and one which was trimmed,
+    # are skipped with reasons; the others are still recovered.
+    missing = {**htlc_out, 'cltv_expiry': cltv + 1}
+    good = recoverhtlc(
+        htlcs=[missing, htlc_trimmed, htlc_out, htlc_out, htlc_in])
+    assert good.returncode == 0, good.stderr
+    assert "Skipping HTLC 0 (payment_hash {}): no commitment output matches it".format(payment_hash) in good.stderr
+    assert "Skipping HTLC 1 (payment_hash {}): no commitment output matches it".format(inv_trim['payment_hash']) in good.stderr
+    assert "privkey" not in good.stdout
+    assert good.stdout.count("channel type : {}".format("anchors" if anchors else "no anchors")) == 2
+    rawtx_out, rawtx_in = rawtxs(good.stdout)
+
+    # The same, without the missing one.
+    good = recoverhtlc()
+    assert good.returncode == 0, good.stderr
+    assert good.stderr == ''
+    assert rawtxs(good.stdout) == [rawtx_out, rawtx_in]
+
+    # A fee typo cannot silently donate most of the recovery to miners.
+    expensive = recoverhtlc(htlcs=[htlc_out], feerate_perkw=200000)
+    assert expensive.returncode != 0
+    assert "fee exceeds a quarter of the recovered amount" in expensive.stderr
+    assert rawtxs(expensive.stdout) == []
+    expensive = recoverhtlc(htlcs=[htlc_out], feerate_perkw=200000,
+                            allow_high_fee=True)
+    assert expensive.returncode == 0, expensive.stderr
+    assert "Warning: fee" in expensive.stderr
+    assert len(rawtxs(expensive.stdout)) == 1
+
+    # Both MPP parts are swept by a single timeout transaction.
+    decoded = bitcoind.rpc.decoderawtransaction(rawtx_out)
+    assert [i['txid'] for i in decoded['vin']] == [closetxid] * 2
+    assert len(set(i['vout'] for i in decoded['vin'])) == 2
+    assert decoded['locktime'] == cltv
+    assert "valid        : once block {} is mined".format(cltv) in good.stdout
+
+    # The preimage claim has no locktime.
+    decoded = bitcoind.rpc.decoderawtransaction(rawtx_in)
+    assert only_one(decoded['vin'])['txid'] == closetxid
+    assert decoded['locktime'] == 0
+    assert "deadline     : the peer can take this back once block {} is mined".format(cltv) in good.stdout
+
+    def wallet_output(txid):
+        bitcoind.generate_block(1)
+        sync_blockheight(bitcoind, [l2])
+        out = only_one([o for o in l2.rpc.listfunds()['outputs'] if o['txid'] == txid])
+        assert out['status'] == 'confirmed'
+        assert out['address'] == dest
+        return out
+
+    # The timeout cannot be broadcast before the HTLC expires, but the
+    # preimage claim can.
+    assert bitcoind.rpc.getblockcount() < cltv
+    with pytest.raises(JSONRPCError, match='non-final'):
+        bitcoind.rpc.sendrawtransaction(rawtx_out)
+    txid_in = bitcoind.rpc.sendrawtransaction(rawtx_in)
+    assert wallet_output(txid_in)['amount_msat'] > amt - 50000000
+
+    # Locktime is checked against the height of the *next* block.
+    bitcoind.generate_block(cltv - bitcoind.rpc.getblockcount())
+    txid_out = bitcoind.rpc.sendrawtransaction(rawtx_out)
+    assert wallet_output(txid_out)['amount_msat'] > 2 * amt - 50000000
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")

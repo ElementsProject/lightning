@@ -1,11 +1,11 @@
 #! /usr/bin/make
 TOOLS := tools/lightning-hsmtool tools/lightning-downgrade
-TOOLS_SRC := $(TOOLS:=.c)
+TOOLS_SRC := $(TOOLS:=.c) tools/hsmtool-recoverhtlc.c
 TOOLS_OBJ := $(TOOLS_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(TOOLS_SRC)
-ALL_C_HEADERS +=
+ALL_C_HEADERS += tools/hsmtool-recoverhtlc.h tools/lightning-hsmtool.h
 ALL_PROGRAMS += $(TOOLS)
 
 # We force make to relink this every time, to detect version changes.
@@ -16,7 +16,7 @@ tools/headerversions: $(FORCE) tools/headerversions.o libccan.a
 $(TOOLS): libcommon.a
 
 tools/headerversions.o: ccan/config.h
-tools/lightning-hsmtool: tools/lightning-hsmtool.o
+tools/lightning-hsmtool: tools/lightning-hsmtool.o tools/hsmtool-recoverhtlc.o
 tools/lightning-downgrade.o: CFLAGS:=$(CFLAGS) -DCLN_PREV_VERSION=$(CLN_PREV_VERSION)
 
 tools/lightning-downgrade:			\
