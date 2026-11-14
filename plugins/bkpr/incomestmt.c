@@ -833,7 +833,7 @@ const struct csv_fmt *csv_match_token(const char *buffer, const jsmntok_t *tok)
 
 const char *csv_list_fmts(const tal_t *ctx)
 {
-	char *fmtlist = tal(ctx, char);
+	char *fmtlist = tal_strdup(ctx, "");
 	for (size_t i = 0; i < ARRAY_SIZE(csv_fmts); i++) {
 		if (i > 0)
 			tal_append_fmt(&fmtlist, ",");
