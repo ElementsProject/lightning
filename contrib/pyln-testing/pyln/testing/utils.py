@@ -780,7 +780,7 @@ class BitcoinD(TailableProc):
         # TODO: raise error for insane args?
 
         self.rpc.invalidateblock(old_hash)
-        self.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'.format(height))
+        self.wait_for_log(r'InvalidChainFound: invalid block=.*\s+height={}'.format(height))
         memp = self.rpc.getrawmempool()
 
         if shift == 0:

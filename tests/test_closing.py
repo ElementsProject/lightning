@@ -2249,7 +2249,7 @@ def test_onchaind_reorg_child_tx(node_factory, bitcoind):
     # We can't use bitcoind.simple_reorg() here: it re-mines the mempool, so
     # the HTLC timeout tx would come straight back.
     bitcoind.rpc.invalidateblock(htlc_block)
-    bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'
+    bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*\s+height={}'
                           .format(htlc_height))
     addr = bitcoind.rpc.getnewaddress()
     for _ in range(2):
@@ -2310,7 +2310,7 @@ def test_onchaind_reorg_commitment_tx(node_factory, bitcoind):
 
     # Reorg out the commitment tx itself, replacing it with empty blocks.
     bitcoind.rpc.invalidateblock(commit_block)
-    bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'
+    bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*\s+height={}'
                           .format(commit_height))
     addr = bitcoind.rpc.getnewaddress()
     for _ in range(2):
