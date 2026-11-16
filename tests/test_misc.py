@@ -1435,7 +1435,7 @@ def test_blockchaintrack(node_factory, bitcoind):
 
     # Now reorg out with a longer fork of 21 blocks
     bitcoind.rpc.invalidateblock(hashes[0])
-    bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'
+    bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*\s+height={}'
                           .format(height + 1))
     hashes = bitcoind.generate_block(30)
     time.sleep(1)
