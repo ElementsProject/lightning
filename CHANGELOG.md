@@ -4,6 +4,159 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.12rc1] - 2026-11-16: "CODENAME"
+
+### Added
+
+ - JSON-RPC: 'listforwards' and the 'forward_event' notification have a new 'failure_reason' field with the root cause of a local forward failure ('insufficient_outgoing_liquidity', 'too_many_htlcs', 'max_htlc_value_in_flight') ([#9419])
+ - JSON-RPC: `askrene` layers now contain "impressions" representing the effects of successful payments we made through channels. ([#9150])
+ - lightningd: watchman module registers getwatchmanheight, chaininfo, watch_found, watch_revert, block_processed and revert_block_processed RPCs for bwatch plugin integration. ([#9202])
+ - askrene: getroutes: maxhops, a parameter to limit the length of the paths in the solutions (already in v26.06.10). ([#9627])
+ - tools: lightning-hsmtool can recover HTLC outputs after channel state loss. ([#9730])
+ - nix: development shells now include `shellcheck`. ([#9677])
+ - nix: development shells now stop `startup_regtest.sh` daemons when the shell exits. ([#9677])
+ - nix: development shells now include `eatmydata` for `contrib/startup_regtest.sh`. ([#9677])
+ - nix: development shells now include `uv` for Python dependency and command execution. ([#9677])
+
+### Changed
+
+ - JSON-RPC: `getroutes` can now return PAY_INSUFFICIENT_FUNDS (215) and PAY_DESTINATION_INSUFFICIENT_CAPACITY (220) error codes. ([#9150])
+ - cln-rpc: No longer parse messages from nodes older than v26.06, because fields marked required in the schema and added up to v26.06 are now required in the Rust types, e.g. `openchannel` hook `channel_type` and onion message `first_path_key`. `Option<T>` is now `T`. ([#9678])
+ - cln-rpc and cln-grpc: getlog and listpeers no longer return the SKIPPED log type or num_skipped, listpeers adds the BROKEN log level, splicein and spliceout no longer return tx, and listpeerchannels next_fee_step is removed. ([#9537])
+ - cln-rpc: funderupdate and listnodes lease fields, and listpeerchannels max_accepted_htlcs, our_to_self_delay and their_to_self_delay are u16. ([#9537])
+ - cln-rpc: cancelrecurringinvoice recurrence_start and recurrence_counter are u32, listclosedchannels last_commitment_txid is a txid string, and listnetworkevents id is a pubkey. ([#9537])
+ - cln-rpc: payment timestamps are u32 in sendpay, sendonion, waitsendpay, listpays, listsendpays, delpay, injectpaymentonion, sendpay_success and sendpay_failure. ([#9537])
+ - cln-rpc and cln-grpc: forward_event adds created_index, in_htlc_id, preimage and updated_index, and listfunds adds csv_lock and spendable_at. ([#9537])
+ - cln-rpc: hook types follow the corrected schemas: htlc_accepted cltv_expiry_relative is signed, openchannel to_self_delay and max_accepted_htlcs are u16, openchannel2 and rbf_channel responses accept channel lease fields, and rpc_command return.result is an object or an array. ([#9537])
+ - Update libwally to v1.6.1 ([#9698], [#9741])
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: 'invokerune' and 'destroyrune' (use 'createrune' and 'blacklistrune') ([#9606])
+ - Config: option `xpay-handle-pay`, `pay` is deprecated and will be replaced by `xpay` in v27.03, hence `xpay-handle-pay` is not needed anymore. The configuration option will no longer be shown in listconfigs. ([#9254])
+ - cln-grpc only: deprecate amount fields for onchain methods, use *_sat fields instead. Old msat fields still work, but must be whole satoshis. Affected messages: AddpsbtoutputRequest, WithdrawRequest, FundpsbtRequest, UtxopsbtRequest, FundchannelRequest, FundchannelStartRequest, MultifundchannelDestinations, OpenchannelBumpRequest, and OpenchannelInitRequest ([#9678])
+
+### Removed
+
+ - JSON-RPC: `wait` no longer returns the `details` object for `invoices`, `forwards` and `sendpays`; use the subsystem-specific object instead. ([#9650])
+ - Plugins: `coin_movement` notification `tags`, `txid`, `utxo_txid` and `vout` fields (use `primary_tag`, `extra_tags`, `spending_txid` and `utxo`). ([#9650])
+ - Plugins: `channel_state_changed` notification omits `short_channel_id` when the channel is unconfirmed, instead of `null`. ([#9650])
+ - Plugins: notifications no longer include the legacy `payload` object or flat unwrapped fields; use the object named after the method instead. ([#9650])
+
+### Fixed
+
+ - JSON-RPC: `addpsbtoutput` and `addpsbtinput` no longer crash when given a v2 PSBT that does not allow modification. ([#9698])
+ - waitsendpay reports the remote failure for sendonion payments that failed before the call, instead of "Payment failure reason unknown" ([#9623])
+ - sendpay: immediate success when replaying a completed self payment. ([#9517])
+ - JSON-RPC: `waitsendpay` error data now includes `raw_message` even when the payment already failed before the command was called. ([#9342])
+ - JSON-RPC: `waitsendpay` for an earlier `groupid` now reports that attempt's failure, not the failure of a later retry. ([#9734])
+ - JSON-RPC: `plugin start` now accepts plugin options as an `options` array of `keyword=value` strings, as documented in the `plugin` schema. ([#9391])
+ - JSON-RPC: `graceful` notifications now update when a pending HTLC changes state. ([#9305])
+ - Reader of BOLT 12 payer_proof now accepts the writer-rule-mandated 239 -> 1000000000 marker jump. ([#9429])
+ - channeld: reject HTLC amounts exceeding the BOLT 1 maximum to avoid signed balance underflow and abort. ([#9610])
+ - Protocol: forwarding an HTLC that would exceed the outgoing channel's 'max_htlc_value_in_flight_msat' now fails with 'temporary_channel_failure' instead of 'required_node_feature_missing' ([#9419])
+ - dual-fund/splice: fail the interactive channel negotiation if the sum of the outputs exceed 21M BTC (satisfy BOLT-02 cap of 21M BTC per output) ([#9493])
+ - Protocol: a peer reconnecting to a channel where we lost state now reliably force-closes it, instead of our error racing their channeld exiting. ([#9563])
+ - channeld: no longer retransmits `channel_ready` on reconnect after a splice has locked. ([#9256])
+ - splicing: fixed crash when splicing a channel which hasn't been announced yet. ([#8557])
+ - channeld: reject `tx_init_rbf` if the peer already sent `splice_locked`, as BOLT #2 requires. ([#9571])
+ - connectd: the WebSocket port now accepts handshakes from clients that send lowercase HTTP header names, such as Node.js's built-in WebSocket. ([#9308])
+ - lightningd: guard for arithmetic operation overflow on onion message request for forward a payment through a blinded path ([#9411])
+ - Offers: we set a 10 minute expiry when we create invoices for offers in other currencies. ([#9150])
+ - log: don't crash when truncating large log messages ([#9331])
+ - wallet: Addressed a performance regression during blockchain scans ([#9340])
+ - connectd: on macOS and other systems with dual-stack IPv6 default, wildcard '--addr=:<port>' now correctly binds both IPv4 and IPv6. ([#9148])
+ - askrene-getroutes: Account for fees in the flow amount when computing probability costs. ([#9723])
+ - xpay no longer retries every channel through a node that keeps returning unknown_next_peer. ([#9592])
+ - renepay could fail with "minflow couldn't find a feasible flow" while HTLCs were still in flight. ([#9568])
+ - renepay: fix a memory leak of routes that were still in flight when the payment completed. ([#9504])
+ - plugins/recover: fix missing comma in nodes_for_gossip array. ([#9631])
+ - Plugins: `bkpr-listbalances` no longer exits, taking lightningd down with it, when an account's debits exceed its credits; the inconsistency is logged and that account is reported as 0msat. ([#9488])
+ - lsps-plugin: `lsps-lsps2-invoice` no longer creates an invoice that stays valid past the opening fee params' `valid_until`. ([#9657])
+ - Plugins: `sendpay_failure` notifications and `waitsendpay` errors now report `status` `failed` (with `completed_at` and `updated_index`), not `pending`. ([#9731])
+ - cln-plugin: a plugin no longer panics when it logs after its log writer task has exited (e.g., during shutdown); the message is written to stderr instead. ([#9732])
+ - lsps-plugin: `lsps-jitchannel` no longer selects fee parameters whose `min_payment_size_msat` is above `max_payment_size_msat`, which no payment can satisfy. ([#9620])
+ - lsps-plugin: the LSPS2 service now rejects `lsps2.buy` with a `payment_size_msat` outside the offered `min_payment_size_msat`/`max_payment_size_msat`. ([#9620])
+ - lsps-plugin: the LSPS2 client now copies `opening_fee_params` verbatim (including `valid_until`), and the service sends `valid_until` in the LSPS0 datetime format. ([#9620])
+ - lsps-plugin: a short channel id with an out-of-range component is now rejected instead of being parsed as a different channel. ([#9620])
+ - lsps-plugin: an LSPS2 `promise` must be printable ASCII without JSON escapes, so its 512-byte limit is measured on the encoded string as bLIP-52 requires. ([#9620])
+ - cln-rpc: `ShortChannelId` parsing now rejects out-of-range elements instead of silently corrupting the id. ([#9709])
+ - cln-rpc and cln-grpc: connect responses and connect notifications with an unresolved address no longer fail to parse. ([#9537])
+ - rust: Amounts that overflow fail, don't silently ignore in release builds ([#9423])
+ - pyln-client: `Millisatoshi(0).to_approx_str()` no longer raises a ValueError. ([#9695])
+ - pyln-client: `GossmapNode.alias` no longer includes the NUL padding from the node_announcement. ([#9689])
+ - pyln-client: `Gossmap` no longer fails to load the gossip store when a node announces an alias that is not valid UTF-8. ([#9689])
+ - pyln-proto: `ShortChannelId.from_str` now raises ValueError for malformed or out-of-range ids. ([#9709])
+ - `lightning-hsmtool`: `getsecret` does not show mnemonic after typing passphrase ([#8951])
+ - Report the cause when locking secret memory fails, instead of aborting with no diagnostic. ([#9438])
+ - build: on macOS, Homebrew's headers and libraries are only used when Homebrew is installed, and no longer leak into `nix build`. ([#9677])
+ - nix: `nix develop` now configures and builds correctly on macOS without injecting Homebrew paths into the Nix toolchain. ([#9677])
+ - macos: builds with lowdown succeed, as we no longer attempt to spawn a nested sandbox ([#9423])
+ - nix-builds: correctly set PYTHON in case where `uv` is not present ([#9423])
+ - nix: the flake build (`nix build`) no longer fails because ./configure cannot detect Python. ([#9203])
+ - Fixed spurious bitcoind startup failures by retrying bitcoin-cli -rpcwait checks when RPC briefly fails. ([#9240])
+
+### EXPERIMENTAL
+
+ - wallet: Add bwatch-driven wallet transaction and UTXO tracking behind --experimental-bwatch. ([#9298])
+ - Protocol: implement `option_simple_close` (BOLT2) for simpler one-shot mutual close fee negotiation. Enable with `--experimental-simple-close`. ([#9104])
+
+
+[#8557]: https://github.com/ElementsProject/lightning/pull/8557
+[#8951]: https://github.com/ElementsProject/lightning/pull/8951
+[#9104]: https://github.com/ElementsProject/lightning/pull/9104
+[#9148]: https://github.com/ElementsProject/lightning/pull/9148
+[#9150]: https://github.com/ElementsProject/lightning/pull/9150
+[#9202]: https://github.com/ElementsProject/lightning/pull/9202
+[#9203]: https://github.com/ElementsProject/lightning/pull/9203
+[#9240]: https://github.com/ElementsProject/lightning/pull/9240
+[#9254]: https://github.com/ElementsProject/lightning/pull/9254
+[#9256]: https://github.com/ElementsProject/lightning/pull/9256
+[#9298]: https://github.com/ElementsProject/lightning/pull/9298
+[#9305]: https://github.com/ElementsProject/lightning/pull/9305
+[#9308]: https://github.com/ElementsProject/lightning/pull/9308
+[#9331]: https://github.com/ElementsProject/lightning/pull/9331
+[#9340]: https://github.com/ElementsProject/lightning/pull/9340
+[#9342]: https://github.com/ElementsProject/lightning/pull/9342
+[#9391]: https://github.com/ElementsProject/lightning/pull/9391
+[#9411]: https://github.com/ElementsProject/lightning/pull/9411
+[#9419]: https://github.com/ElementsProject/lightning/pull/9419
+[#9423]: https://github.com/ElementsProject/lightning/pull/9423
+[#9429]: https://github.com/ElementsProject/lightning/pull/9429
+[#9438]: https://github.com/ElementsProject/lightning/pull/9438
+[#9493]: https://github.com/ElementsProject/lightning/pull/9493
+[#9504]: https://github.com/ElementsProject/lightning/pull/9504
+[#9517]: https://github.com/ElementsProject/lightning/pull/9517
+[#9563]: https://github.com/ElementsProject/lightning/pull/9563
+[#9568]: https://github.com/ElementsProject/lightning/pull/9568
+[#9592]: https://github.com/ElementsProject/lightning/pull/9592
+[#9606]: https://github.com/ElementsProject/lightning/pull/9606
+[#9610]: https://github.com/ElementsProject/lightning/pull/9610
+[#9620]: https://github.com/ElementsProject/lightning/pull/9620
+[#9623]: https://github.com/ElementsProject/lightning/pull/9623
+[#9627]: https://github.com/ElementsProject/lightning/pull/9627
+[#9650]: https://github.com/ElementsProject/lightning/pull/9650
+[#9657]: https://github.com/ElementsProject/lightning/pull/9657
+[#9677]: https://github.com/ElementsProject/lightning/pull/9677
+[#9678]: https://github.com/ElementsProject/lightning/pull/9678
+[#9689]: https://github.com/ElementsProject/lightning/pull/9689
+[#9695]: https://github.com/ElementsProject/lightning/pull/9695
+[#9698]: https://github.com/ElementsProject/lightning/pull/9698
+[#9709]: https://github.com/ElementsProject/lightning/pull/9709
+[#9723]: https://github.com/ElementsProject/lightning/pull/9723
+[#9730]: https://github.com/ElementsProject/lightning/pull/9730
+[#9731]: https://github.com/ElementsProject/lightning/pull/9731
+[#9732]: https://github.com/ElementsProject/lightning/pull/9732
+[#9537]: https://github.com/ElementsProject/lightning/pull/9537
+[#9734]: https://github.com/ElementsProject/lightning/pull/9734
+[#9571]: https://github.com/ElementsProject/lightning/pull/9571
+[#9631]: https://github.com/ElementsProject/lightning/pull/9631
+[#9488]: https://github.com/ElementsProject/lightning/pull/9488
+[#9741]: https://github.com/ElementsProject/lightning/pull/9741
+[26.12rc1]: https://github.com/ElementsProject/lightning/releases/tag/v26.12rc1
+
 ## [26.06.10] - 2026-11-05: "Quantum-Resistant Lightning Channel VII"
 
 This point release is recommended for all users.
