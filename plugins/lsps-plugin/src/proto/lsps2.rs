@@ -206,4 +206,19 @@ mod tests {
         let back: OpeningFeeParams = serde_json::from_str(&json).unwrap();
         assert!(verify_promise(&back, SECRET));
     }
+
+    #[test]
+    fn failure_codes_match_bolt4() {
+        use failure_codes::*;
+        // Failure code flags (BOLT 4): PERM = 0x4000, NODE = 0x2000,
+        // UPDATE = 0x1000.
+        // unknown_next_peer is PERM|10.
+        assert_eq!(UNKNOWN_NEXT_PEER, format!("{:04x}", 0x4000 | 10));
+        // temporary_channel_failure is UPDATE|7, followed by the u16 length
+        // of the channel_update, which we leave out (length 0).
+        assert_eq!(
+            TEMPORARY_CHANNEL_FAILURE,
+            format!("{:04x}{:04x}", 0x1000 | 7, 0)
+        );
+    }
 }
