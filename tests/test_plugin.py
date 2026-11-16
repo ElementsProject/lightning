@@ -3416,13 +3416,14 @@ def test_shutdown_peer_reconnect(node_factory, bitcoind, executor):
     # l2 is down, so l1 keeps trying to reconnect.
     l1.daemon.wait_for_log('Failed connected out')
 
-    stop = executor.submit(l1.stop)
+    stop = executor.submit(l1.stop, timeout=TIMEOUT)
     l1.daemon.wait_for_log('plugin-bcli: Killing plugin: exited during normal operation')
     l2.start()
 
     # l1 reconnects, gets l2's error and fails the channel.
     l1.daemon.wait_for_log('State changed from CHANNELD_NORMAL to AWAITING_UNILATERAL')
-    txid = l1.daemon.wait_for_log('Broadcasting txid').split()[-1]
+    line = l1.daemon.wait_for_log('Broadcasting txid')
+    txid = re.search(r'Broadcasting txid ([0-9a-f]{64})', line).group(1)
     # It doesn't send the close to bcli, which has exited.
     l1.daemon.wait_for_log('Shutting down: not sending sendrawtransaction')
 
