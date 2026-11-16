@@ -132,5 +132,26 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:xkeysend#1",
+        "method": "xkeysend",
+        "params": {
+          "destination": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+          "amount_msat": 10000000,
+          "label": "This is an xkeysend amount",
+          "maxfee": "500sat"
+        }
+      },
+      "response": {
+        "payment_preimage": "89e9e34dd8db1abd89e9e34dd8db1abd89e9e34dd8db1abd89e9e34dd8db1abd",
+        "amount_msat": 10000000,
+        "amount_sent_msat": 10000000,
+        "failed_parts": 0,
+        "successful_parts": 1
+      }
+    }
   ]
 }
