@@ -1269,8 +1269,8 @@ def test_xpay_local_too_many_htlcs_not_capacity(node_factory, executor):
     # notification copy of the same line, so count the prefixed copy only.
     l1.daemon.logs_catchup()
     assert not any("assuming it can't carry" in l for l in l1.daemon.logs)
-    assert sum("plugin-cln-xpay: 1:" in l and
-               "HTLC slots are full, disabling it for this payment" in l
+    assert sum("plugin-cln-xpay: 1:" in l
+               and "HTLC slots are full, disabling it for this payment" in l
                for l in l1.daemon.logs) == 1
 
 
