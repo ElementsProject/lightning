@@ -355,7 +355,7 @@ void json_add_channel_apy(struct json_stream *res,
 	json_add_string(res, "apy_total", tal_fmt(apy, "%.4f%%", apy_result));
 
 	if (!amount_msat_is_zero(apy->our_start_bal)) {
-		ok = calc_apy(total_fees, apy->total_start_bal,
+		ok = calc_apy(total_fees, apy->our_start_bal,
 			      blocks_elapsed, &apy_result);
 		assert(ok);
 		json_add_string(res, "apy_total_initial",
