@@ -1131,7 +1131,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	const u8 *replymsg;
 	int index;
 	enum onion_wire failcode;
-	bool from_final, local_htlc_slots_full;
+	bool from_final;
 	const char *failcode_name, *errmsg, *description;
 	enum jsonrpc_errcode ecode;
 
@@ -1222,15 +1222,6 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		errmsg = json_strdup(tmpctx, buf, tok);
 	} else
 		errmsg = failcode_name;
-
-	/* channeld reports a full HTLC slot table as temporary_channel_failure
-	 * ("Too many HTLCs").  That does not depend on the amount: telling
-	 * askrene the channel is constrained shrinks the maximum by 1 msat and
-	 * getroutes retries the same channel forever, shedding dust parts. */
-	if (index == 0 && errmsg && strstr(errmsg, "Too many HTLCs"))
-		local_htlc_slots_full = true;
-	else
-		local_htlc_slots_full = false;
 
 	outgoing_notify_failure(attempt, index, failcode, replymsg, errmsg);
 	description = tal_fmt(tmpctx,
@@ -1362,11 +1353,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			goto disable_channel;
 
 		case WIRE_TEMPORARY_CHANNEL_FAILURE:
-			/* A full slot table is not a capacity shortfall.  Disabling
-			 * the channel for this payment stops the 1 msat shrink loop.
-			 * A remote "Too many HTLCs" is not distinguishable from a
-			 * real capacity failure, so only the local message is special. */
-			if (local_htlc_slots_full) {
+			/* A full slot table is not a capacity shortfall.
+			 * channeld's failstr for CHANNEL_ERR_TOO_MANY_HTLCS
+			 * is "Too many HTLCs".  injectpaymentonion does not
+			 * expose the structured reason, so this has to match
+			 * that string.  Disabling the channel for this payment
+			 * stops the 1 msat shrink loop.  Remote errors are
+			 * the failcode name, so only index 0 is special. */
+			if (index == 0 && strstr(errmsg, "Too many HTLCs")) {
 				add_result_summary(attempt, LOG_DBG,
 						   "We got %s for %s: HTLC slots are full,"
 						   " disabling it for this payment",

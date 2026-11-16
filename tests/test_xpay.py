@@ -1218,7 +1218,8 @@ def test_xpay_local_too_many_htlcs_not_capacity(node_factory, executor):
     direct payment is failed by the receiver before our slot check runs.
     """
     hold = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-hold.py')
-    # l2->l3 has one slot. A held forward keeps it full while xpay retries.
+    # max-concurrent-htlcs: 1 on l2 limits what l1 can add on l1->l2.
+    # The held forward fills that slot, so l1 sees a local (index 0) failure.
     l1, l2, l3 = node_factory.line_graph(
         3, wait_for_announce=True,
         opts=[{}, {'max-concurrent-htlcs': 1}, {'plugin': hold}])
