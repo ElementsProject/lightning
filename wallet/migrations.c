@@ -66,6 +66,36 @@ void migrate_backfill_bwatch_tables(struct lightningd *ld UNNEEDED, struct db *d
 {
 	struct db_stmt *stmt;
 
+	/* v26.06.10 databases are at 284 and never ran the CREATEs at 283/284 */
+	stmt = db_prepare_v2(db,
+		SQL("CREATE TABLE IF NOT EXISTS our_outputs ("
+		    "  txid BLOB NOT NULL,"
+		    "  outnum INTEGER NOT NULL,"
+		    "  blockheight INTEGER NOT NULL,"
+		    "  txindex INTEGER NOT NULL DEFAULT 0,"
+		    "  scriptpubkey BLOB NOT NULL,"
+		    "  satoshis BIGINT NOT NULL,"
+		    "  spendheight INTEGER,"
+		    "  keyindex INTEGER,"
+		    "  reserved_til INTEGER NOT NULL DEFAULT 0,"
+		    "  channel_dbid BIGINT,"
+		    "  peer_id BLOB,"
+		    "  commitment_point BLOB,"
+		    "  option_anchors INTEGER,"
+		    "  csv INTEGER,"
+		    "  PRIMARY KEY (txid, outnum)"
+		    ")"));
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(db,
+		SQL("CREATE TABLE IF NOT EXISTS our_txs ("
+		    "  txid BLOB NOT NULL PRIMARY KEY,"
+		    "  blockheight INTEGER NOT NULL,"
+		    "  txindex INTEGER NOT NULL DEFAULT 0,"
+		    "  rawtx BLOB"
+		    ")"));
+	db_exec_prepared_v2(take(stmt));
+
 	stmt = db_prepare_v2(db,
 		SQL("INSERT INTO our_outputs "
 		    "(txid, outnum, blockheight, txindex, scriptpubkey, satoshis, "
