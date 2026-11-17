@@ -46,7 +46,11 @@ async fn main() -> Result<(), anyhow::Error> {
 
     log_panics::init();
 
-    let github_redir = std::env::var("REDIR_GITHUB").ok();
+    let github_redir = if cfg!(debug_assertions) {
+        std::env::var("REDIR_GITHUB").ok()
+    } else {
+        None
+    };
 
     let Some(conf_plugin) = Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .rpcmethod_from_builder(
