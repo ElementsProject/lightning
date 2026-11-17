@@ -271,11 +271,56 @@ static void populate_db(struct db *db)
 	}
 }
 
+/* A v26.06.10 database at version 284: the bwatch tables were never created. */
+static const char *hotfix_setup_stmts[] = {
+	SQL("CREATE TABLE vars ("
+	    "  name VARCHAR(32)"
+	    ", val VARCHAR(255)"
+	    ", PRIMARY KEY (name)"
+	    ");"),
+	SQL("ALTER TABLE vars ADD COLUMN intval INTEGER"),
+	SQL("ALTER TABLE vars ADD COLUMN blobval BLOB"),
+	SQL("CREATE TABLE outputs ("
+	    "  prev_out_tx BLOB"
+	    ", prev_out_index INTEGER"
+	    ", value BIGINT"
+	    ", type INTEGER"
+	    ", status INTEGER"
+	    ", keyindex INTEGER"
+	    ", channel_id BIGINT"
+	    ", peer_id BLOB"
+	    ", commitment_point BLOB"
+	    ", confirmation_height INTEGER"
+	    ", spend_height INTEGER"
+	    ", scriptpubkey BLOB"
+	    ", reserved_til INTEGER DEFAULT NULL"
+	    ", option_anchor_outputs INTEGER DEFAULT 0"
+	    ", csv_lock INTEGER DEFAULT 1"
+	    ", is_in_coinbase INTEGER DEFAULT 0"
+	    ", PRIMARY KEY (prev_out_tx, prev_out_index));"),
+	SQL("CREATE TABLE transactions ("
+	    "  id BLOB"
+	    ", blockheight INTEGER"
+	    ", txindex INTEGER"
+	    ", rawtx BLOB"
+	    ", PRIMARY KEY (id));"),
+	SQL("INSERT INTO outputs (prev_out_tx, prev_out_index, value, type, status, keyindex, "
+	    " channel_id, peer_id, commitment_point, confirmation_height, spend_height, "
+	    " scriptpubkey, reserved_til, option_anchor_outputs, csv_lock, is_in_coinbase) "
+	    "VALUES (X'0101010101010101010101010101010101010101010101010101010101010101', 0, "
+	    " 1000000, 0, 0, 1, NULL, NULL, NULL, 100, NULL, "
+	    " X'0014010101010101010101010101010101010101ff01', NULL, 0, 1, 0);"),
+	SQL("INSERT INTO transactions (id, blockheight, txindex, rawtx) VALUES ("
+	    " X'0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a', "
+	    " 100, 1, X'deadbeef');"),
+};
+
 static void test_error(void *arg, bool fatal, const char *fmt, va_list ap)
 {
 	vfprintf(stderr, fmt, ap);
 	abort();
 }
+
 
 static size_t count_rows(struct db *db, const char *query)
 {
@@ -310,6 +355,34 @@ static struct db_stmt *get_our_output(struct db *db, u8 txid_byte, u32 outnum)
 	return stmt;
 }
 
+static void test_backfill_without_bwatch_tables(void)
+{
+	char *dsn, *filename;
+	struct db *db;
+	struct db_stmt *stmt;
+
+	close(tmpdir_mkstemp(tmpctx, "ldb-XXXXXX", &filename));
+	dsn = tal_fmt(tmpctx, "sqlite3://%s", filename);
+	db = db_open(tmpctx, dsn, true, true, test_error, NULL);
+	db->report_changes_fn = NULL;
+
+	db_begin_transaction(db);
+	for (size_t i = 0; i < ARRAY_SIZE(hotfix_setup_stmts); i++) {
+		stmt = db_prepare_v2(db, hotfix_setup_stmts[i]);
+		db_exec_prepared_v2(take(stmt));
+	}
+	db->data_version = 0;
+	db_set_intvar(db, "data_version", db->data_version);
+
+	migrate_backfill_bwatch_tables(NULL, db);
+
+	assert(count_rows(db, SQL("SELECT COUNT(*) FROM our_outputs")) == 1);
+	assert(count_rows(db, SQL("SELECT COUNT(*) FROM our_txs")) == 1);
+	db_commit_transaction(db);
+	unlink(filename);
+	tal_free(db);
+}
+
 int main(int argc, const char *argv[])
 {
 	char *dsn, *filename;
@@ -320,6 +393,8 @@ int main(int argc, const char *argv[])
 	close(tmpdir_mkstemp(tmpctx, "ldb-XXXXXX", &filename));
 
 	chainparams = chainparams_for_network("bitcoin");
+	test_backfill_without_bwatch_tables();
+
 	dsn = tal_fmt(tmpctx, "sqlite3://%s", filename);
 	db = db_open(tmpctx, dsn, true, true, test_error, NULL);
 	db->report_changes_fn = NULL;
