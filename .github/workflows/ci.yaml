@@ -58,17 +58,42 @@ jobs:
           echo "Base Ref: $BASE_REF"
           echo "PR DESCRIPTION: $PR_DESCRIPTION"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            if [[ "$PR_DESCRIPTION" != *"Changelog-None"* && \
-                  -z "$(git log origin/$BASE_REF..HEAD --oneline --grep='Changelog-')" && \
-                  "$(git rev-parse --abbrev-ref HEAD)" != "$BASE_REF" ]]; then
+            on_base=0
+            if [ "$(git rev-parse --abbrev-ref HEAD)" = "$BASE_REF" ]; then
+              on_base=1
+            fi
+            found=0
+            if ! commits=$(git rev-list "origin/${BASE_REF}..HEAD"); then
+              echo "::error::Cannot list commits origin/${BASE_REF}..HEAD"
+              exit 1
+            fi
+            # Same shape devtools/changelog.py keeps: class, colon, then space.
+            # A class with no colon or no space does not count. Changelog-None
+            # is the opt-out, in a commit or in the PR body.
+            while IFS= read -r sha; do
+              [ -n "$sha" ] || continue
+              msg=$(git show -s --format=%B "$sha")
+              shopt -s nocasematch
+              while IFS= read -r line; do
+                if [[ "$line" =~ ^[[:space:]]*Changelog-(Added|Changed|Deprecated|Fixed|Removed|Experimental):[[:space:]] ]] || [[ "$line" =~ ^[[:space:]]*Changelog-None[[:space:]]*$ ]] || [[ "$line" =~ ^[[:space:]]*Changelog-None: ]]; then
+                  found=1
+                  break
+                fi
+              done <<< "$msg"
+              shopt -u nocasematch
+              if [ "$found" -eq 1 ]; then
+                break
+              fi
+            done <<< "$commits"
+            if [[ "$PR_DESCRIPTION" == *"Changelog-None"* ]]; then
+              echo "Changelog found in PR description"
+            elif [ "$found" -eq 1 ]; then
+              echo "Changelog found in commit range origin/${BASE_REF}..HEAD"
+            elif [ "$on_base" -eq 1 ]; then
+              echo "HEAD is ${BASE_REF}; changelog check skipped"
+            else
               echo "::error::'Changelog' entry is missing in all commits, and 'Changelog-None' not specified in the PR description"
               exit 1
-            else
-              if [[ "$PR_DESCRIPTION" == *"Changelog-None"* ]]; then
-                echo "Changelog found in PR description"
-              else
-                echo "Changelog found in Commit \"$(git log origin/$BASE_REF..HEAD --oneline --grep='Changelog-')\""
-              fi
             fi
           else
             echo "Not a PR event."
