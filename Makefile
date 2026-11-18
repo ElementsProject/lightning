@@ -724,12 +724,15 @@ check-comments:
 check-unused-functions:
 	@tools/check-unused-functions.py $(BASE_REF)
 
+check-take-parent:
+	@tools/check-take-parent.py $(BASE_REF)
+
 # The message of each commit since BASE_REF.
 check-commit-msgs:
 	@tools/check-commit-msgs.py $(BASE_REF)
 
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-xfail-strict check-switch-default check-comments check-unused-functions check-commit-msgs
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-xfail-strict check-switch-default check-comments check-unused-functions check-take-parent check-commit-msgs
 
 full-check: check check-source
 
