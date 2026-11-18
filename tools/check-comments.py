@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Flag added comments which will go stale.
+"""Flag added comments which are long, or which will go stale.
 
 A comment describes the code beside it, to a reader who has never seen
 any other version of the file.  What a change fixed, what the code used to
 do, and which pull request or review asked for it belong in the commit
 message: in a comment they are out of date as soon as the commit lands.
+And a comment which needs many lines usually explains code which should be
+simpler.
 
 Only added lines are checked (see tools/added-lines.sh).  BOLT quotes are
-left alone.
+left alone, and the /*~ walkthrough comments may be any length.
 """
 import io
 import os
@@ -19,6 +21,11 @@ import tokenize
 PATHSPECS = ['*.c', '*.h', '*.py', ':(exclude)ccan/',
              ':(exclude)*gen.c', ':(exclude)*gen.h',
              ':(exclude)*_pb2*.py', ':(exclude)*grpc2py.py']
+
+# A comment at the left margin documents a function or a type; an indented
+# one is in the middle of the code it explains.
+MAX_LINES = 8
+MAX_INDENTED_LINES = 4
 
 STALE = [
     (re.compile(r'\b(the|this) fix\b|\bthis (commit|pr|patch|change)\b'
@@ -42,9 +49,14 @@ STALE = [
 # Comments, and the strings and character constants which could hold "//".
 C_TOKEN = re.compile(r'''//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*' ''', re.S | re.X)
 
+# A comment which starts as a BOLT quote is exempt: check_quotes.py verifies
+# it against the spec, so it cannot drift.  The word BOLT anywhere else is
+# not an exemption, since check_quotes.py never looks at those comments.
+BOLT_QUOTE = re.compile(r'(/\* |// |# )BOLT')
+
 
 def c_comments(text):
-    """(first line, lines) of each comment; a run of // lines is one."""
+    """(first line, lines, indented) of each comment; a run of // lines is one."""
     comments = []
     for token in C_TOKEN.finditer(text):
         body = token.group()
@@ -52,18 +64,19 @@ def c_comments(text):
             continue
         first = text.count('\n', 0, token.start()) + 1
         lines = body.split('\n')
-        alone = not text[text.rfind('\n', 0, token.start()) + 1:token.start()].strip()
+        before = text[text.rfind('\n', 0, token.start()) + 1:token.start()]
+        alone = not before.strip()
         prev = comments[-1] if comments else None
-        if (body.startswith('//') and alone and prev and prev[2]
+        if (body.startswith('//') and alone and prev and prev[3]
                 and prev[0] + len(prev[1]) == first):
             prev[1].extend(lines)
             continue
-        comments.append([first, lines, body.startswith('//') and alone])
-    return [(first, lines) for first, lines, _ in comments]
+        comments.append([first, lines, before != '', body.startswith('//') and alone])
+    return [tuple(comment[:3]) for comment in comments]
 
 
 def py_comments(text):
-    """(first line, lines) of each comment; a run of # lines is one."""
+    """(first line, lines, indented) of each comment; a run of # lines is one."""
     comments = []
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
@@ -75,19 +88,26 @@ def py_comments(text):
         line = token.start[0]
         alone = not token.line[:token.start[1]].strip()
         prev = comments[-1] if comments else None
-        if alone and prev and prev[2] and prev[0] + len(prev[1]) == line:
+        if alone and prev and prev[3] and prev[0] + len(prev[1]) == line:
             prev[1].append(token.string)
             continue
-        comments.append([line, [token.string], alone])
-    return [(first, lines) for first, lines, _ in comments]
+        comments.append([line, [token.string], token.start[1] != 0, alone])
+    return [tuple(comment[:3]) for comment in comments]
 
 
 def problems(path, text, added):
     """(line, complaint) for each added comment line which breaks a rule."""
     comments = py_comments(text) if path.endswith('.py') else c_comments(text)
-    for first, lines in comments:
-        if 'BOLT' in '\n'.join(lines):
+    for first, lines, indented in comments:
+        whole = '\n'.join(lines)
+        new = [line for line in range(first, first + len(lines)) if line in added]
+        if not new or BOLT_QUOTE.match(whole):
             continue
+        limit = MAX_INDENTED_LINES if indented else MAX_LINES
+        if len(lines) > limit and not whole.startswith('/*~'):
+            where = 'inside code' if indented else 'at the left margin'
+            yield new[0], (f'comment is {len(lines)} lines long (limit {limit} {where}):'
+                           ' keep it short, and let simpler code say the rest')
         for line, content in enumerate(lines, first):
             if line not in added:
                 continue
