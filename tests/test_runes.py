@@ -630,6 +630,41 @@ def test_invalid_restrictions(node_factory):
             print(l1.rpc.createrune(restrictions=[[f"{cond}method"]]))
 
 
+def test_createrune_empty_restriction(node_factory):
+    """A restriction needs at least one alternative (#9673)"""
+    l1 = node_factory.get_node()
+
+    for restrs in ([[]],
+                   [["method=getinfo"], []],
+                   [["method=getinfo"], [], ["rate=60"]]):
+        with pytest.raises(RpcError, match='not a valid restriction'):
+            l1.rpc.createrune(restrictions=restrs)
+
+    # Nothing was stored, so showrunes has nothing to choke on.
+    assert l1.rpc.showrunes()['runes'] == []
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Edits the sqlite3 db directly")
+def test_showrunes_undecodable_stored_rune(node_factory):
+    """Older nodes may have stored a rune with an empty restriction (#9673)"""
+    l1 = node_factory.get_node()
+
+    good = l1.rpc.createrune()
+    bad = l1.rpc.createrune(restrictions=[["method=getinfo"]])
+
+    # What createrune used to store for [["method=getinfo"], [], ["rate=60"]]
+    raw = base64.urlsafe_b64decode(bad['rune'] + '=' * (-len(bad['rune']) % 4))
+    broken = base64.urlsafe_b64encode(raw + b'&&rate=60').decode()
+
+    l1.stop()
+    l1.db_manip(f"UPDATE runes SET rune = '{broken}' WHERE id = {bad['unique_id']};")
+    l1.start()
+
+    runes = l1.rpc.showrunes()['runes']
+    assert [r['rune'] for r in runes] == [good['rune']]
+    assert l1.daemon.is_in_log(f"Stored rune {broken} cannot be decoded")
+
+
 def test_nonnumeric_uniqueid(node_factory):
     """We always use numeric uniqueids, don't allow other forms"""
     l1 = node_factory.get_node()

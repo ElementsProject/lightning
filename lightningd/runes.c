@@ -430,6 +430,14 @@ static struct command_result *json_showrunes(struct command *cmd,
 		const char **strs = wallet_get_runes(cmd, cmd->ld->wallet, &last_used);
 		for (size_t i = 0; i < tal_count(strs); i++) {
 			const struct rune *r = rune_from_base64(cmd, strs[i]);
+			/* createrune used to accept an empty restriction,
+			 * which doesn't decode again. */
+			if (!r) {
+				log_unusual(cmd->ld->log,
+					    "Stored rune %s cannot be decoded, skipping",
+					    strs[i]);
+				continue;
+			}
 			json_add_rune(cmd->ld, response, NULL, strs[i], r, true, last_used[i]);
 		}
 	}
@@ -517,11 +525,15 @@ static struct rune_restr *rune_restr_from_json(struct command *cmd,
 	size_t i;
 	struct rune_restr *restr;
 
-	restr = tal(ctx, struct rune_restr);
 	/* FIXME: allow singletons again? */
 	if (tok->type != JSMN_ARRAY)
 		return NULL;
 
+	/* An empty restriction encodes as "&&", which no longer decodes. */
+	if (tok->size == 0)
+		return NULL;
+
+	restr = tal(ctx, struct rune_restr);
 	restr->alterns = tal_arr(restr, struct rune_altern *, tok->size);
 	json_for_each_arr(i, t, tok) {
 		restr->alterns[i] = rune_altern_from_json(restr->alterns,
