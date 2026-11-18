@@ -212,6 +212,18 @@ static void test_feature_set_sub(void)
 	}
 }
 
+static void test_featurebits_unset(void)
+{
+	u8 *bits = tal_arr(tmpctx, u8, 0);
+
+	/* channel_type_accept() blanks 46, and 44 shares its byte. */
+	set_feature_bit(&bits, 44);
+	set_feature_bit(&bits, 46);
+	featurebits_unset(&bits, 46);
+	assert(!feature_offered(bits, 46));
+	assert(feature_offered(bits, 44));
+}
+
 static void test_feature_trim(void)
 {
 	struct feature_set *f;
@@ -330,6 +342,7 @@ int main(int argc, char *argv[])
 
 	test_featurebits_or();
 	test_feature_set_or();
+	test_featurebits_unset();
 	test_feature_trim();
 	test_feature_set_sub();
 
