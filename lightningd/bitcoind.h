@@ -122,6 +122,31 @@ void bitcoind_getchaininfo_(const tal_t *ctx,
 						  const char *, u32, u32,  \
 						  bool),		   \
 			      (arg))
+/* Same as above, but a backend "error" response invokes err_cb (so the
+ * caller can retry, e.g. poll loops) instead of fatal(). */
+void bitcoind_getchaininfo_retryable_(const tal_t *ctx,
+			    struct bitcoind *bitcoind,
+			    const u32 height,
+			    void (*cb)(struct bitcoind *bitcoind,
+				       const char *chain,
+				       u32 headercount,
+				       u32 blockcount,
+				       bool ibd,
+				       void *),
+			    void (*err_cb)(struct bitcoind *bitcoind,
+					   void *arg),
+			    void *cb_arg);
+#define bitcoind_getchaininfo_retryable(ctx, bitcoind_, height_, cb, err_cb_, arg) \
+	bitcoind_getchaininfo_retryable_((ctx), (bitcoind_), (height_),	\
+			      typesafe_cb_preargs(void, void *,		\
+						  (cb), (arg),		\
+						  struct bitcoind *,	\
+						  const char *, u32, u32,\
+						  bool),		\
+			      typesafe_cb_preargs(void, void *,		\
+						  (err_cb_), (arg),	\
+						  struct bitcoind *),	\
+			      (arg))
 
 void bitcoind_getrawblockbyheight_(const tal_t *ctx,
 				   struct bitcoind *bitcoind,
