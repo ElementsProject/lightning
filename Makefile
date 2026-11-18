@@ -716,8 +716,11 @@ check-grpc-breaking:
 check-switch-default:
 	@tools/check-switch-default.py $(BASE_REF)
 
+check-comments:
+	@tools/check-comments.py $(BASE_REF)
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-switch-default
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-switch-default check-comments
 
 full-check: check check-source
 
