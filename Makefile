@@ -721,6 +721,15 @@ check-source: check-makefile check-whitespace check-spelling check-python-flake8
 
 full-check: check check-source
 
+# Build, check-source, unit tests and touched integration tests on each
+# commit since BASE_REF: see tools/check-commits.sh.
+check-commits:
+	@uv run tools/check-commits.sh $(BASE_REF)
+
+# The same, with the whole integration suite on every commit.
+check-commits-full:
+	@CHECK_COMMITS_PYTEST=all uv run tools/check-commits.sh $(BASE_REF)
+
 # Simple target to be used on CI systems to check that all the derived
 # files were checked in and updated. It depends on the generated
 # targets, and checks if any of the tracked files changed. If they did
