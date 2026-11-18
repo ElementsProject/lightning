@@ -5,7 +5,9 @@ Once a commit lands, its message is all that explains it.  The pull request
 and its review are not part of the history, and the commit before it is
 not the same one after a rebase or a cherry-pick.  So the message has to
 stand on its own, as plain wrapped text in paragraphs short enough to
-follow.
+follow.  Its subject names the part of the tree it changes, as in
+"lightningd: fix a crash on restart", which is what a reader scans for in
+the log.
 
 Indented lines are quoted output, not prose, so logs and backtraces can be
 any width and length.  Links and trailers are left alone too.
@@ -16,11 +18,22 @@ import sys
 
 MAX_COLUMNS = 80
 MAX_PARAGRAPH = 10
+MAX_SUBJECT = 80
 
 TRAILER = re.compile(r'(Changelog-[A-Za-z]+|Signed-off-by|Co-authored-by|Fixes|Closes'
                      r'|Reported-by|Suggested-by|Reviewed-by|Tested-by|Acked-by'
                      r'|Assisted-by|Cc|Link)\s*:|Changelog-None|\(cherry picked from', re.I)
 HEADER = re.compile(r'#{1,6} \S')
+# "subsystem: intent", where a subsystem is one word, as in "wallet:" or
+# "connectd, lightningd:".  Prose before the colon is not a subsystem.  A
+# release commit and git's own revert subjects are left alone.
+SUBJECT = re.compile(r'[\w./-]+(, [\w./-]+)*: \S|v\d+\.\d+\S*$|Revert "')
+# Maintainers rebase a branch as it is: nothing folds a fixup for you.
+UNFOLDED = re.compile(r'(fixup|squash|amend)! ')
+# "fix:" names the kind of change, not the part of the tree it changes.
+# The style guide: don't annotate with "Chore" etc.
+CHANGE_TYPE = re.compile(r'(feat|fix|chore|refactor|perf|style)(\([^)]*\))?!?: ',
+                         re.I)
 UNSEEN = re.compile(r'\bthis (pr|mr|pull request)\b|\breview(er)? (comments?|feedback)\b'
                     r'|\bper review\b|\bas (requested|discussed)\b', re.I)
 BY_POSITION = re.compile(r'\b(previous|last|earlier|prior|preceding|parent) (commit|patch)(es|s)?\b', re.I)
@@ -34,6 +47,17 @@ def is_prose(line):
 
 def problems(message):
     lines = message.rstrip('\n').split('\n')
+    if UNFOLDED.match(lines[0]):
+        yield ('is a fixup! commit: fold it into its target'
+               ' before the branch is merged')
+    elif CHANGE_TYPE.match(lines[0]):
+        yield ('has a subject naming the kind of change:'
+               ' name the subsystem it changes instead')
+    elif not SUBJECT.match(lines[0]):
+        yield ('needs a subject of the form "subsystem: intent",'
+               ' naming the daemon or directory it changes')
+    if len(lines[0]) > MAX_SUBJECT:
+        yield f'has a subject wider than {MAX_SUBJECT} columns: shorten it'
     if len(lines) > 1 and lines[1].strip():
         yield 'needs a blank line after the subject'
 
