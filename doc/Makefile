@@ -191,8 +191,7 @@ NON_PREFIXED_MANPAGES := doc/lightning-cli.1 \
 	doc/lightningd-config.5 \
 	doc/lightningd-rpc.7 \
 	doc/lightning-hsmtool.8 \
-	doc/lightning-downgrade.8 \
-	doc/lightning-reckless.1
+	doc/lightning-downgrade.8
 
 MANPAGES := $(PREFIXED_MANPAGES) $(NON_PREFIXED_MANPAGES)
 

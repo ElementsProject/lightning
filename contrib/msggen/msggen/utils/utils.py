@@ -163,6 +163,7 @@ grpc_method_names = [
     "CreateProof",
     "Xkeysend",
     "Graceful",
+    "Reckless",
 ]
 
 # JSON-RPC commands intentionally not exposed over gRPC yet. Every entry must
@@ -175,7 +176,6 @@ grpc_method_blacklist = {
     "check": "core command, not yet mapped to gRPC",
     "parsefeerate": "core command, not yet mapped to gRPC",
     "commando": "plugin command, not yet mapped to gRPC",
-    "reckless": "plugin command, not yet mapped to gRPC",
     "listsqlschemas": "plugin command, not yet mapped to gRPC",
     "sql-template": "schema fragment, not an RPC command",
 }
@@ -213,6 +213,7 @@ grpc_notification_names = [
         "schema_name": "xpay_pay_part_start",
         "typename": "PayPartStart",
     },
+    {"name": "reckless_log", "typename": "RecklessLog"},
 ]
 
 hook_names = [

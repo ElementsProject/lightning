@@ -1,0 +1,54 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "reckless_log",
+  "title": "Notification for reckless log events",
+  "description": [
+    "The **reckless_log** notification informs whenever the reckless plugin emits a log message during **install** or **update**"
+  ],
+  "added": "v26.09",
+  "request": {},
+  "response": {
+    "required": [
+      "level",
+      "time",
+      "timestamp",
+      "log"
+    ],
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "io",
+          "trace",
+          "debug",
+          "info",
+          "unusual",
+          "broken"
+        ],
+        "description": [
+          "The log level of the emitted message."
+        ]
+      },
+      "time": {
+        "type": "string",
+        "description": [
+          "The event time as seconds since epoch with subsecond precision."
+        ]
+      },
+      "timestamp": {
+        "type": "string",
+        "description": [
+          "The event time in ISO 8601 format."
+        ]
+      },
+      "log": {
+        "type": "string",
+        "description": [
+          "The original log message."
+        ]
+      }
+    }
+  }
+}

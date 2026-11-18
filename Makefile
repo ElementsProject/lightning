@@ -478,8 +478,7 @@ ALL_NONGEN_SRCFILES := $(ALL_NONGEN_HEADERS) $(ALL_NONGEN_SOURCES)
 BIN_PROGRAMS = \
 	       cli/lightning-cli \
 	       lightningd/lightningd \
-	       tools/lightning-hsmtool\
-	       tools/reckless
+	       tools/lightning-hsmtool
 PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
@@ -910,7 +909,7 @@ clean: obsclean
 
 # See doc/contribute-to-core-lightning/contributor-workflow.md
 PYLNS=client proto testing
-update-versions: update-pyln-versions update-reckless-version update-dot-version # FIXME: update-doc-examples
+update-versions: update-pyln-versions update-dot-version # FIXME: update-doc-examples
 	@uv lock
 
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
@@ -947,11 +946,6 @@ pyln-build-all: pyln-build pyln-build-bolts pyln-build-grpc-proto pyln-build-wss
 
 update-lock:
 	uv sync --all-extras --all-groups
-
-update-reckless-version:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	@echo "Updating tools/reckless to $(NEW_VERSION)"
-	@$(SED) -i.bak "s/__VERSION__ = '.*'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless && rm tools/reckless.bak
 
 update-dot-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
@@ -1005,6 +999,7 @@ install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $
 	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
 	@if [ -d "$(DESTDIR)$(plugindir)/clnrest" ]; then rm -rf $(DESTDIR)$(plugindir)/clnrest; fi
 	@if [ -d "$(DESTDIR)$(plugindir)/wss-proxy" ]; then rm -rf $(DESTDIR)$(plugindir)/wss-proxy; fi
+	rm -f $(DESTDIR)$(bindir)/reckless $(DESTDIR)$(plugindir)/recklessrpc
 	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
 	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
 ifeq ($(OS),Darwin)
@@ -1022,6 +1017,7 @@ DOC_DATA = README.md LICENSE
 
 install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA)
 	@$(NORMAL_INSTALL)
+	rm -f $(DESTDIR)$(man1dir)/lightning-reckless.1
 	$(INSTALL_DATA) $(MAN1PAGES) $(DESTDIR)$(man1dir)
 	$(INSTALL_DATA) $(MAN5PAGES) $(DESTDIR)$(man5dir)
 	$(INSTALL_DATA) $(MAN7PAGES) $(DESTDIR)$(man7dir)
@@ -1225,6 +1221,6 @@ canned-gossmap: devtools/gossmap-compress
 
 print-binary-sizes: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(BIN_PROGRAMS)
 	@echo User programs:
-	@size -t $(PKGLIBEXEC_PROGRAMS) $(filter-out tools/reckless,$(BIN_PROGRAMS)) $(PLUGINS)
+	@size -t $(PKGLIBEXEC_PROGRAMS) $(BIN_PROGRAMS) $(PLUGINS)
 	@echo All programs:
 	@size -t $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) | tail -n1
