@@ -719,8 +719,12 @@ check-switch-default:
 check-comments:
 	@tools/check-comments.py $(BASE_REF)
 
+# The message of each commit since BASE_REF.
+check-commit-msgs:
+	@tools/check-commit-msgs.py $(BASE_REF)
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-switch-default check-comments
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-switch-default check-comments check-commit-msgs
 
 full-check: check check-source
 
