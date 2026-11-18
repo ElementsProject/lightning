@@ -129,6 +129,9 @@ main() {
 	mkdir -p "$logdir" || exit 1
 
 	orig=$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)
+	# A check may need to see what the rest of the branch does with a commit.
+	CHECK_COMMITS_TIP=$(git rev-parse HEAD) || exit 1
+	export CHECK_COMMITS_TIP
 	trap restore_head EXIT
 	trap 'exit 130' INT TERM
 
