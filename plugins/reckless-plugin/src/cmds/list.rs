@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use anyhow::anyhow;
 use cln_plugin::Plugin;
@@ -59,6 +59,27 @@ pub async fn handle_list_installed(
         listinstalled_results.push(li_res);
     }
 
+    let legacy = match legacy_installs(&plugin.state().reckless_dir).await {
+        Ok(l) => l,
+        Err(e) => {
+            logger.log(&e.to_string(), LogLevel::BROKEN).await?;
+            return Err(anyhow!(e.to_string()));
+        }
+    };
+    for plugin_name in legacy {
+        let dir = plugin.state().reckless_dir.join(&plugin_name);
+        let line = format!(
+            "{plugin_name} was installed by the old python reckless, which is no longer \
+            supported. Delete the directory {} and remove any line in {} that starts with \
+            `plugin={}/` or `disable-plugin={}/`.",
+            dir.display(),
+            plugin.state().reckless_conf.display(),
+            dir.display(),
+            dir.display(),
+        );
+        logger.log(&line, LogLevel::UNUSUAL).await?;
+    }
+
     let response = ListinstalledResponse::new(listinstalled_results, logger);
 
     Ok(json!(response))
@@ -85,5 +106,26 @@ pub async fn list_installed(
         }
     }
 
+    Ok(result)
+}
+
+async fn legacy_installs(reckless_dir: &Path) -> Result<Vec<String>, anyhow::Error> {
+    let mut result = Vec::new();
+    if !reckless_dir.exists() {
+        return Ok(result);
+    }
+    let mut entries = fs::read_dir(reckless_dir).await?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let Ok(file_type) = entry.file_type().await else {
+            continue;
+        };
+        if !file_type.is_dir() {
+            continue;
+        }
+        let path = entry.path();
+        if path.join(".metadata").is_file() && !path.join(".metadata.json").exists() {
+            result.push(entry.file_name().to_string_lossy().to_string());
+        }
+    }
     Ok(result)
 }

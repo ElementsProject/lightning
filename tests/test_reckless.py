@@ -725,6 +725,30 @@ def test_listinstalled(node_factory):
         r["listinstalled"][0]["original_source"]
         == "https://github.com/lightningd/plugins"
     )
+    assert not any("old python reckless" in line for line in r["log"])
+
+
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_listinstalled_legacy_warning(node_factory):
+    "listinstalled warns about installs made by the old python reckless"
+    node = node_factory.get_node(options={})
+
+    legacy_dir = Path(node.lightning_dir) / "reckless" / "oldplugin"
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / ".metadata").write_text(
+        "installation date\n2026-01-01\ninstallation time\n1\n"
+        "original source\nhttps://github.com/lightningd/plugins\n"
+        "requested commit\nNone\ninstalled commit\nNone\n"
+    )
+
+    r = node.rpc.call("reckless", ["listinstalled", "-v"])
+    assert len(r["listinstalled"]) == 0
+    assert any(
+        "oldplugin was installed by the old python reckless" in line
+        and f"Delete the directory {legacy_dir}" in line
+        and "`plugin=" in line
+        for line in r["log"]
+    )
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
