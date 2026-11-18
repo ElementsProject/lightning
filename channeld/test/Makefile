@@ -29,6 +29,7 @@ channeld/test/run-full_channel:			\
 	common/pseudorand.o			\
 	common/randbytes.o			\
 	common/setup.o				\
+	common/unicode_category.o		\
 	common/utils.o
 
 $(CHANNELD_TEST_OBJS): $(CHANNELD_HEADERS) $(CHANNELD_SRC) channeld/test/Makefile
