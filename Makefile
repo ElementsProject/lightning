@@ -479,6 +479,7 @@ BIN_PROGRAMS = \
 	       cli/lightning-cli \
 	       lightningd/lightningd \
 	       tools/lightning-hsmtool\
+	       tools/lightning-downgrade\
 	       tools/reckless
 PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
