@@ -711,8 +711,13 @@ check-grpc-breaking:
 	echo "Checking gRPC protos against $$tag"; \
 	$(BUF) breaking cln-grpc/proto --against ".git#tag=$$tag,subdir=cln-grpc/proto"
 
+# Only lines added since BASE_REF are checked (doc/Makefile sets the
+# default): see tools/added-lines.sh.
+check-switch-default:
+	@tools/check-switch-default.py $(BASE_REF)
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-switch-default
 
 full-check: check check-source
 

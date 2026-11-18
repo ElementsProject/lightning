@@ -1114,9 +1114,10 @@ static struct pubkey *extract_revocation_basepoint(const tal_t *ctx,
 	struct pubkey pubkey;
 
 	t = fromwire_u16(&cursor, &max);
+	assert(t == WIRE_OPEN_CHANNEL2 || t == WIRE_ACCEPT_CHANNEL2);
 
 	switch (t) {
- 	case WIRE_OPEN_CHANNEL2:
+	case WIRE_OPEN_CHANNEL2:
 		/* BOLT #2:
 		 * 1. type: 64 (`open_channel2`)
 		 * 2. data:
@@ -1148,7 +1149,7 @@ static struct pubkey *extract_revocation_basepoint(const tal_t *ctx,
 			     + sizeof(u32)
 			     + PUBKEY_CMPR_LEN);
 		break;
- 	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_ACCEPT_CHANNEL2:
 		/* BOLT #2:
 		 * 1. type: 65 (`accept_channel2`)
 		 * 2. data:
@@ -1174,7 +1175,56 @@ static struct pubkey *extract_revocation_basepoint(const tal_t *ctx,
 			     + sizeof(u16)
 			     + PUBKEY_CMPR_LEN);
 		break;
-	default:
+	case WIRE_WARNING:
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+	case WIRE_CHANNEL_READY:
+	case WIRE_SHUTDOWN:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
+	case WIRE_START_BATCH:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+	case WIRE_UPDATE_FEE:
+	case WIRE_UPDATE_BLOCKHEIGHT:
+	case WIRE_CHANNEL_REESTABLISH:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_PING:
+	case WIRE_PONG:
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_ONION_MESSAGE:
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_TX_SIGNATURES:
+	case WIRE_TX_INIT_RBF:
+	case WIRE_TX_ACK_RBF:
+	case WIRE_TX_ABORT:
+	case WIRE_PEER_STORAGE:
+	case WIRE_PEER_STORAGE_RETRIEVAL:
+	case WIRE_STFU:
+	case WIRE_SPLICE_INIT:
+	case WIRE_SPLICE_ACK:
+	case WIRE_SPLICE_LOCKED:
 		abort();
 	}
 
@@ -1194,8 +1244,9 @@ static bool extract_funding_created_funding(const u8 *funding_created,
 
 	t = fromwire_u16(&cursor, &max);
 
-	switch (t) {
- 	case WIRE_FUNDING_CREATED:
+	if (t != WIRE_FUNDING_CREATED)
+		abort();
+
 	/* BOLT #2:
 	 * 1. type: 34 (`funding_created`)
 	 * 2. data:
@@ -1203,13 +1254,9 @@ static bool extract_funding_created_funding(const u8 *funding_created,
 	 *     * [`sha256`:`funding_txid`]
 	 *     * [`u16`:`funding_output_index`]
 	 */
-		fromwire_pad(&cursor, &max, 32);
-		fromwire_bitcoin_txid(&cursor, &max, &outp->txid);
-		outp->n = fromwire_u16(&cursor, &max);
-		break;
-	default:
-		abort();
-	}
+	fromwire_pad(&cursor, &max, 32);
+	fromwire_bitcoin_txid(&cursor, &max, &outp->txid);
+	outp->n = fromwire_u16(&cursor, &max);
 
 	return cursor != NULL;
 }

@@ -463,12 +463,17 @@ static void inject_gossip(struct daemon *daemon, const u8 *msg)
 	u8 *goss;
 	const char *err;
 	struct amount_sat *known_amount;
+	enum peer_wire type;
 
 	if (!fromwire_gossipd_addgossip(msg, msg, &goss, &known_amount))
 		master_badmsg(WIRE_GOSSIPD_ADDGOSSIP, msg);
 
-	status_debug("inject_gossip: %s", peer_wire_name(fromwire_peektype(goss)));
-	switch (fromwire_peektype(goss)) {
+	type = fromwire_peektype(goss);
+	status_debug("inject_gossip: %s", peer_wire_name(type));
+
+	/* Any other message, including unknown types, gets this: */
+	err = tal_fmt(tmpctx, "unknown gossip type %i", type);
+	switch (type) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 		err = gossmap_manage_channel_announcement(tmpctx,
 							  daemon->gm,
@@ -488,9 +493,56 @@ static void inject_gossip(struct daemon *daemon, const u8 *msg)
 			status_debug("update %s gave error %s",
 				     tal_hex(tmpctx, goss), err);
 		break;
-	default:
-		err = tal_fmt(tmpctx, "unknown gossip type %i",
-			      fromwire_peektype(goss));
+	case WIRE_WARNING:
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+	case WIRE_CHANNEL_READY:
+	case WIRE_SHUTDOWN:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
+	case WIRE_START_BATCH:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+	case WIRE_UPDATE_FEE:
+	case WIRE_UPDATE_BLOCKHEIGHT:
+	case WIRE_CHANNEL_REESTABLISH:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+	case WIRE_PING:
+	case WIRE_PONG:
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_ONION_MESSAGE:
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_TX_SIGNATURES:
+	case WIRE_TX_INIT_RBF:
+	case WIRE_TX_ACK_RBF:
+	case WIRE_TX_ABORT:
+	case WIRE_PEER_STORAGE:
+	case WIRE_PEER_STORAGE_RETRIEVAL:
+	case WIRE_OPEN_CHANNEL2:
+	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_STFU:
+	case WIRE_SPLICE_INIT:
+	case WIRE_SPLICE_ACK:
+	case WIRE_SPLICE_LOCKED:
+		break;
 	}
 
 	/* FIXME: Make this an optional string in gossipd_addgossip_reply */

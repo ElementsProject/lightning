@@ -128,22 +128,26 @@ u8 *test_wire_sync_read(const tal_t *ctx, int fd)
 bool test_wire_sync_write(int fd, const void *msg TAKES)
 {
 	if (fd == REQ_FD) {
-		switch (fromwire_peektype(msg)) {
+		switch ((enum closingd_wire)fromwire_peektype(msg)) {
 		case WIRE_CLOSINGD_RECEIVED_SIGNATURE: {
 			struct bitcoin_signature sig;
 			struct bitcoin_tx *tx;
 			assert(fromwire_closingd_received_signature(tmpctx, msg, &sig, &tx));
 			bitcoin_txid(tx, &saved_txid);
-			break;
+			goto handled;
 		}
 		case WIRE_CLOSINGD_COMPLETE:
 			completed++;
-			break;
+			goto handled;
 		case WIRE_CLOSINGD_NOTIFICATION:
-			break;
-		default:
+			goto handled;
+		case WIRE_CLOSINGD_INIT:
+		case WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY:
 			abort();
 		}
+		/* A u16 can hold values outside enum closingd_wire. */
+		abort();
+	handled:;
 	} else
 		assert(fd == HSM_FD);
 	tal_free_if_taken(msg);
@@ -202,7 +206,7 @@ u8 *test_peer_read(const tal_t *ctx, struct per_peer_state *pps)
 		case UPPER_BOUND:
 			fee = offset(high_remote ? first_remote : last_local, false);
 			break;
-		default:
+		case AGREE:
 			abort();
 		}
 	}

@@ -236,15 +236,14 @@ static bool printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 	printf("[");
 	scids = decode_short_ids(tmpctx, arr);
 	if (scids) {
-		switch (arr[0]) {
+		/* decode_short_ids() returned non-NULL, so this is valid. */
+		switch ((enum arr_encode_types)arr[0]) {
 		case ARR_UNCOMPRESSED:
 			printf(" (UNCOMPRESSED)");
 			break;
 		case ARR_ZLIB_DEPRECATED:
 			printf(" (ZLIB)");
 			break;
-		default:
-			abort();
 		}
 		for (size_t i = 0; i < tal_count(scids); i++)
 			printf(" %s",

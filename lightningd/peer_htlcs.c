@@ -2854,6 +2854,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 			local_fail_in_htlc(hin, failmsgs[i]);
 			failtype = fromwire_peektype(failmsgs[i]);
 
+			/* Anything else, including unknown values, gets this: */
+			reason = FORWARD_FAIL_UNKNOWN;
 			switch (failtype) {
 			case WIRE_PERMANENT_CHANNEL_FAILURE:
 				reason = FORWARD_FAIL_CHANNEL_SHUTTING_DOWN;
@@ -2861,8 +2863,26 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 			case WIRE_INVALID_ONION_BLINDING:
 				reason = FORWARD_FAIL_INVALID_ONION;
 				break;
-			default:
-				reason = FORWARD_FAIL_UNKNOWN;
+			case WIRE_TEMPORARY_NODE_FAILURE:
+			case WIRE_PERMANENT_NODE_FAILURE:
+			case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+			case WIRE_INVALID_ONION_VERSION:
+			case WIRE_INVALID_ONION_HMAC:
+			case WIRE_INVALID_ONION_KEY:
+			case WIRE_TEMPORARY_CHANNEL_FAILURE:
+			case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+			case WIRE_UNKNOWN_NEXT_PEER:
+			case WIRE_AMOUNT_BELOW_MINIMUM:
+			case WIRE_FEE_INSUFFICIENT:
+			case WIRE_INCORRECT_CLTV_EXPIRY:
+			case WIRE_EXPIRY_TOO_SOON:
+			case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+			case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+			case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+			case WIRE_CHANNEL_DISABLED:
+			case WIRE_EXPIRY_TOO_FAR:
+			case WIRE_INVALID_ONION_PAYLOAD:
+			case WIRE_MPP_TIMEOUT:
 				break;
 			}
 		} else

@@ -926,7 +926,7 @@ int main(int argc, char *argv[])
 			       json_tok_full_len(result),
 			       json_tok_full(resp, result));
 			break;
-		default:
+		case DEFAULT_FORMAT:
 			abort();
 		}
 		tal_free(ctx);
