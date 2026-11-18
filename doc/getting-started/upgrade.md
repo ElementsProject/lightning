@@ -10,6 +10,6 @@ Upgrading your Core Lightning node is the same as installing it. So if you previ
 
 > 🚧 
 > 
-> Upgrades to Core Lightning often change the database: once this is done, downgrades are not generally possible. By default, Core Lightning will exit with an error rather than upgrade, unless this is an official released version. 
+> Upgrades to Core Lightning often change the database: once this is done, downgrades are not generally possible. The exception is [`lightning-downgrade`](ref:lightning-downgrade), which takes the database of a stopped node back to the previous release (v25.12 and later). By default, Core Lightning will exit with an error rather than upgrade, unless this is an official released version. 
 > 
 > If you really want to upgrade to a non-release version, you can set `database-upgrade=true` in your configuration file, or start `lightningd` with `--database-upgrade=true`(or set to false to never allow a non-reversible upgrade!)

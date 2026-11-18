@@ -27,6 +27,14 @@ fine with v25.09.1 or v25.09.2, etc.
 VERSIONS
 --------
 
+* *v26.12*: downgrades to v26.06.
+
+  Askrene impressions are removed from the stored layers, because v26.06 cannot read them.
+
+* *v26.06*: downgrades to v26.04.
+
+* *v26.04*: downgrades to v25.12.
+
 * *v25.12*: downgrades to v25.09.
 
   Downgrade is not possible if `withhold` `true` has been used with `fundchannel_complete`, or if `askrene-bias-node` has been used.
