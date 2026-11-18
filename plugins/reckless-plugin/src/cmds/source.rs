@@ -104,42 +104,45 @@ pub async fn handle_source_remove(
 
     let del_source = PluginOrigin::new(&target)?;
 
-    let Ok(mut file_handle) = OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open(&source_file)
-        .await
-    else {
-        let line = format!("failed to open sources file: {}", source_file.display());
-        logger.log(&line, LogLevel::BROKEN).await?;
-        return Err(anyhow!(line));
+    let Some(i) = sources.iter().position(|s| s == &del_source) else {
+        return Err(anyhow!("source {target} not found"));
     };
 
-    let mut remove_index = None;
-
-    for (i, source) in sources.iter().enumerate() {
-        if source == &del_source {
-            remove_index = Some(i);
-        } else if let Err(e) = file_handle
-            .write_all(format!("{source}\n").as_bytes())
-            .await
-        {
+    let contents = match fs::read_to_string(&source_file).await {
+        Ok(c) => c,
+        Err(e) => {
             logger.log(&e.to_string(), LogLevel::BROKEN).await?;
             return Err(anyhow!(e));
         }
+    };
+
+    let mut kept = Vec::new();
+    let mut removed = false;
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if !removed
+            && !trimmed.is_empty()
+            && !trimmed.starts_with('#')
+            && PluginOrigin::new(trimmed).is_ok_and(|o| o == del_source)
+        {
+            removed = true;
+            continue;
+        }
+        kept.push(line);
     }
 
-    if let Some(i) = remove_index {
-        sources.remove(i);
-        match remove_source(&plugin, &del_source, &mut logger).await {
-            Ok(res) => res,
-            Err(e) => {
-                logger.log(&e.to_string(), LogLevel::BROKEN).await?;
-                return Err(e);
-            }
+    if let Err(e) = fs::write(&source_file, format!("{}\n", kept.join("\n"))).await {
+        logger.log(&e.to_string(), LogLevel::BROKEN).await?;
+        return Err(anyhow!(e));
+    }
+
+    sources.remove(i);
+    match remove_source(&plugin, &del_source, &mut logger).await {
+        Ok(res) => res,
+        Err(e) => {
+            logger.log(&e.to_string(), LogLevel::BROKEN).await?;
+            return Err(e);
         }
-    } else {
-        return Err(anyhow!("source {target} not found"));
     }
 
     let response = SourcesResponse::new(sources, logger);

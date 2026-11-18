@@ -707,13 +707,15 @@ pub async fn read_sources_file(
     }
 
     let contents = fs::read_to_string(&source_file).await?;
-    let lines = contents.lines().collect::<Vec<&str>>();
 
     let mut sources: Vec<PluginOrigin> = Vec::new();
 
-    for line in &lines {
-        let origin = PluginOrigin::new(line)?;
-        sources.push(origin);
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        sources.push(PluginOrigin::new(line)?);
     }
 
     Ok((sources, source_file))

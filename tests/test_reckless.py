@@ -200,6 +200,43 @@ def test_sources(node_factory):
         assert f"{plugin_dir}/testplugpass" in contents
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_sources_blank_and_comment_lines(node_factory):
+    "blank and # lines in .sources are ignored and kept on remove"
+    n = node_factory.get_node(options={})
+    n.rpc.call("reckless", ["source", "-v", "list"])
+    reckless_dir = Path(n.lightning_dir) / "reckless"
+    plugin_dir = str(os.path.join(n.lightning_dir, "..", "lightningd"))
+    source = f"{plugin_dir}/testplugpass"
+
+    (reckless_dir / ".sources").write_text(
+        "# my sources\n"
+        "\n"
+        "https://github.com/lightningd/plugins\n"
+        "   \n"
+        f"{source}\n"
+        "# trailing comment\n"
+    )
+
+    r = n.rpc.call("reckless", ["source", "-v", "list"])
+    assert "https://github.com/lightningd/plugins" in r["sources"]
+    assert source in r["sources"]
+
+    with pytest.raises(RpcError, match="not found"):
+        n.rpc.call(
+            "reckless",
+            ["source", "-v", "remove", "https://example.com/missing"],
+        )
+    assert (reckless_dir / ".sources").read_text().startswith("# my sources\n\n")
+
+    n.rpc.call("reckless", ["source", "-v", "remove", source])
+    contents = (reckless_dir / ".sources").read_text()
+    assert source not in contents
+    assert "# my sources" in contents
+    assert "# trailing comment" in contents
+    assert "https://github.com/lightningd/plugins" in contents
+
+
 def test_list_partial_match(node_factory):
     """test that partial/substring listavailable returns matches"""
     n = node_factory.get_node(options={})
