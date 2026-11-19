@@ -45,6 +45,10 @@ void get_constraints(const struct route_query *rq,
 	for (size_t i = 0; i < tal_count(rq->layers); i++)
 		layer_apply_constraints(rq->layers[i], &scidd, min, max);
 
+	/* Impressions in the opposite direction can increase max, but liquidity
+	 * can never exceed the channel's actual capacity. */
+	*max = amount_msat_min(*max, gossmap_chan_get_capacity(rq->gossmap, chan));
+
 	/* Finally, if any is in use, subtract that! */
 	reserve_sub(rq->reserved, &scidd, rq->layers, min);
 	reserve_sub(rq->reserved, &scidd, rq->layers, max);

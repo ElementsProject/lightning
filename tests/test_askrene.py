@@ -9,6 +9,7 @@ from utils import (
 import os
 import pytest
 import random
+import re
 import subprocess
 import time
 import tempfile
@@ -941,8 +942,7 @@ def test_getroutes_single_path(node_factory):
 
     # To be able to route this amount two parts are needed, therefore a single
     # pay search will fail.
-    # FIXME: the explanation for the failure is wrong
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r"isn't big enough to carry 10000001msat"):
         l1.rpc.getroutes(
             source=nodemap[1],
             destination=nodemap[2],
@@ -974,8 +974,7 @@ def test_getroutes_single_path(node_factory):
 
     # To be able to route this amount two parts are needed, therefore a single
     # pay search will fail.
-    # FIXME: the explanation for the failure is wrong
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r"isn't big enough to carry 10000001msat"):
         l1.rpc.getroutes(
             source=nodemap[0],
             destination=nodemap[2],
@@ -1010,6 +1009,22 @@ def test_getroutes_single_path(node_factory):
         ],
         maxparts=1,
     )
+
+    # Even if an impression in the opposite direction attempts to inflate the
+    # liquidity bound, the channel cannot exceed its raw on-chain capacity.
+    l1.rpc.askrene_create_layer("imp_layer")
+    # Add an impression in the reverse direction 2->1 on channel 3x2x2
+    l1.rpc.askrene_inform_channel("imp_layer", "3x2x2/0", 10000000, "succeeded")
+    with pytest.raises(RpcError, match=r"isn't big enough to carry 10000001msat"):
+        l1.rpc.getroutes(
+            source=nodemap[1],
+            destination=nodemap[2],
+            amount_msat=10000001,
+            layers=["imp_layer"],
+            maxparts=1,
+            maxfee_msat=1000,
+            final_cltv=99,
+        )
 
 
 def test_getroutes_fee_fallback(node_factory):
@@ -3490,3 +3505,69 @@ def test_flow_fee_adjustment_fallback(node_factory, bitcoind):
     )
     msg = "Could not find routes with enough capacity, retrying without a flow_fee_adjustment"
     assert l1.daemon.is_in_log(msg, start=0)
+
+
+@pytest.mark.slow_test
+def test_single_part_setup_time(node_factory):
+    """getroutes with maxparts=1 on real gossip: time of the whole call
+    against the search time askrene logs for it (issue #9739)."""
+    src_node = (
+        '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'
+    )
+    node_key = f'--node-map=2134={src_node}'
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    nodeids = subprocess.check_output(
+        [
+            'devtools/gossmap-compress',
+            'decompress',
+            node_key,
+            'tests/data/gossip-store-2026-02-03.compressed',
+            outfile.name,
+        ]
+    ).decode('utf-8').splitlines()
+    l1 = node_factory.get_node(
+        allow_warning=True,
+        broken_log="Throttling (incoming|outgoing) peer",
+        gossip_store_file=outfile.name,
+        options={
+            'dev-throttle-gossip': None,
+            'askrene-timeout': 600,
+        },
+    )
+    for amount_sat in (10_000, 100_000, 500_000, 2_000_000):
+        times = {}
+        for maxparts in (None, 1):
+            l1.daemon.logs_catchup()
+            start = len(l1.daemon.logs)
+            args = dict(
+                source=src_node,
+                destination=nodeids[0],
+                amount_msat=amount_sat * 1000,
+                layers=['auto.sourcefree', 'auto.localchans'],
+                maxfee_msat=amount_sat * 10,
+                final_cltv=18,
+            )
+            if maxparts is not None:
+                args['maxparts'] = maxparts
+            t0 = time.time()
+            try:
+                l1.rpc.getroutes(**args)
+            except RpcError:
+                pass
+            times[maxparts] = time.time() - t0
+            l1.daemon.logs_catchup()
+            pattern = (
+                r'get_routes (?:failed after|completed in) (\d+) ms'
+            )
+            searches = [
+                int(m.group(1))
+                for line in l1.daemon.logs[start:]
+                for m in [re.search(pattern, line)]
+                if m
+            ]
+            assert len(searches) > 0
+            # Call time minus search time should be small (< 1s setup overhead)
+            assert times[maxparts] - (searches[-1] / 1000.0) < 1.0
+
+        # maxparts=1 setup time should not blow up quadratically compared to default
+        assert times[1] < times[None] * 5 + 1
