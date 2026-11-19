@@ -24,7 +24,7 @@ members = [
 ]
 
 [workspace.dependencies]
-cln-rpc = { path = "cln-rpc", version = "0.7.0" }
-cln-grpc = { path = "cln-grpc", version = "0.7.0" }
-cln-plugin = { path = "plugins", version = "0.7.0" }
+cln-rpc = { path = "cln-rpc", version = "0.8.0" }
+cln-grpc = { path = "cln-grpc", version = "0.8.0" }
+cln-plugin = { path = "plugins", version = "0.8.0" }
 lsps-types = { path = "lsps-types", version = "0.7.0" }
