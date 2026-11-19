@@ -1215,7 +1215,9 @@ static void init_linear_network_single_path(
 			if (amount_msat_less(params->amount,
 					     gossmap_chan_htlc_min(c, half)) ||
 			    amount_msat_greater(params->amount,
-						gossmap_chan_htlc_max(c, half)))
+						gossmap_chan_htlc_max(c, half)) ||
+			    amount_msat_greater(params->amount,
+						gossmap_chan_get_capacity(gossmap, c)))
 				continue;
 
 			get_constraints(params->rq, c, half, &mincap, &maxcap);

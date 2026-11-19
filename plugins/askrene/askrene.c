@@ -257,44 +257,6 @@ static struct layer *source_free_layer(const tal_t *ctx,
 	return layer;
 }
 
-/* We're going to abuse MCF, and take the largest flow it gives and ram everything
- * through it.  This is more effective if there's at least a *chance* that can handle
- * the full amount.
- *
- * It's far from perfect, but I have very little sympathy: if you want
- * to receive amounts reliably, enable MPP.
- */
-static struct layer *remove_small_channel_layer(const tal_t *ctx,
-						struct askrene *askrene,
-						struct amount_msat min_amount,
-						struct gossmap_localmods *localmods)
-{
-	/* We use the prefix auto. to avoid clashing */
-	struct layer *layer = new_temp_layer(ctx, askrene, "auto.remove_small_channels");
-	struct gossmap *gossmap = askrene->gossmap;
-	struct gossmap_chan *c;
-
-	/* We apply this so we see any created channels */
-	gossmap_apply_localmods(gossmap, localmods);
-
-	for (c = gossmap_first_chan(gossmap); c; c = gossmap_next_chan(gossmap, c)) {
-		struct short_channel_id_dir scidd;
-		if (amount_msat_greater_eq(gossmap_chan_get_capacity(gossmap, c),
-					   min_amount))
-			continue;
-
-		scidd.scid = gossmap_chan_scid(gossmap, c);
-		/* Layer will disable this in both directions */
-		for (scidd.dir = 0; scidd.dir < 2; scidd.dir++) {
-			const bool enabled = false;
-			layer_add_update_channel(layer, &scidd, &enabled,
-						 NULL, NULL, NULL, NULL, NULL);
-		}
-	}
-	gossmap_remove_localmods(gossmap, localmods);
-
-	return layer;
-}
 
 PRINTF_FMT(4, 5)
 static const char *cmd_log(const tal_t *ctx,
@@ -604,13 +566,9 @@ static struct command_result *do_getroutes(struct command *cmd,
 			      info->layers, info->local_layer, capacities);
 
 
-	/* no parallel payments means we can drop any smaller channels */
-	if (info->maxparts == 1) {
-		add_layer(&layers,
-			  remove_small_channel_layer(layers, askrene, info->amount, localmods),
-			  askrene->gossmap,
-			  localmods, capacities);
-	}
+	/* Note: For maxparts == 1, single-path routing (init_linear_network_single_path)
+	 * natively skips channels with insufficient capacity in O(1) time without
+	 * building an artificial disabling layer (see issue #9739). */
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
