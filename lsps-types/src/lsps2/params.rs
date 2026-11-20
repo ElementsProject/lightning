@@ -192,10 +192,9 @@ impl OpeningFeeParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone, Utc};
 
     fn datetime(year: i32) -> DateTime {
-        Utc.with_ymd_and_hms(year, 1, 1, 0, 0, 0).unwrap().into()
+        format!("{year:04}-01-01T00:00:00Z").parse().unwrap()
     }
 
     fn now() -> DateTime {

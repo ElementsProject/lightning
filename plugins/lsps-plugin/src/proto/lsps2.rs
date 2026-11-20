@@ -76,7 +76,7 @@ impl PolicyOpeningFeeParams {
         let mut hmac = HmacEngine::<sha256::Hash>::new(secret);
         hmac.input(&self.min_fee_msat.msat().to_be_bytes());
         hmac.input(&self.proportional.ppm().to_be_bytes());
-        hmac.input(self.valid_until.as_chrono().to_rfc3339().as_bytes());
+        hmac.input(self.valid_until.to_rfc3339().as_bytes());
         hmac.input(&self.min_lifetime.to_be_bytes());
         hmac.input(&self.max_client_to_self_delay.to_be_bytes());
         hmac.input(&self.min_payment_size_msat.msat().to_be_bytes());
@@ -93,7 +93,8 @@ impl PolicyOpeningFeeParams {
         // Rebuild valid_until so it is sent in the LSPS0 datetime format,
         // and compute the promise over exactly the value the client echoes.
         let policy = PolicyOpeningFeeParams {
-            valid_until: self.valid_until.as_chrono().into(),
+            valid_until: DateTime::from_unix_millis(self.valid_until.unix_millis())
+                .expect("a datetime's milliseconds are in range"),
             ..self.clone()
         };
         let promise =
@@ -141,7 +142,7 @@ pub struct DatastoreEntry {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Duration, Utc};
+    use std::time::Duration;
 
     use super::*;
 
@@ -151,7 +152,9 @@ mod tests {
         PolicyOpeningFeeParams {
             min_fee_msat: Msat::from_msat(1000),
             proportional: Ppm::from_ppm(1000),
-            valid_until: (Utc::now() + Duration::hours(1)).into(),
+            valid_until: DateTime::now()
+                .checked_add(Duration::from_secs(3600))
+                .unwrap(),
             min_lifetime: 144,
             max_client_to_self_delay: 2016,
             min_payment_size_msat: Msat::from_msat(1000),
@@ -213,13 +216,14 @@ mod tests {
     // The promise is the lowercase hex of
     //
     //   HMAC-SHA256(secret, min_fee_msat u64 ‖ proportional u32
-    //                       ‖ valid_until as chrono's to_rfc3339()
+    //                       ‖ valid_until as DateTime::to_rfc3339()
     //                       ‖ min_lifetime u32 ‖ max_client_to_self_delay u32
     //                       ‖ min_payment_size_msat u64
     //                       ‖ max_payment_size_msat u64)
     //
-    // with the integers big-endian. This is not the LSPS0 wire format:
-    // to_rfc3339() writes the instant in UTC with a "+00:00" offset and
+    // with the integers big-endian. This is not the LSPS0 wire format but
+    // the format of chrono's to_rfc3339(), which this plugin used before:
+    // the instant in UTC with a "+00:00" offset and
     // fractional digits only if they're not zero, so a promise issued at
     // millisecond precision covers "2026-11-05T12:00:00+00:00" or
     // "2026-11-05T12:00:00.123+00:00".
