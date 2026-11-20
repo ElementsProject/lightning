@@ -313,8 +313,8 @@ fn select_opening_fee_params(
     now: chrono::DateTime<Utc>,
     expiry: Option<u64>,
 ) -> Option<&OpeningFeeParams> {
+    let fut_now = now + Duration::seconds(expiry.unwrap_or(60) as i64);
     menu.iter().find(|params| {
-        let fut_now = now + Duration::seconds(expiry.unwrap_or(60) as i64);
         if params.valid_until.as_chrono() <= fut_now {
             warn!("Ignoring expired fee params from LSP {:?}", params);
             return false;
