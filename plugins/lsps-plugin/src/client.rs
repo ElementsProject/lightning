@@ -303,16 +303,18 @@ async fn on_lsps_lsps2_approve(
 /// Selects the opening fee parameters to buy a JIT channel with.
 ///
 /// Simple strategy for now: choose the first usable option as LSPS2 requires
-/// the menu to be ordered by increasing fees. Could be more sophisticated
-/// (e.g., user choice). An option is unusable if it expires within a minute
+/// the menu to be ordered by increasing fees. Optionally, can take into account
+/// desired expiry of invoice. Could be more sophisticated (e.g., user choice).
+/// An option is unusable if it expires within a minute
 /// (extra time for network delay) or if its `min_payment_size_msat` is
 /// above its `max_payment_size_msat`, so no payment size fits.
 fn select_opening_fee_params(
     menu: &[OpeningFeeParams],
     now: chrono::DateTime<Utc>,
+    expiry: Option<u64>,
 ) -> Option<&OpeningFeeParams> {
     menu.iter().find(|params| {
-        let fut_now = now + Duration::minutes(1);
+        let fut_now = now + Duration::seconds(expiry.unwrap_or(60) as i64);
         if params.valid_until.as_chrono() <= fut_now {
             warn!("Ignoring expired fee params from LSP {:?}", params);
             return false;
@@ -353,6 +355,7 @@ async fn on_lsps_lsps2_invoice(
         pub amount_msat: cln_rpc::primitives::AmountOrAny,
         pub description: String,
         pub label: String,
+        pub expiry: Option<u64>,
     }
 
     let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
@@ -375,14 +378,15 @@ async fn on_lsps_lsps2_invoice(
         .await?;
 
     // 2. Select Fee Parameters.
-    let selected_params = select_opening_fee_params(&info_res.opening_fee_params_menu, Utc::now())
-        .cloned() // Clone the selected params
-        .ok_or_else(|| {
-            anyhow!(
-                "No valid/unexpired fee parameters offered by LSP {}",
-                req.lsp_id
-            )
-        })?;
+    let selected_params =
+        select_opening_fee_params(&info_res.opening_fee_params_menu, Utc::now(), req.expiry)
+            .cloned() // Clone the selected params
+            .ok_or_else(|| {
+                anyhow!(
+                    "No valid/unexpired fee parameters offered by LSP {}",
+                    req.lsp_id
+                )
+            })?;
 
     info!("Selected fee parameters: {:?}", selected_params);
 
@@ -967,21 +971,21 @@ mod tests {
     #[test]
     fn select_skips_params_with_min_above_max() {
         let menu = vec![params(2_000, 1_000, "inverted"), params(1_000, 2_000, "ok")];
-        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        let selected = select_opening_fee_params(&menu, now(), None).unwrap();
         assert_eq!(selected.promise.as_str(), "ok");
     }
 
     #[test]
     fn select_accepts_min_equal_max() {
         let menu = vec![params(1_000, 1_000, "equal")];
-        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        let selected = select_opening_fee_params(&menu, now(), None).unwrap();
         assert_eq!(selected.promise.as_str(), "equal");
     }
 
     #[test]
     fn select_fails_if_all_params_have_min_above_max() {
         let menu = vec![params(2_000, 1_000, "a"), params(5_000, 4_999, "b")];
-        assert!(select_opening_fee_params(&menu, now()).is_none());
+        assert!(select_opening_fee_params(&menu, now(), None).is_none());
     }
 
     #[test]
@@ -989,7 +993,7 @@ mod tests {
         let mut soon = params(1_000, 2_000, "soon");
         soon.valid_until = (now() + Duration::seconds(60)).into();
         let menu = vec![soon, params(1_000, 2_000, "later")];
-        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        let selected = select_opening_fee_params(&menu, now(), None).unwrap();
         assert_eq!(selected.promise.as_str(), "later");
     }
 
@@ -999,7 +1003,73 @@ mod tests {
             params(1_000, 2_000, "first"),
             params(1_000, 2_000, "second"),
         ];
-        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        let selected = select_opening_fee_params(&menu, now(), None).unwrap();
         assert_eq!(selected.promise.as_str(), "first");
+    }
+
+    fn params_with_valid_until(
+        min_payment_size: u64,
+        max_payment_size: u64,
+        promise: &str,
+        valid_until: lsps_types::lsps0::DateTime,
+    ) -> OpeningFeeParams {
+        OpeningFeeParams {
+            min_fee_msat: Msat::from_msat(1_000),
+            proportional: Ppm::from_ppm(1_000),
+            valid_until,
+            min_lifetime: 144,
+            max_client_to_self_delay: 2016,
+            min_payment_size_msat: Msat::from_msat(min_payment_size),
+            max_payment_size_msat: Msat::from_msat(max_payment_size),
+            promise: Promise::try_from(promise).unwrap(),
+        }
+    }
+
+    #[test]
+    fn select_takes_the_first_usable_params_with_expiry() {
+        let now = now();
+
+        let menu = vec![
+            params_with_valid_until(
+                1_000,
+                2_000,
+                "first",
+                (now + Duration::seconds(60 * 60)).into(),
+            ),
+            params_with_valid_until(
+                1_000,
+                2_000,
+                "second",
+                (now + Duration::seconds(60 * 60 * 5)).into(),
+            ),
+            params_with_valid_until(
+                1_000,
+                2_000,
+                "third",
+                (now + Duration::seconds(60 * 60 * 10)).into(),
+            ),
+            params_with_valid_until(
+                1_000,
+                2_000,
+                "fourth",
+                (now + Duration::seconds(60 * 60 * 7)).into(),
+            ),
+        ];
+
+        // no expiry - select the first one
+        let selected = select_opening_fee_params(&menu, now, None).unwrap();
+        assert_eq!(selected.promise.as_str(), "first");
+
+        // expiry non inclusion
+        let selected = select_opening_fee_params(&menu, now, Some(60 * 60 * 5)).unwrap();
+        assert_eq!(selected.promise.as_str(), "third");
+
+        // first valid more than 4h
+        let selected = select_opening_fee_params(&menu, now, Some(60 * 60 * 4)).unwrap();
+        assert_eq!(selected.promise.as_str(), "second");
+
+        // first valid more than 6 hours
+        let selected = select_opening_fee_params(&menu, now, Some(60 * 60 * 6)).unwrap();
+        assert_eq!(selected.promise.as_str(), "third");
     }
 }
