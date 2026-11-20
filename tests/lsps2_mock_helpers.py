@@ -1,5 +1,6 @@
 """Helpers for tests against the mock LSPS2 service (plugins/lsps2_mock.py)."""
 
+from pyln.client import RpcError
 from utils import only_one, wait_for
 import json
 import os
@@ -110,3 +111,52 @@ def lsps2_mock_pay_var_invoice(l1, l2, l3, amt, label="lsp-jit-channel-0"):
         bolt11=inv["bolt11"],
     )
     return l3.rpc.waitsendpay(dec["payment_hash"])
+
+
+def lsps2_mock_configure(lsp, **config):
+    """Replace the config of the mock on `lsp`, one keyword per phase."""
+    lsp.rpc.call("lsps2-mock-configure", {"config": config})
+
+
+def lsps2_mock_pay_parts(l1, l2, l3, inv, part_amounts, scid=None, cltv_delta=144):
+    """l3 pays `inv` (as returned by l1's invoice commands) to l1 through
+    l2, in one part per amount in `part_amounts`, over the invoice's single
+    route hint or over `scid` with `cltv_delta`.
+
+    Returns per part the result of waitsendpay or the RpcError it raised."""
+    dec = l3.rpc.decode(inv["bolt11"])
+    if scid is None:
+        routehint = only_one(only_one(dec["routes"]))
+        scid = routehint["short_channel_id"]
+        cltv_delta = routehint["cltv_expiry_delta"]
+    chanid = only_one(l3.rpc.listpeerchannels(l2.info["id"])["channels"])[
+        "short_channel_id"
+    ]
+    for partid, amt in enumerate(part_amounts, start=1):
+        route = [
+            {
+                "amount_msat": amt,
+                "id": l2.info["id"],
+                "delay": cltv_delta + 6,
+                "channel": chanid,
+            },
+            {"amount_msat": amt, "id": l1.info["id"], "delay": 6, "channel": scid},
+        ]
+        l3.rpc.sendpay(
+            route,
+            dec["payment_hash"],
+            payment_secret=inv["payment_secret"],
+            bolt11=inv["bolt11"],
+            amount_msat=sum(part_amounts),
+            groupid=1,
+            partid=partid,
+        )
+    results = []
+    for partid in range(1, len(part_amounts) + 1):
+        try:
+            results.append(
+                l3.rpc.waitsendpay(dec["payment_hash"], partid=partid, groupid=1)
+            )
+        except RpcError as e:
+            results.append(e)
+    return results
