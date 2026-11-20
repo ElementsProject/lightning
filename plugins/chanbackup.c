@@ -11,6 +11,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/mkdatastorekey.h>
+#include <common/pseudorand.h>
 #include <common/scb_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -565,16 +566,6 @@ static struct command_result *after_send_scb_single_fail(struct command *cmd,
 	return notification_or_hook_done(cmd);
 }
 
-static bool already_have_node_id(const struct node_id *ids,
-				 const struct node_id *id)
-{
-	for (size_t i = 0; i < tal_count(ids); i++)
-		if (node_id_eq(&ids[i], id))
-			return true;
-
-	return false;
-}
-
 static const struct node_id *random_peers(const tal_t *ctx,
 					  const struct chanbackup *cb)
 {
@@ -582,20 +573,14 @@ static const struct node_id *random_peers(const tal_t *ctx,
 	const struct node_id *peer;
 	struct node_id *ids = tal_arr(ctx, struct node_id, 0);
 
-	/* Simple case: pick all of them */
-	if (peer_map_count(cb->peers) <= NUM_BACKUP_PEERS) {
-		for (peer = peer_map_first(cb->peers, &it);
-		     peer;
-		     peer = peer_map_next(cb->peers, &it)) {
-			tal_arr_expand(&ids, *peer);
-		}
-	} else {
-		while (peer_map_count(cb->peers) < NUM_BACKUP_PEERS) {
-			peer = peer_map_pick(cb->peers, pseudorand_u64(), &it);
-			if (already_have_node_id(ids, peer))
-				continue;
-			tal_arr_expand(&ids, *peer);
-		}
+	/* Collect all, shuffle, keep the first NUM_BACKUP_PEERS */
+	for (peer = peer_map_first(cb->peers, &it);
+	     peer;
+	     peer = peer_map_next(cb->peers, &it))
+		tal_arr_expand(&ids, *peer);
+	if (tal_count(ids) > NUM_BACKUP_PEERS) {
+		tal_arr_randomize(ids, struct node_id);
+		tal_resize(&ids, NUM_BACKUP_PEERS);
 	}
 	return ids;
 }
