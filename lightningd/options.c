@@ -64,15 +64,24 @@ static char *opt_set_u64(const char *arg, u64 *u)
 	return NULL;
 }
 
-static char *opt_set_u64_dynamic(const char *arg, u64 *u)
+/* channel_config() converts this to msat: refuse values which would
+ * overflow (including "-1", which strtoull happily wraps). */
+static char *opt_set_min_capacity_sat(const char *arg, u64 *u)
 {
-	u64 ignored;
+	u64 val;
+	struct amount_msat msat;
+	char *err;
+
+	err = opt_set_u64(arg, &val);
+	if (err)
+		return err;
+	if (!amount_sat_to_msat(&msat, amount_sat(val)))
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 
 	/* In case we're called for arg checking only */
-	if (!u)
-		u = &ignored;
-
-	return opt_set_u64(arg, u);
+	if (u)
+		*u = val;
+	return NULL;
 }
 
 static char *opt_set_u32(const char *arg, u32 *u)
@@ -1619,7 +1628,7 @@ static void register_opts(struct lightningd *ld)
 		       opt_show_msat, &ld->config.max_dust_htlc_exposure_msat,
 		       "Max HTLC amount that can be trimmed");
 	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT|OPT_DYNAMIC,
-		       opt_set_u64_dynamic, opt_show_u64,
+		       opt_set_min_capacity_sat, opt_show_u64,
 		       &ld->config.min_capacity_sat,
 		       "Minimum capacity in satoshis for accepting channels");
 	clnopt_witharg("--addr", OPT_MULTI, opt_add_addr, NULL,
