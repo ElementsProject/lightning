@@ -4415,6 +4415,14 @@ def test_feerate_arg(node_factory):
         assert abs(l1.rpc.parsefeerate(f"{block}blocks")['perkw'] - fee) <= 1
 
 
+def test_parsefeerate_named_param(node_factory):
+    """The parameter is called `feerate` (multifundchannel passes it that
+    way), so the schema should accept it by name too."""
+    l1 = node_factory.get_node()
+
+    assert l1.rpc.call('parsefeerate', {'feerate': '9999perkw'}) == {'perkw': 9999}
+
+
 @pytest.mark.skip(reason="Fails by intention for creating test gossip stores")
 def test_create_gossip_mesh(node_factory, bitcoind):
     """
