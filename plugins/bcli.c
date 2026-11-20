@@ -13,7 +13,9 @@
 #include <plugins/libplugin.h>
 #include <unistd.h>
 
-/* Bitcoin Core RPC error code for duplicate transaction */
+/* Bitcoin Core RPC error code for a transaction already in the chain (its
+ * outputs are in the UTXO set).  bitcoin-cli exits with the absolute value
+ * of the error code. */
 #define RPC_TRANSACTION_ALREADY_IN_CHAIN -27
 
 /* Hex-encoded SHA256 block hash length (32 bytes = 64 hex chars) */
@@ -669,7 +671,7 @@ static struct command_result *sendrawtransaction(struct command *cmd,
 	response = jsonrpc_stream_success(cmd);
 	json_add_bool(response, "success",
 		      res->exitstatus == 0 ||
-			  res->exitstatus == RPC_TRANSACTION_ALREADY_IN_CHAIN);
+			  res->exitstatus == -RPC_TRANSACTION_ALREADY_IN_CHAIN);
 	json_add_string(response, "errmsg",
 			res->exitstatus ?
 			tal_strndup(cmd, res->output, res->output_len)
