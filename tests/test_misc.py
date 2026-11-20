@@ -4835,6 +4835,35 @@ def test_setconfig_access(node_factory, bitcoind):
     os.chmod(includedir, 0o700)
 
 
+def test_setconfig_access_explicit_conf(node_factory):
+    """With an explicit --conf in a directory we can't write, every setconfig
+    fails, not just the first: failing it used to free the --conf filename,
+    and the next setconfig crashed."""
+    l1 = node_factory.get_node(start=False)
+    confdir = os.path.join(l1.daemon.opts.get("lightning-dir"), "etc")
+    os.mkdir(confdir)
+    conffile = os.path.join(confdir, "config")
+    with open(conffile, 'w'):
+        pass
+    l1.daemon.opts['conf'] = conffile
+    l1.start()
+
+    os.chmod(confdir, 0o550)
+    try:
+        for val in (20000, 30000):
+            # check goes through the same writability test.
+            with pytest.raises(RpcError, match=f'Cannot write to config file {conffile}'):
+                l1.rpc.check("setconfig", config="min-capacity-sat", val=val)
+            with pytest.raises(RpcError, match=f'Cannot write to config file {conffile}'):
+                l1.rpc.setconfig(config="min-capacity-sat", val=val)
+
+        # The node is still running.
+        l1.rpc.getinfo()
+    finally:
+        # Don't break pytest cleanup!
+        os.chmod(confdir, 0o750)
+
+
 def test_setconfig_changed(node_factory, bitcoind):
     """Test that we correctly fail (not crash) if config file changed"""
     l1 = node_factory.get_node(start=False)
