@@ -37,11 +37,7 @@ fn scid() -> impl Strategy<Value = ShortChannelId> {
 
 /// Millisecond precision from 1970 to 9999, as LSPS0.datetime can express.
 fn datetime() -> impl Strategy<Value = DateTime> {
-    (0i64..=253_402_300_799_999).prop_map(|ms| {
-        chrono::DateTime::from_timestamp_millis(ms)
-            .expect("in range")
-            .into()
-    })
+    (0i64..=253_402_300_799_999).prop_map(|ms| DateTime::from_unix_millis(ms).expect("in range"))
 }
 
 /// Printable ASCII without '"' and '\', at most 512 bytes.

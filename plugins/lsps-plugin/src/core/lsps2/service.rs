@@ -9,10 +9,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
-use chrono::Utc;
 use lsps_types::{
     jsonrpc::{RpcError, RpcErrorExt as _},
-    lsps0::{LSPS0RpcErrorExt as _, ShortChannelId},
+    lsps0::{DateTime, LSPS0RpcErrorExt as _, ShortChannelId},
     lsps2::{
         Error, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
         OpeningFeeParams,
@@ -109,7 +108,7 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2OfferProvider + 'static> 
             return Err(Error::InvalidOpeningFeeParams.into());
         }
         fee_params
-            .validate(&Utc::now().into(), request.payment_size_msat)
+            .validate(&DateTime::now(), request.payment_size_msat)
             .map_err(Error::from)?;
 
         // Generate a tmp scid to identify jit channel request in htlc.
@@ -152,7 +151,6 @@ mod tests {
         Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoResponse, PolicyOpeningFeeParams,
     };
     use anyhow::{Result as AnyResult, anyhow};
-    use chrono::{TimeZone, Utc};
     use lsps_types::lsps0::{Msat, Ppm};
     use lsps_types::lsps2::{OpeningFeeParams, Promise};
     use std::sync::{Arc, Mutex};
@@ -171,7 +169,7 @@ mod tests {
         PolicyOpeningFeeParams {
             min_fee_msat: Msat(2_000),
             proportional: Ppm(10_000),
-            valid_until: Utc.with_ymd_and_hms(2100, 1, 1, 0, 0, 0).unwrap().into(),
+            valid_until: "2100-01-01T00:00:00Z".parse().unwrap(),
             min_lifetime: 1000,
             max_client_to_self_delay: 2016,
             min_payment_size_msat: Msat(1_000_000),
@@ -185,7 +183,7 @@ mod tests {
 
     fn expired_opening_fee_params(secret: &[u8; 32]) -> OpeningFeeParams {
         let mut policy = test_policy_params();
-        policy.valid_until = Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap().into();
+        policy.valid_until = "2000-01-01T00:00:00Z".parse().unwrap();
         policy.with_promise(secret)
     }
 
