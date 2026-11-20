@@ -507,29 +507,40 @@ const char *json_scan(const tal_t *ctx,
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 			    uint64_t *satoshi)
 {
-	char *end;
-	unsigned long btc, sat;
+	const char *start = buffer + tok->start;
+	size_t len = tok->end - tok->start;
+	const char *dot = memchr(start, '.', len);
+	u64 btc, sat = 0;
+	u64 btc_sats;
 
-	errno = 0;
-	btc = strtoul(buffer + tok->start, &end, 10);
-	if (btc == ULONG_MAX && errno == ERANGE)
+	/* Validate and parse decimal fractional part (satoshis). */
+	if (dot) {
+		size_t frac_len = (start + len) - (dot + 1);
+
+		/* Expect exactly 8 decimal places. */
+		if (frac_len != 8)
+			return false;
+
+		if (!str_to_u64(dot + 1, 8, &sat))
+			return false;
+
+		len = dot - start;
+	}
+
+	/* Validate and parse integer part (BTC). */
+	if (!str_to_u64(start, len, &btc))
 		return false;
-	if (end != buffer + tok->end) {
-		/* Expect always 8 decimal places. */
-		if (*end != '.' || buffer + tok->end - end != 9)
-			return false;
-		sat = strtoul(end+1, &end, 10);
-		if (sat == ULONG_MAX && errno == ERANGE)
-			return false;
-		if (end != buffer + tok->end)
-			return false;
-	} else
-		sat = 0;
 
-	*satoshi = btc * (uint64_t)100000000 + sat;
-	if (*satoshi != btc * (uint64_t)100000000 + sat)
+	/* Check for overflow when converting BTC to satoshis. */
+	if (mul_overflows_u64(btc, 100000000))
+		return false;
+	btc_sats = btc * 100000000;
+
+	/* Check for overflow when adding fractional satoshis. */
+	if (add_overflows_u64(btc_sats, sat))
 		return false;
 
+	*satoshi = btc_sats + sat;
 	return true;
 }
 
