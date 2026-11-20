@@ -7,6 +7,7 @@
 #include <common/channel_id.h>
 #include <common/channel_type.h>
 #include <common/derive_basepoints.h>
+#include <common/funding_tx_status.h>
 #include <common/scb_wiregen.h>
 #include <common/tx_roles.h>
 #include <common/utils.h>
@@ -63,7 +64,7 @@ struct channel_inflight {
 	u32 funding_tx_index;
 	struct wally_psbt *funding_psbt;
 	bool remote_tx_sigs;
-	bool tx_broadcast;
+	enum funding_tx_status funding_tx_status;
 
 	/* Commitment tx and sigs */
 	struct bitcoin_tx *last_tx;
@@ -212,6 +213,10 @@ struct channel {
 	 * attempts), incrementing by 1 for each splice. */
 	u32 funding_tx_index;
 	struct amount_sat funding_sats;
+
+	/* have we (or our peer, for a zero-conf channel we didnt fund)
+	 * ever observed the funding transaction broadcast/confirmed? */
+	enum funding_tx_status funding_tx_status;
 
 	/* Watch we have on funding output. */
 	struct txowatch *funding_spend_watch;
@@ -464,7 +469,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_stats *stats,
 			    struct channel_state_change **state_changes STEALS,
 			    const struct wally_psbt *funding_psbt STEALS,
-			    bool withheld);
+			    bool withheld,
+			    enum funding_tx_status funding_tx_status);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,
@@ -526,6 +532,13 @@ void channel_add_old_scid(struct channel *channel,
 
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);
+
+/* With zeroconf-require-funding-seen: is this a zero-conf channel which
+ * the peer funded, whose funding tx we have never seen (mempool or block)?
+ * We still exchange channel_ready and accept HTLCs on it (JIT channels
+ * need that, as the funder only broadcasts once paid), but we don't
+ * offer HTLCs over it ourselves until we've seen the funding tx. */
+bool channel_zeroconf_funding_unseen(const struct channel *channel);
 
 /* Can this channel send an HTLC? */
 static inline bool channel_state_can_add_htlc(enum channel_state state)

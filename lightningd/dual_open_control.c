@@ -2007,8 +2007,9 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 	 * received, but that's no reason not to broadcast.
 	 * Note this only happens if we're the only input-er */
 	if (psbt_finalize(inflight->funding_psbt) &&
-	    !inflight->tx_broadcast) {
-		inflight->tx_broadcast = true;
+	    inflight->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN) {
+		inflight->funding_tx_status = FUNDING_TX_STATUS_MEMPOOL;
+		channel->funding_tx_status = FUNDING_TX_STATUS_MEMPOOL;
 
 		wtx = psbt_final_tx(tmpctx, inflight->funding_psbt);
 		if (!wtx) {
@@ -2048,8 +2049,8 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 			return;
 		}
 
-		/* Saves the now finalized version of the psbt */
 		wallet_inflight_save(dualopend->ld->wallet, inflight);
+		wallet_channel_save(dualopend->ld->wallet, channel);
 		send_funding_tx(channel, take(wtx));
 
 		/* Must be in an "init" state */
@@ -2414,11 +2415,12 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	 * but we should be sending it soon... */
 	if (psbt_finalize(cast_const(struct wally_psbt *,
 			  inflight->funding_psbt))
-	    && !inflight->tx_broadcast) {
-		inflight->tx_broadcast = true;
+	    && inflight->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN) {
+		inflight->funding_tx_status = FUNDING_TX_STATUS_MEMPOOL;
+		channel->funding_tx_status = FUNDING_TX_STATUS_MEMPOOL;
 
-		/* Saves the now finalized version of the psbt */
 		wallet_inflight_save(ld->wallet, inflight);
+		wallet_channel_save(ld->wallet, channel);
 		wtx = psbt_final_tx(tmpctx, inflight->funding_psbt);
 		if (!wtx) {
 			channel_internal_error(channel,

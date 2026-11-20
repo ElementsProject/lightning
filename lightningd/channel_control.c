@@ -1815,7 +1815,6 @@ bool peer_start_channeld(struct channel *channel,
 	bool ignore_fee_limits;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
-	struct bitcoin_txid txid;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -2055,14 +2054,16 @@ bool peer_start_channeld(struct channel *channel,
 	if (!reconnected)
 		channel_gossip_channel_reestablished(channel, false);
 
-	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
-	memset(&txid, 0, sizeof(txid));
-
-	/* Artificial confirmation event for zeroconf */
+	/* Artificial confirmation event for zeroconf.  We always exchange
+	 * channel_ready, even with zeroconf-require-funding-seen: a JIT
+	 * channel's funder only broadcasts once the HTLC over it is accepted,
+	 * so holding back channel_ready would deadlock.  Instead, we don't
+	 * *offer* HTLCs over it until we've seen the funding tx (see
+	 * channel_zeroconf_funding_unseen()). */
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_funding_depth(
 			   NULL, channel->scid, 0, false,
-			   &txid)));
+			   &channel->funding.txid)));
 	return true;
 }
 

@@ -3686,6 +3686,71 @@ def test_opening_incoming_unknown_feerates(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100000)
 
 
+def test_zeroconf_require_funding_seen(node_factory, bitcoind):
+    """With zeroconf-require-funding-seen, we still exchange channel_ready
+    and accept HTLCs over a zero-conf channel our peer funded (JIT channels
+    rely on that), but don't offer HTLCs over it ourselves until our own
+    bitcoind has seen its funding tx"""
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+
+    # l1 is the funder (think LSP), l2 the fundee, l3 pays via l2
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'zeroconf-require-funding-seen': True},
+                                                 {'plugin': str(plugin_path),
+                                                  'zeroconf_allow': 'any',
+                                                  'zeroconf-require-funding-seen': True},
+                                                 {}])
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid32, _ = l3.fundchannel(l2, 10**6)
+    bitcoind.generate_block(5)
+    wait_for(lambda: l3.channel_state(l2) == 'CHANNELD_NORMAL')
+
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+    amount = 1000000
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], f"{amount}sat", mindepth=0)['funding_address']
+    psbt = l1.rpc.fundpsbt(amount, "1000perkw", 1000, excess_as_change=True)['psbt']
+    psbt = l1.rpc.addpsbtoutput(amount, psbt, destination=funding_addr)['psbt']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], psbt, withhold=True)['commitments_secured']
+
+    # The funding tx is withheld, but both sides lock in anyway
+    wait_for(lambda: l1.channel_state(l2) == 'CHANNELD_NORMAL')
+    wait_for(lambda: l2.channel_state(l1) == 'CHANNELD_NORMAL')
+    wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['updates'])
+    wait_for(lambda: 'remote' in only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['updates'])
+    assert bitcoind.rpc.getrawmempool() == []
+
+    # The funder isn't blocked (it controls the broadcast), and the fundee
+    # accepts the incoming HTLC: this is what a JIT channel needs.
+    l1.rpc.xpay(l2.rpc.invoice(100_000_000, "jit", "desc")['bolt11'])
+    assert bitcoind.rpc.getrawmempool() == []
+
+    # But l2 won't offer HTLCs over it, neither its own payments...
+    alias21 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['alias']['local']
+    inv = l1.rpc.invoice(10000, "l2pays", "desc")
+    route = [{'amount_msat': 10000, 'id': l1.info['id'], 'delay': 6, 'channel': alias21}]
+    with pytest.raises(RpcError):
+        l2.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+        l2.rpc.waitsendpay(inv['payment_hash'])
+    l2.daemon.wait_for_log('Attempt to send HTLC but funding tx .* not yet seen')
+
+    # ...nor forwards.
+    inv = l1.rpc.invoice(10000, "l3pays", "desc")
+    route = [{'amount_msat': 10001, 'id': l2.info['id'], 'delay': 12, 'channel': scid32},
+             {'amount_msat': 10000, 'id': l1.info['id'], 'delay': 6, 'channel': alias21}]
+    with pytest.raises(RpcError):
+        l3.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+        l3.rpc.waitsendpay(inv['payment_hash'])
+    forward = only_one(l2.rpc.listforwards(status='local_failed')['forwards'])
+    assert forward['failure_reason'] == 'funding_not_broadcast'
+
+    # Once it's in the mempool, l2 sees it and uses it, without a block
+    l1.rpc.sendpsbt(l1.rpc.signpsbt(psbt)['signed_psbt'])
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+    l2.daemon.wait_for_log('now visible to our bitcoind')
+    l2.rpc.xpay(l1.rpc.invoice(10000, "l2pays_again", "desc")['bolt11'])
+    assert len(bitcoind.rpc.getrawmempool()) == 1
+
+
 def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
     """Test that CLTV timeout on a withheld channel fails HTLCs back upstream without force-close."""
     zeroconf_plugin = str(Path(__file__).parent / "plugins" / "zeroconf-selective.py")

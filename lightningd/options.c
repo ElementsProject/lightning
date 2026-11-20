@@ -1729,6 +1729,10 @@ static void register_opts(struct lightningd *ld)
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->message_padding,
 		       "If true, pad all messages to peers to make them equal length");
+	clnopt_witharg("--zeroconf-require-funding-seen", OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->zeroconf_require_funding_seen,
+		       "If true, don't send HTLCs over a zero-conf channel our peer funded until its funding transaction is in our bitcoind's mempool or a block");
 
 	dev_register_opts(ld);
 }

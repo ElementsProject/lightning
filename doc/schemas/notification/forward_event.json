@@ -117,7 +117,8 @@
           "invalid_onion",
           "channel_shutting_down",
           "max_htlc_value_in_flight",
-          "peer_cannot_afford_fee"
+          "peer_cannot_afford_fee",
+          "funding_not_broadcast"
         ],
         "description": [
           "The root cause of the failure, more specific than *failcode*/*failreason*. Only set for *local_failed* forwards, and not always known.",
