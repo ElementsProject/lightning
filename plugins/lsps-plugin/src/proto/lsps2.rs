@@ -206,4 +206,123 @@ mod tests {
         let back: OpeningFeeParams = serde_json::from_str(&json).unwrap();
         assert!(verify_promise(&back, SECRET));
     }
+
+    // Pinned promises. Changing how a promise is computed voids every offer
+    // an LSP has handed out and not yet sold, so these must keep passing.
+    //
+    // The promise is the lowercase hex of
+    //
+    //   HMAC-SHA256(secret, min_fee_msat u64 ‖ proportional u32
+    //                       ‖ valid_until as chrono's to_rfc3339()
+    //                       ‖ min_lifetime u32 ‖ max_client_to_self_delay u32
+    //                       ‖ min_payment_size_msat u64
+    //                       ‖ max_payment_size_msat u64)
+    //
+    // with the integers big-endian. This is not the LSPS0 wire format:
+    // to_rfc3339() writes the instant in UTC with a "+00:00" offset and
+    // fractional digits only if they're not zero, so a promise issued at
+    // millisecond precision covers "2026-11-05T12:00:00+00:00" or
+    // "2026-11-05T12:00:00.123+00:00".
+
+    fn secret_seq() -> [u8; 32] {
+        let mut bytes = [0u8; 32];
+        for (i, b) in (1u8..).zip(bytes.iter_mut()) {
+            *b = i;
+        }
+        bytes
+    }
+
+    fn terms(valid_until: &str) -> PolicyOpeningFeeParams {
+        PolicyOpeningFeeParams {
+            min_fee_msat: Msat(2_500_000),
+            proportional: Ppm(1000),
+            valid_until: serde_json::from_value(valid_until.into()).unwrap(),
+            min_lifetime: 1008,
+            max_client_to_self_delay: 2016,
+            min_payment_size_msat: Msat(1_000_000),
+            max_payment_size_msat: Msat(100_000_000),
+        }
+    }
+
+    fn max_terms(valid_until: &str) -> PolicyOpeningFeeParams {
+        PolicyOpeningFeeParams {
+            min_fee_msat: Msat(u64::MAX),
+            proportional: Ppm(u32::MAX),
+            min_lifetime: u32::MAX,
+            max_client_to_self_delay: u32::MAX,
+            min_payment_size_msat: Msat(u64::MAX),
+            max_payment_size_msat: Msat(u64::MAX),
+            ..terms(valid_until)
+        }
+    }
+
+    fn zero_terms(valid_until: &str) -> PolicyOpeningFeeParams {
+        PolicyOpeningFeeParams {
+            min_fee_msat: Msat(0),
+            proportional: Ppm(0),
+            min_lifetime: 0,
+            max_client_to_self_delay: 0,
+            min_payment_size_msat: Msat(0),
+            max_payment_size_msat: Msat(0),
+            ..terms(valid_until)
+        }
+    }
+
+    /// `(secret, policy, promise)`. The same vectors are pinned in blsp's
+    /// lsps2-service, which verifies promises this plugin issued.
+    fn promise_vectors() -> Vec<([u8; 32], PolicyOpeningFeeParams, &'static str)> {
+        vec![
+            (
+                [0x42; 32],
+                terms("2026-11-05T12:00:00Z"),
+                "b728579dcc1ede498a6537c29c180fd30b28bacc231d1e6f3332cd74faeace5a",
+            ),
+            (
+                [0x42; 32],
+                terms("2026-11-05T12:00:00.123Z"),
+                "5240417633c7b123a0e0daafbded66ba9d5607e2ba1a5656db670fe351faee3c",
+            ),
+            (
+                secret_seq(),
+                terms("2026-11-05T12:00:00Z"),
+                "fe5d444bf738528a75666d55495989d12fee6984d9c72ad7227d0f6cc68f27fc",
+            ),
+            (
+                [0xff; 32],
+                max_terms("9999-12-31T23:59:59.999Z"),
+                "5c7bd14b2c9625409527820a3bca5bc1b189ea376776046c8ea96bae4889f350",
+            ),
+            (
+                [0; 32],
+                zero_terms("1970-01-01T00:00:00Z"),
+                "9543ebd29b9d847f173a5830744053bbd2f4ba14a41ddb38858164431d838db6",
+            ),
+        ]
+    }
+
+    #[test]
+    fn test_with_promise_matches_pinned_promises() {
+        for (secret, policy, promise) in promise_vectors() {
+            let params = policy.with_promise(&secret);
+            assert_eq!(params.promise.as_str(), promise, "{:?}", policy.valid_until);
+            assert!(verify_promise(&params, &secret));
+        }
+    }
+
+    #[test]
+    fn test_verify_promise_accepts_valid_until_in_any_rfc3339_form() {
+        // The promise covers the instant, not how the client spells it.
+        let promise = "b728579dcc1ede498a6537c29c180fd30b28bacc231d1e6f3332cd74faeace5a";
+        for valid_until in [
+            "2026-11-05T12:00:00Z",
+            "2026-11-05T12:00:00.000Z",
+            "2026-11-05T12:00:00+00:00",
+            "2026-11-05T13:00:00+01:00",
+        ] {
+            let mut params = terms(valid_until).with_promise(&[0x42; 32]);
+            params.promise = Promise::try_from(promise).unwrap();
+            params.valid_until = serde_json::from_value(valid_until.into()).unwrap();
+            assert!(verify_promise(&params, &[0x42; 32]), "{valid_until}");
+        }
+    }
 }
