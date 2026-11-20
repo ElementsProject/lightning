@@ -14,6 +14,7 @@ Core Lightning Documentation
  .. block_start manpages
    addgossip <addgossip.7.md>
    addpsbtoutput <addpsbtoutput.7.md>
+   amendrepeatpay <amendrepeatpay.7.md>
    askrene-age <askrene-age.7.md>
    askrene-bias-channel <askrene-bias-channel.7.md>
    askrene-bias-node <askrene-bias-node.7.md>
@@ -41,6 +42,7 @@ Core Lightning Documentation
    bkpr-report <bkpr-report.7.md>
    blacklistrune <blacklistrune.7.md>
    cancelrecurringinvoice <cancelrecurringinvoice.7.md>
+   cancelrepeatpay <cancelrepeatpay.7.md>
    check <check.7.md>
    checkmessage <checkmessage.7.md>
    checkrune <checkrune.7.md>
@@ -133,6 +135,7 @@ Core Lightning Documentation
    listpays <listpays.7.md>
    listpeerchannels <listpeerchannels.7.md>
    listpeers <listpeers.7.md>
+   listrepeatpays <listrepeatpays.7.md>
    listsendpays <listsendpays.7.md>
    listsqlschemas <listsqlschemas.7.md>
    listtransactions <listtransactions.7.md>
@@ -182,6 +185,7 @@ Core Lightning Documentation
    recoverchannel <recoverchannel.7.md>
    renepay <renepay.7.md>
    renepaystatus <renepaystatus.7.md>
+   repeatpay <repeatpay.7.md>
    reserveinputs <reserveinputs.7.md>
    sendamount <sendamount.7.md>
    sendcustommsg <sendcustommsg.7.md>
