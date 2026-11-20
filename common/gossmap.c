@@ -1007,11 +1007,38 @@ struct localmod {
 
 	/* Original update offsets */
 	u64 orig_cupdate_off[2];
+
+	/* Set by gossmap_apply_localmods if this mod was not applied at all
+	 * (so gossmap_remove_localmods must not restore orig[]). */
+	bool skipped;
 };
 
 static bool localmod_is_local_chan(const struct localmod *mod)
 {
 	return mod->local_off != 0xFFFFFFFFFFFFFFFFULL;
+}
+
+/* Does this local channel_announcement have the same endpoints as chan? */
+static bool localmod_same_endpoints(const struct gossmap *map,
+				    const u8 *local_announces,
+				    const struct localmod *mod,
+				    const struct gossmap_chan *chan)
+{
+	const u8 *p = local_announces + mod->local_off;
+	be16 flen;
+
+	/* See gossmap_local_addchan: type, 4 sigs, features, chain_hash, scid */
+	p += sizeof(be16) + 64 * 4;
+	memcpy(&flen, p, sizeof(flen));
+	p += sizeof(flen) + be16_to_cpu(flen) + 32 + 8;
+
+	for (int i = 0; i < 2; i++) {
+		struct node_id id;
+		gossmap_node_get_id(map, gossmap_nth_node(map, chan, i), &id);
+		if (memcmp(id.k, p + i * sizeof(id.k), sizeof(id.k)) != 0)
+			return false;
+	}
+	return true;
 }
 
 struct gossmap_localmods {
@@ -1235,6 +1262,8 @@ void gossmap_apply_localmods(struct gossmap *map,
 		struct localmod *mod = &localmods->mods[i];
 		struct gossmap_chan *chan;
 
+		mod->skipped = false;
+
 		/* Find gossmap entry which this applies to. */
 		chan = gossmap_find_chan(map, &mod->scid);
 		/* If it doesn't exist, are we supposed to create a local one? */
@@ -1244,6 +1273,15 @@ void gossmap_apply_localmods(struct gossmap *map,
 
 			/* Create new channel, pointing into local. */
 			chan = add_channel(map, map->map_size + mod->local_off, 0, NULL);
+		} else if (localmod_is_local_chan(mod)
+			   && !localmod_same_endpoints(map,
+						       localmods->local_announces,
+						       mod, chan)) {
+			/* Someone (e.g. an invoice route hint) created a local
+			 * channel reusing the scid of a different, known
+			 * channel.  Don't let it modify that channel. */
+			mod->skipped = true;
+			continue;
 		}
 
 		/* Save old, update any fields they wanted to change */
@@ -1344,8 +1382,8 @@ void gossmap_remove_localmods(struct gossmap *map,
 		const struct localmod *mod = &localmods->mods[i];
 		struct gossmap_chan *chan = gossmap_find_chan(map, &mod->scid);
 
-		/* If there was no channel, ignore */
-		if (!chan)
+		/* If there was no channel, or we didn't touch it, ignore */
+		if (!chan || mod->skipped)
 			continue;
 
 		/* If that's a local channel, remove it now. */
