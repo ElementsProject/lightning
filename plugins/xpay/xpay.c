@@ -1353,6 +1353,21 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			goto disable_channel;
 
 		case WIRE_TEMPORARY_CHANNEL_FAILURE:
+			/* A full slot table is not a capacity shortfall.
+			 * channeld's failstr for CHANNEL_ERR_TOO_MANY_HTLCS
+			 * is "Too many HTLCs".  injectpaymentonion does not
+			 * expose the structured reason, so this has to match
+			 * that string.  Disabling the channel for this payment
+			 * stops the 1 msat shrink loop.  Remote errors are
+			 * the failcode name, so only index 0 is special. */
+			if (index == 0 && strstr(errmsg, "Too many HTLCs")) {
+				add_result_summary(attempt, LOG_DBG,
+						   "We got %s for %s: HTLC slots are full,"
+						   " disabling it for this payment",
+						   errmsg,
+						   describe_scidd(attempt, index));
+				goto disable_channel;
+			}
 			add_result_summary(attempt, LOG_DBG,
 					   "We got %s for %s, assuming it can't carry %s",
 					   errmsg,
