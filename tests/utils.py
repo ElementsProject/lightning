@@ -4,6 +4,7 @@ import bitstring
 from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from pyln.proto.onion import TlvPayload
+import os
 import struct
 import subprocess
 import tempfile
@@ -14,6 +15,87 @@ COMPAT = env("COMPAT", "1") == "1"
 # Big enough to make channels with 10k effective capacity, including Elements channels
 # which have bigger txns
 CHANNEL_SIZE = 50000
+
+# Onion failure codes (UPDATE-flagged) which carry a channel_update.
+WIRE_TEMPORARY_CHANNEL_FAILURE = 0x1007
+WIRE_AMOUNT_BELOW_MINIMUM = 0x100b
+WIRE_FEE_INSUFFICIENT = 0x100c
+WIRE_INCORRECT_CLTV_EXPIRY = 0x100d
+WIRE_EXPIRY_TOO_SOON = 0x100e
+WIRE_CHANNEL_DISABLED = 0x1014
+
+# Byte offsets inside a channel_update message.
+_CU_TS_OFF = 98
+_CU_SCID_OFF = 102
+_CU_CHANFLAGS_OFF = 111
+_CU_FEE_BASE_OFF = 122
+
+
+def channel_direction(node, peer):
+    """Direction of the node->peer channel (0 if node's id sorts first)."""
+    return 0 if node.info['id'] < peer.info['id'] else 1
+
+
+def get_channel_update_hex(node, scid, direction, fee_base=None, disabled=None):
+    """Return the hex of the newest channel_update for scid/direction from
+    node's gossip_store, optionally matching fee_base and disabled flag.
+
+    CLN no longer includes a channel_update in onion failures (BOLT #1173),
+    so tests that check processing one inject it via a plugin instead.
+    """
+    gs = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    out = subprocess.run(['devtools/dump-gossipstore', gs], check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE)
+    best, best_ts = None, -1
+    for line in out.stdout.decode().splitlines():
+        if 'channel_update(' not in line or f'{scid}/{direction})' not in line:
+            continue
+        h = line.rsplit(': ', 1)[-1].strip()
+        if not h.startswith('0102'):
+            continue
+        raw = bytes.fromhex(h)
+        if fee_base is not None and struct.unpack_from('>I', raw, _CU_FEE_BASE_OFF)[0] != fee_base:
+            continue
+        if disabled is not None and bool(raw[_CU_CHANFLAGS_OFF] & 2) != disabled:
+            continue
+        ts = struct.unpack_from('>I', raw, _CU_TS_OFF)[0]
+        if ts > best_ts:
+            best, best_ts = h, ts
+    return best
+
+
+def make_channel_update_failmsg(failcode, update_hex, htlc_msat=0):
+    """Build an UPDATE-flagged onion failure carrying update_hex."""
+    upd = bytes.fromhex(update_hex)
+    if failcode in (WIRE_AMOUNT_BELOW_MINIMUM, WIRE_FEE_INSUFFICIENT):
+        return struct.pack('>HQH', failcode, htlc_msat, len(upd)) + upd
+    if failcode == WIRE_INCORRECT_CLTV_EXPIRY:
+        return struct.pack('>HIH', failcode, 0, len(upd)) + upd
+    if failcode == WIRE_CHANNEL_DISABLED:
+        return struct.pack('>HHH', failcode, 0, len(upd)) + upd
+    # temporary_channel_failure, expiry_too_soon
+    return struct.pack('>HH', failcode, len(upd)) + upd
+
+
+def fail_htlc_with_channel_update(get_update_hex, failcode=WIRE_FEE_INSUFFICIENT):
+    """Return an inline_plugin setup() that fails the first forward of each
+    payment with `failcode` carrying the channel_update returned by
+    get_update_hex(), simulating a peer that still sends one (e.g. lnd/eclair).
+    """
+    def setup(plugin):
+        failed = set()
+
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, htlc, plugin, **kwargs):
+            upd = get_update_hex()
+            ph = htlc['payment_hash']
+            if upd is None or 'short_channel_id' not in onion or ph in failed:
+                return {"result": "continue"}
+            failed.add(ph)
+            amount = int(str(htlc['amount_msat']).replace('msat', ''))
+            msg = make_channel_update_failmsg(failcode, upd, amount)
+            return {"result": "fail", "failure_message": msg.hex()}
+    return setup
 
 
 def default_ln_port(network: str) -> int:
