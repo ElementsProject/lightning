@@ -6,7 +6,7 @@ set -e
 #  tagging issues prior to build via Github Actions.
 #
 # 1. The version tag should point to the HEAD of the branch.
-#     - tools/build-release.sh#67
+#     - historically tools/build-release.sh; now tools/reprobuild
 # 2. The pushed tag should match the branch tag at the HEAD.
 # 3. The CHANGELOG.md contains a header entry for the version tag.
 # 4. The CHANGELOG.md entry for that version tag can be parsed for a date.

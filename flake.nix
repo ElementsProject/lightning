@@ -49,7 +49,9 @@
         {
           _module.args.pkgs = import inputs.nixpkgs {
             inherit system;
-            overlays = [ (final: prev: { craneLib = (inputs.crane.mkLib pkgs); }) ];
+            overlays = [
+              (final: prev: { craneLib = (inputs.crane.mkLib pkgs); })
+            ];
           };
         };
     };
