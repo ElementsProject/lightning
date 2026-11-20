@@ -6561,16 +6561,10 @@ def test_peer_storage_refresh_three_peers(node_factory, bitcoind):
     assert any(ch['peer_id'] == l2.info['id']
                for ch in l1.rpc.listpeerchannels()['channels'])
 
-    deadline = time.monotonic() + 15
-    changed = []
-    while time.monotonic() < deadline:
-        after = [stored_backup(peer) for peer in storage_peers]
-        changed = [i for i in range(len(storage_peers))
-                   if after[i] != before[i]]
-        if len(changed) >= 2:
-            break
-        time.sleep(0.25)
+    def num_changed():
+        return sum(stored_backup(p) != b
+                   for p, b in zip(storage_peers, before))
 
-    assert len(changed) >= 2, (
-        f"Expected two refreshed peer backups, found {len(changed)}")
+    wait_for(lambda: num_changed() >= 2)
+    after = [stored_backup(peer) for peer in storage_peers]
     assert all(after)
