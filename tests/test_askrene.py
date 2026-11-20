@@ -2314,6 +2314,11 @@ def test_excessive_fee_cost(node_factory):
             maxparts=1,
         )
 
+    # Dial iterations cut off once mu >= 0.99, bounding solver runs (issue #9726)
+    l1.daemon.logs_catchup()
+    mu_retries = [l for l in l1.daemon.logs if "retrying with mu of" in l]
+    assert 0 < len(mu_retries) <= 15
+
 
 def check_getroute_routes(
     node,

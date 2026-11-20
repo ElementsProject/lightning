@@ -1507,6 +1507,10 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 {
 	/* Almost 1 to limit the dials' iterations. */
 	const double near_one = 1. - 1e-6;
+	/* A cut-off at 0.99 avoids excessive iterations in the
+	 * diminishing-returns range above 0.95 where solver runs become
+	 * slower and fee improvements stagnate or degrade (issue #9726). */
+	const double max_mu = 0.99;
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message;
 	struct amount_msat amount_to_deliver = amount;
@@ -1710,7 +1714,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			goto fail;
 		}
 		if (amount_msat_greater(all_fees, partial_feebudget)) {
-			if (mu < near_one) {
+			if (mu < max_mu) {
 				/* all_fees exceed the strong budget limit, try
 				 * to fix it increasing mu. */
 				mu *= 2;
