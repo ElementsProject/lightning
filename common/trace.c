@@ -282,7 +282,9 @@ static struct span *trace_span_slot(void)
 	return tal(spans, struct span);
 }
 
-#define MAX_BUF_SIZE 2048
+/* Must fit a whole span: the db_query_prepared "query" tag holds the full
+ * SQL text, and loading channels selects every column. */
+#define MAX_BUF_SIZE 4096
 
 static void trace_emit(struct span *s)
 {
