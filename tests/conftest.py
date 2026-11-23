@@ -26,6 +26,35 @@ def pytest_configure(config):
                             "slow_test: slow tests aren't run under Valgrind")
     config.addinivalue_line("markers",
                             "openchannel: Limit this test to only run 'v1' or 'v2' openchannel protocol")
+    config.addinivalue_line("markers",
+                            "vls: mark test as using VLS (Validating Lightning Signer) for signing operations")
+
+    # VLS testing is opt-in via exactly `-m vls`. Without it, vls-marked
+    # tests still run but are forced to use_vls=False (see fixtures.py).
+    # With it, abort the session early if the signer is not available.
+    if (config.getoption("markexpr") or "").strip() == "vls":
+        if not os.environ.get('REMOTE_SIGNER_PATH') and not os.environ.get('VLS_AUTO_BUILD'):
+            raise pytest.UsageError(
+                'VLS tests selected via `-m vls` but neither REMOTE_SIGNER_PATH '
+                '(path to a pre-built vlsd) nor VLS_AUTO_BUILD=1 is set.'
+            )
+        if os.environ.get('REMOTE_SIGNER_PATH') and os.environ.get('VLS_AUTO_BUILD'):
+            raise pytest.UsageError(
+                'REMOTE_SIGNER_PATH and'
+                'VLS_AUTO_BUILD are mutually exclusive'
+            )
+        # If a node's signer fails to start right away, its peers may
+        # still be starting and outlive the test.
+        if os.environ.get('REMOTE_SIGNER_PATH'):
+            vlsd = os.path.expanduser(os.environ['REMOTE_SIGNER_PATH'])
+            if os.path.isdir(vlsd):
+                vlsd = os.path.join(vlsd, 'vlsd')
+            socket = os.path.join(os.path.dirname(vlsd), 'remote_hsmd_socket')
+            for path in (vlsd, socket):
+                if not os.path.isfile(path):
+                    raise pytest.UsageError(
+                        f'REMOTE_SIGNER_PATH: {path} does not exist'
+                    )
 
 
 def pytest_runtest_setup(item):
