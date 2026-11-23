@@ -299,8 +299,14 @@ static void test_json_to_s64(void)
 	/* Hex is not a JSON number. */
 	do_json_to_s64("0x10", false, 0);
 
+	/* Leading '+' is not permitted in JSON numbers. */
+	do_json_to_s64("+1", false, 0);
+	do_json_to_s64("+0", false, 0);
+	do_json_to_s64("+1555", false, 0);
+
 	/* Neither is a bare sign, nor trailing garbage. */
 	do_json_to_s64("-", false, 0);
+	do_json_to_s64("+", false, 0);
 	do_json_to_s64("1e3", false, 0);
 	do_json_to_s64("\"\"", false, 0);
 
@@ -335,8 +341,53 @@ static void test_json_to_u64(void)
 	/* Hex is not a JSON number. */
 	do_json_to_u64("0x10", false, 0);
 	do_json_to_u64("-1", false, 0);
+	do_json_to_u64("+1", false, 0);
 	do_json_to_u64("18446744073709551615", true, UINT64_MAX);
 	do_json_to_u64("18446744073709551616", false, 0);
+}
+
+static void do_json_to_double(const char *val, bool ok, double expected)
+{
+	const jsmntok_t *toks;
+	const char *buf;
+	double num;
+
+	buf = tal_fmt(tmpctx, "{\"v\": %s}", val);
+	toks = json_parse_simple(tmpctx, buf, strlen(buf));
+	assert(toks);
+	assert(json_to_double(buf, &toks[2], &num) == ok);
+	if (ok)
+		assert(num == expected);
+}
+
+static void test_json_to_double(void)
+{
+	do_json_to_double("0", true, 0.0);
+	do_json_to_double("0.0", true, 0.0);
+	do_json_to_double("1.5", true, 1.5);
+	do_json_to_double("-1.5", true, -1.5);
+	do_json_to_double("100", true, 100.0);
+	do_json_to_double("-0", true, 0.0);
+	do_json_to_double("1e3", true, 1000.0);
+	do_json_to_double("1.25e-2", true, 0.0125);
+
+	/* Explicit '+' is not allowed in JSON numbers. */
+	do_json_to_double("+1.5", false, 0.0);
+	do_json_to_double("+0", false, 0.0);
+
+	/* Hex floats, inf, and nan are not JSON numbers. */
+	do_json_to_double("0x1.0p0", false, 0.0);
+	do_json_to_double("0x10", false, 0.0);
+	do_json_to_double("inf", false, 0.0);
+	do_json_to_double("INF", false, 0.0);
+	do_json_to_double("-inf", false, 0.0);
+	do_json_to_double("nan", false, 0.0);
+	do_json_to_double("NAN", false, 0.0);
+
+	/* Malformed. */
+	do_json_to_double("-", false, 0.0);
+	do_json_to_double("+", false, 0.0);
+	do_json_to_double("\"\"", false, 0.0);
 }
 
 int main(int argc, char *argv[])
@@ -350,6 +401,7 @@ int main(int argc, char *argv[])
 	test_json_deep_nesting();
 	test_json_to_s64();
 	test_json_to_u64();
+	test_json_to_double();
 
 	common_shutdown();
 }

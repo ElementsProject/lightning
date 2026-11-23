@@ -71,11 +71,15 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 	char *end;
 	long long l;
 
+	/* JSON numbers cannot have an explicit '+' sign or empty string. */
+	if (tmpbuf[0] == '\0' || tmpbuf[0] == '+')
+		return false;
+
 	errno = 0;
 	/* From json.org: "A number is very much like a C or Java number,
 	 * except that the octal and hexadecimal formats are not used." */
 	l = strtoll(tmpbuf, &end, 10);
-	if (tmpbuf[0] == '\0' || *end != '\0')
+	if (*end != '\0')
 		return false;
 
 	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
@@ -96,11 +100,28 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
 {
 	const char *tmpbuf = json_strdup(tmpctx, buffer, tok);
+	const char *p = tmpbuf;
 	char *end;
+
+	/* JSON numbers cannot have an explicit '+' sign or empty string. */
+	if (p[0] == '\0' || p[0] == '+')
+		return false;
+
+	/* Optional negative sign */
+	if (*p == '-')
+		p++;
+
+	/* Must begin with a digit (rejects 'inf', 'nan', '0x...', etc.) */
+	if (*p < '0' || *p > '9')
+		return false;
+
+	/* Hex floats (e.g. 0x1.0p0) are not JSON numbers. */
+	if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+		return false;
 
 	errno = 0;
 	*num = strtod(tmpbuf, &end);
-	if (tmpbuf[0] == '\0' || *end != '\0')
+	if (*end != '\0')
 		return false;
 
 	/* Check for overflow/underflow */
