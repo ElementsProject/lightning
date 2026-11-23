@@ -183,6 +183,12 @@ _PORT_LOCK_DIR.mkdir(exist_ok=True)
 # fallback we'd rather fail loudly about.
 _MIN_RESERVED_PORTS = 2048
 
+# Ports that reserve_unused_port() must never hand out, e.g. defaults that
+# tests rely on without reserving them.
+_PORT_BLACKLIST = {
+    9736,  # cln-grpc default port
+}
+
 
 def ephemeral_port_range():
     """Return the (lo, hi) of the OS ephemeral source-port range, or None.
@@ -266,7 +272,7 @@ def reserve_unused_port():
     pool_lo, pool_hi = _reserved_port_pool()
     while True:
         port = random.randint(pool_lo, pool_hi)
-        if not _port_is_free(port):
+        if port in _PORT_BLACKLIST or not _port_is_free(port):
             continue
 
         lock_path = _PORT_LOCK_DIR / f"{port}.lock"
@@ -774,7 +780,7 @@ class BitcoinD(TailableProc):
         # TODO: raise error for insane args?
 
         self.rpc.invalidateblock(old_hash)
-        self.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'.format(height))
+        self.wait_for_log(r'InvalidChainFound: invalid block=.*\s+height={}'.format(height))
         memp = self.rpc.getrawmempool()
 
         if shift == 0:

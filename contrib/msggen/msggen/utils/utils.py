@@ -165,6 +165,21 @@ grpc_method_names = [
     "Graceful",
 ]
 
+# JSON-RPC commands intentionally not exposed over gRPC yet. Every entry must
+# be a command that `missing-grpc` reports. Remove an entry once it is added
+# to `grpc_method_names`; CI fails on stale entries.
+grpc_method_blacklist = {
+    "notifications": "core command, not yet mapped to gRPC",
+    "deprecations": "core command, not yet mapped to gRPC",
+    "batching": "core command, not yet mapped to gRPC",
+    "check": "core command, not yet mapped to gRPC",
+    "parsefeerate": "core command, not yet mapped to gRPC",
+    "commando": "plugin command, not yet mapped to gRPC",
+    "reckless": "plugin command, not yet mapped to gRPC",
+    "listsqlschemas": "plugin command, not yet mapped to gRPC",
+    "sql-template": "schema fragment, not an RPC command",
+}
+
 grpc_notification_names = [
     {"name": "balance_snapshot", "typename": "BalanceSnapshot"},
     {"name": "block_added", "typename": "BlockAdded"},
@@ -275,13 +290,17 @@ def get_schema_bundle():
 
 
 def check_missing():
-    """Check for missing gRPC commands in the schema."""
+    """Return (missing, stale): schema commands without gRPC and not blacklisted,
+    and blacklisted commands that are now in gRPC or no longer exist."""
     schema = get_schema_bundle()
     command_names = set(
         full_name.replace(".json", "") for full_name in schema["methods"].keys()
     )
     lower_method_names = set(name.lower() for name in grpc_method_names)
-    return command_names - lower_method_names
+    blacklist = set(grpc_method_blacklist)
+    missing = command_names - lower_method_names - blacklist
+    stale = (blacklist & lower_method_names) | (blacklist - command_names)
+    return missing, stale
 
 
 def load_jsonrpc_method(name):

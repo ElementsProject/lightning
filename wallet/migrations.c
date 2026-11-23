@@ -66,6 +66,36 @@ void migrate_backfill_bwatch_tables(struct lightningd *ld UNNEEDED, struct db *d
 {
 	struct db_stmt *stmt;
 
+	/* v26.06.10 databases are at 284 and never ran the CREATEs at 283/284 */
+	stmt = db_prepare_v2(db,
+		SQL("CREATE TABLE IF NOT EXISTS our_outputs ("
+		    "  txid BLOB NOT NULL,"
+		    "  outnum INTEGER NOT NULL,"
+		    "  blockheight INTEGER NOT NULL,"
+		    "  txindex INTEGER NOT NULL DEFAULT 0,"
+		    "  scriptpubkey BLOB NOT NULL,"
+		    "  satoshis BIGINT NOT NULL,"
+		    "  spendheight INTEGER,"
+		    "  keyindex INTEGER,"
+		    "  reserved_til INTEGER NOT NULL DEFAULT 0,"
+		    "  channel_dbid BIGINT,"
+		    "  peer_id BLOB,"
+		    "  commitment_point BLOB,"
+		    "  option_anchors INTEGER,"
+		    "  csv INTEGER,"
+		    "  PRIMARY KEY (txid, outnum)"
+		    ")"));
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(db,
+		SQL("CREATE TABLE IF NOT EXISTS our_txs ("
+		    "  txid BLOB NOT NULL PRIMARY KEY,"
+		    "  blockheight INTEGER NOT NULL,"
+		    "  txindex INTEGER NOT NULL DEFAULT 0,"
+		    "  rawtx BLOB"
+		    ")"));
+	db_exec_prepared_v2(take(stmt));
+
 	stmt = db_prepare_v2(db,
 		SQL("INSERT INTO our_outputs "
 		    "(txid, outnum, blockheight, txindex, scriptpubkey, satoshis, "
@@ -1220,10 +1250,26 @@ static const struct db_migration dbmigrations[] = {
 	 " WHERE funding_feerate = 0 OR funding_feerate IS NULL;"), NULL,
      /* Clamping is idempotent, so no revert needed */
      NULL, NULL},
-    /* ^v26.09 */
+    /* ^v26.12 */
 
     {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL,
      SQL("ALTER TABLE forwards DROP COLUMN reason"), NULL},
+    /* Which funding tx this is: 0 for the original funding, incrementing
+     * by 1 for each splice.  Lets us tell a splice from the original
+     * funding on reestablish, once the channel funding txid has moved. */
+    {SQL("ALTER TABLE channel_funding_inflights ADD funding_tx_index INTEGER DEFAULT 0"), NULL,
+     SQL("ALTER TABLE channel_funding_inflights DROP COLUMN funding_tx_index"), NULL},
+    {SQL("ALTER TABLE channels ADD funding_tx_index INTEGER DEFAULT 0"), NULL,
+     SQL("ALTER TABLE channels DROP COLUMN funding_tx_index"), NULL},
+    /* A splice pending across the upgrade must not look like the original
+     * funding.  Only splice inflights record remote_funding, and they are
+     * one splice past the channel funding, which is 0 for everyone here.
+     * Channels which spliced before this have no record of it, so they
+     * stay 0. */
+    {SQL("UPDATE channel_funding_inflights SET funding_tx_index = 1"
+	 " WHERE remote_funding IS NOT NULL;"), NULL,
+     /* The revert drops the column */
+     NULL, NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)

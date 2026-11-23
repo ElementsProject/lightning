@@ -643,6 +643,7 @@ void payment_failed(struct lightningd *ld,
 	wallet_payment_set_failinfo(ld->wallet,
 				    payment_hash,
 				    partid,
+				    groupid,
 				    /* We only save failonion if it's unparseable */
 				    fail ? NULL : failonion,
 				    pay_errcode == PAY_DESTINATION_PERM_FAIL,
@@ -655,6 +656,10 @@ void payment_failed(struct lightningd *ld,
 				    fail ? fail->channel_dir : 0,
 				    fail ? fail->msg : NULL);
 
+	/* Waiters and the notification need the updated status. */
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash,
+					 partid, groupid);
+	assert(payment);
 	tell_waiters_failed(ld, payment, pay_errcode,
 			    failonion, fail, failstr);
 }
@@ -1558,13 +1563,16 @@ static struct command_result *self_payment(struct lightningd *ld,
 		/* Only some of these fields make sense for self payments */
 		wallet_payment_set_failinfo(ld->wallet,
 					    rhash,
-					    partid, NULL,
+					    partid, groupid, NULL,
 					    true,
 					    0,
 					    fail->failcode, fail->erring_node,
 					    NULL, NULL,
 					    err,
 					    0, NULL);
+		payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash,
+						 partid, groupid);
+		assert(payment);
 		/* We do this even though there really can't be any waiters,
 		 * since we didn't block. */
 		tell_waiters_failed(ld, payment, PAY_DESTINATION_PERM_FAIL,

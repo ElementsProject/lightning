@@ -101,8 +101,7 @@
       "htlcs": {},
       "chainmoves": {},
       "channelmoves": {},
-      "networkevents": {},
-      "details": {}
+      "networkevents": {}
     },
     "allOf": [
       {
@@ -124,51 +123,6 @@
             "created": {},
             "updated": {},
             "deleted": {},
-            "details": {
-              "type": "object",
-              "additionalProperties": false,
-              "deprecated": [
-                "v25.05",
-                "v26.06"
-              ],
-              "properties": {
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "unpaid",
-                    "paid",
-                    "expired"
-                  ],
-                  "description": [
-                    "Whether it's paid, unpaid or unpayable."
-                  ]
-                },
-                "label": {
-                  "type": "string",
-                  "description": [
-                    "Unique label supplied at invoice creation."
-                  ]
-                },
-                "description": {
-                  "type": "string",
-                  "description": [
-                    "Description used in the invoice."
-                  ]
-                },
-                "bolt11": {
-                  "type": "string",
-                  "description": [
-                    "The BOLT11 string."
-                  ]
-                },
-                "bolt12": {
-                  "type": "string",
-                  "description": [
-                    "The BOLT12 string."
-                  ]
-                }
-              }
-            },
             "invoices": {
               "type": "object",
               "added": "v25.05",
@@ -238,52 +192,6 @@
             "created": {},
             "updated": {},
             "deleted": {},
-            "details": {
-              "type": "object",
-              "additionalProperties": false,
-              "deprecated": [
-                "v25.05",
-                "v26.06"
-              ],
-              "properties": {
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "offered",
-                    "settled",
-                    "failed",
-                    "local_failed"
-                  ],
-                  "description": [
-                    "Still ongoing, completed, failed locally, or failed after forwarding."
-                  ]
-                },
-                "in_channel": {
-                  "type": "short_channel_id",
-                  "description": [
-                    "Unique label supplied at invoice creation."
-                  ]
-                },
-                "in_htlc_id": {
-                  "type": "u64",
-                  "description": [
-                    "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
-                  ]
-                },
-                "in_msat": {
-                  "type": "msat",
-                  "description": [
-                    "The value of the incoming HTLC."
-                  ]
-                },
-                "out_channel": {
-                  "type": "short_channel_id",
-                  "description": [
-                    "The channel that the HTLC (trying to) forward to."
-                  ]
-                }
-              }
-            },
             "forwards": {
               "added": "v25.05",
               "type": "object",
@@ -354,45 +262,6 @@
             "created": {},
             "updated": {},
             "deleted": {},
-            "details": {
-              "type": "object",
-              "additionalProperties": false,
-              "deprecated": [
-                "v25.05",
-                "v26.06"
-              ],
-              "properties": {
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "pending",
-                    "failed",
-                    "complete"
-                  ],
-                  "description": [
-                    "Status of the payment."
-                  ]
-                },
-                "partid": {
-                  "type": "u64",
-                  "description": [
-                    "Part number (for multiple parts to a single payment)."
-                  ]
-                },
-                "groupid": {
-                  "type": "u64",
-                  "description": [
-                    "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
-                  ]
-                },
-                "payment_hash": {
-                  "type": "hash",
-                  "description": [
-                    "The hash of the *payment_preimage* which will prove payment."
-                  ]
-                }
-              }
-            },
             "sendpays": {
               "type": "object",
               "added": "v25.05",

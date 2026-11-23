@@ -1,8 +1,11 @@
 import json
 import os
 import argparse
+import subprocess
+import sys
 from pathlib import Path
 from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
+from msggen.gen.grpc.wire import WireState, released_contract
 from msggen.gen.grpc2py import Grpc2PyGenerator
 from msggen.gen.rpc import RustGenerator, NotificationGenerator, HookGenerator
 from msggen.gen.generator import GeneratorChain
@@ -25,14 +28,15 @@ logging.basicConfig(
 def add_handler_gen_grpc(generator_chain: GeneratorChain, meta):
     """Load all mapped RPC methods, wrap them in a Service, and split them into messages.
     """
+    state = WireState()
     fname = Path("cln-grpc") / "proto" / "node.proto"
     dest = open(fname, "w")
-    generator_chain.add_generator(GrpcGenerator(dest, meta))
+    generator_chain.add_generator(GrpcGenerator(dest, meta, state))
 
     fname = Path("cln-grpc") / "src" / "convert.rs"
     dest = open(fname, "w")
-    generator_chain.add_generator(GrpcConverterGenerator(dest))
-    generator_chain.add_generator(GrpcUnconverterGenerator(dest))
+    generator_chain.add_generator(GrpcConverterGenerator(dest, state))
+    generator_chain.add_generator(GrpcUnconverterGenerator(dest, state))
 
     fname = Path("cln-grpc") / "src" / "server.rs"
     dest = open(fname, "w")
@@ -69,6 +73,29 @@ def write_msggen_meta(meta):
     with open(f'.msggen.json.tmp.{pid}', 'w') as f:
         json.dump(meta, f, sort_keys=True, indent=4)
     os.rename(f'.msggen.json.tmp.{pid}', '.msggen.json')
+
+
+def record_wire_contract(revision: str):
+    """Replace `grpc-wire-contract` with the labels released at `revision`.
+
+    Reads `cln-grpc/proto/node.proto` and `primitives.proto` from git, so
+    the contract records what was shipped, not what the schema now says.
+    """
+    def show(path):
+        res = subprocess.run(
+            ["git", "show", f"{revision}:{path}"], capture_output=True, text=True
+        )
+        if res.returncode != 0:
+            raise SystemExit(f"{revision}:{path} not found: {res.stderr.strip()}")
+        return res.stdout
+
+    contract = released_contract(
+        [show("cln-grpc/proto/node.proto"), show("cln-grpc/proto/primitives.proto")]
+    )
+    meta = load_msggen_meta()
+    meta["grpc-wire-contract"] = contract
+    write_msggen_meta(meta)
+    print(f"Recorded {sum(len(f) for f in contract.values())} fields from {revision}")
 
 
 def run():
@@ -108,6 +135,11 @@ def main():
 
     subcmds.add_parser("generate", help="generate all files")
     subcmds.add_parser("missing-grpc", help="print all rpc commands missing from grpc")
+    record = subcmds.add_parser(
+        "record-wire-contract",
+        help="replace grpc-wire-contract with the labels released at a git revision",
+    )
+    record.add_argument("revision", help="git tag or revision, e.g. v26.06")
     args = parser.parse_args()
 
     if args.silent:
@@ -124,11 +156,18 @@ def main():
         print(f"Combining schemas from {src.resolve()} into {dest.resolve()}")
         schema = combine_schemas(src, dest)
         print(f"Created {dest} from {len(schema)} files")
+    elif args.command == 'record-wire-contract':
+        record_wire_contract(args.revision)
     elif args.command == 'missing-grpc':
+        missing, stale = check_missing()
         print("Missing RPC commands in grpc:")
-        missing = check_missing()
-        for name in missing:
+        for name in sorted(missing):
             print(name)
+        print("Stale grpc_method_blacklist entries:")
+        for name in sorted(stale):
+            print(name)
+        if missing or stale:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

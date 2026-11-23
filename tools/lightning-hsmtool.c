@@ -5,6 +5,7 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/rune/rune.h>
+#include <ccan/str/str.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -17,20 +18,21 @@
 #include <common/hsm_secret.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#include <tools/hsmtool-recoverhtlc.h>
+#include <tools/lightning-hsmtool.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>
 
-#define ERROR_USAGE 2
 #define ERROR_LIBSODIUM 3
 #define ERROR_LIBWALLY 4
-#define ERROR_KEYDERIV 5
 #define ERROR_LANG_NOT_SUPPORTED 6
 #define ERROR_TERM 7
 
@@ -48,10 +50,14 @@ static void show_usage(const char *progname)
 	printf("	- encrypt <path/to/hsm_secret> [LEGACY - binary format only]\n");
 	printf("	- dumpcommitments <node id> <channel dbid> <depth> "
 		"<path/to/hsm_secret>\n");
+	printf("	- dumpcommitments --point-only <node id> <channel dbid> "
+		"<commitment number> <path/to/hsm_secret>\n");
 	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 		"<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
 	printf("	- derivetoremote <node id> <channel dbid> [<cmt pt>] "
+	       "<path/to/hsm_secret>\n");
+	printf("	- recoverhtlc <path/to/bundle.json> <destination address> "
 	       "<path/to/hsm_secret>\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors [--show-secrets] <path/to/hsm_secret> [network]\n");
@@ -85,7 +91,8 @@ static bool ensure_hsm_secret_exists(int fd, const char *path)
 	return true;
 }
 /* Load hsm_secret using the unified interface */
-static struct hsm_secret *load_hsm_secret(const tal_t *ctx, const char *hsm_secret_path)
+struct hsm_secret *hsmtool_load_hsm_secret(const tal_t *ctx,
+					   const char *hsm_secret_path)
 {
 	u8 *contents = grab_file_raw(tmpctx, hsm_secret_path);
 	const char *passphrase = NULL;
@@ -133,7 +140,7 @@ static void decrypt_hsm(const char *hsm_secret_path)
 	}
 
 	/* Load the hsm_secret */
-	hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	hsms = hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 
 	dir = path_dirname(NULL, hsm_secret_path);
 	backup = path_join(dir, dir, "hsm_secret.backup");
@@ -190,7 +197,7 @@ static void encrypt_hsm(const char *hsm_secret_path)
 	}
 
 	/* Load the hsm_secret */
-	hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	hsms = hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 
 	printf("Enter hsm_secret password:\n");
 	fflush(stdout);
@@ -252,21 +259,7 @@ static void encrypt_hsm(const char *hsm_secret_path)
 static void get_channel_seed(struct secret *channel_seed, const struct node_id *peer_id,
                              u64 dbid, struct secret *hsm_secret)
 {
-	struct secret channel_base;
-	u8 input[sizeof(peer_id->k) + sizeof(dbid)];
-	const char *info = "per-peer seed";
-
-	hkdf_sha256(&channel_base, sizeof(struct secret), NULL, 0,
-	            hsm_secret, sizeof(*hsm_secret),
-	             "peer seed", strlen("peer seed"));
-	memcpy(input, peer_id->k, sizeof(peer_id->k));
-	BUILD_ASSERT(sizeof(peer_id->k) == PUBKEY_CMPR_LEN);
-	memcpy(input + PUBKEY_CMPR_LEN, &dbid, sizeof(dbid));
-
-	hkdf_sha256(channel_seed, sizeof(*channel_seed),
-	            input, sizeof(input),
-	            &channel_base, sizeof(channel_base),
-	            info, strlen(info));
+	derive_channel_seed(channel_seed, hsm_secret->data, peer_id, dbid);
 }
 
 static void print_secret(const char *hsm_secret_path, const char *id, bool must_be_oldstyle)
@@ -274,7 +267,8 @@ static void print_secret(const char *hsm_secret_path, const char *id, bool must_
 	struct secret hsm_secret;
 	char *bip93;
 	const char *err;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 
 	switch (hsms->type) {
 	case HSM_SECRET_ENCRYPTED:
@@ -328,7 +322,8 @@ static void dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	struct sha256 shaseed;
 	struct secret hsm_secret, channel_seed, per_commitment_secret;
 	struct pubkey per_commitment_point;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
@@ -348,6 +343,38 @@ static void dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	}
 }
 
+/* Unlike atoll, refuses anything which is not entirely a number. */
+static bool parse_u64(const char *arg, u64 *val)
+{
+	char *end;
+
+	if (!arg[0] || !cisdigit(arg[0]))
+		return false;
+	errno = 0;
+	*val = strtoull(arg, &end, 10);
+	return !errno && *end == '\0';
+}
+
+static void print_commitment_point(const struct node_id *node_id,
+				   u64 channel_id,
+				   u64 commitment_number,
+				   const char *hsm_secret_path)
+{
+	struct sha256 shaseed;
+	struct secret hsm_secret, channel_seed;
+	struct pubkey point;
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
+
+	memcpy(hsm_secret.data, hsms->secret_data, sizeof(hsm_secret.data));
+	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
+	derive_shaseed(&channel_seed, &shaseed);
+	if (!per_commit_point(&shaseed, &point, commitment_number))
+		errx(ERROR_KEYDERIV, "Could not derive point #%"PRIu64,
+		     commitment_number);
+	printf("%s\n", fmt_pubkey(tmpctx, &point));
+}
+
 static void guess_to_remote(const char *address, struct node_id *node_id,
                             u64 tries, char *hsm_secret_path)
 {
@@ -365,7 +392,8 @@ static void guess_to_remote(const char *address, struct node_id *node_id,
 	if (segwit_addr_decode(&witver, goal_pubkeyhash, &witlen, hrp, address) != 1)
 		errx(ERROR_USAGE, "Wrong bech32 address");
 
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
 	for (u64 dbid = 1; dbid < tries ; dbid++) {
@@ -459,7 +487,8 @@ static void derive_to_remote(const struct unilateral_close_info *info, const cha
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Copy first 32 bytes of secret_data to the local secret struct */
 	memcpy(hsm_secret.data, hsms->secret_data, sizeof(hsm_secret.data));
 	get_channel_seed(&channel_seed, &info->peer_id, info->channel_id, &hsm_secret);
@@ -485,7 +514,8 @@ static void dumponchaindescriptors(const char *hsm_secret_path,
 	struct ext_key master_extkey;
 	char *enc_xkey, *descriptor;
 	struct descriptor_checksum checksum;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	const char *path;
 
 	/* For BIP 86, we derive from subkey: m/86'/0'/0' */
@@ -574,7 +604,8 @@ static void check_hsm(const char *hsm_secret_path)
 	enum hsm_secret_error err;
 
 	/* Load the hsm_secret (handles decryption automatically if needed) */
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(file_secret.data, hsms->secret_data, 32);
 
@@ -614,7 +645,8 @@ static void make_rune(const char *hsm_secret_path)
 {
 	struct secret hsm_secret, derived_secret, rune_secret;
 	struct rune *master_rune, *rune;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
@@ -642,7 +674,8 @@ static void print_node_id(const char *hsm_secret_path)
 	struct secret hsm_secret;
 	struct privkey node_privkey;
 	struct pubkey node_id;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
@@ -670,14 +703,24 @@ int main(int argc, char *argv[])
 
 	setup_locale();
 	err_set_progname(argv[0]);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-	                                         | SECP256K1_CONTEXT_SIGN);
 
 	method = argc > 1 ? argv[1] : NULL;
 	if (!method)
 		show_usage(argv[0]);
 
-	if (streq(method, "decrypt")) {
+	/* Recovery uses transaction helpers which require libwally's tal
+	 * allocator.  Do not create and then replace a secp256k1 context. */
+	if (streq(method, "recoverhtlc"))
+		common_setup(argv[0]);
+	else
+		secp256k1_ctx = secp256k1_context_create(
+			SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+
+	if (streq(method, "recoverhtlc")) {
+		if (argc != 5)
+			show_usage(argv[0]);
+		hsmtool_recoverhtlc(argv[2], argv[3], argv[4]);
+	} else if (streq(method, "decrypt")) {
 		if (argc < 3)
 			show_usage(argv[0]);
 		decrypt_hsm(argv[2]);
@@ -687,14 +730,31 @@ int main(int argc, char *argv[])
 		encrypt_hsm(argv[2]);
 
 	} else if (streq(method, "dumpcommitments")) {
-		/*   node_id    channel_id   depth    hsm_secret  */
-		if (argc < 6)
-			show_usage(argv[0]);
 		struct node_id node_id;
-		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
-			errx(ERROR_USAGE, "Bad node id");
-		dump_commitments_infos(&node_id, atol(argv[3]), atol(argv[4]),
-		                       argv[5]);
+
+		if (argc > 2 && streq(argv[2], "--point-only")) {
+			u64 dbid, commitment_number;
+
+			if (argc != 7)
+				show_usage(argv[0]);
+			if (!node_id_from_hexstr(argv[3], strlen(argv[3]), &node_id))
+				errx(ERROR_USAGE, "Bad node id");
+			/* A mistyped number must not print the wrong point. */
+			if (!parse_u64(argv[4], &dbid) || dbid == 0)
+				errx(ERROR_USAGE, "Bad channel dbid");
+			if (!parse_u64(argv[5], &commitment_number))
+				errx(ERROR_USAGE, "Bad commitment number");
+			print_commitment_point(&node_id, dbid,
+					       commitment_number, argv[6]);
+		} else {
+			/*   node_id    channel_id   depth    hsm_secret  */
+			if (argc < 6)
+				show_usage(argv[0]);
+			if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
+				errx(ERROR_USAGE, "Bad node id");
+			dump_commitments_infos(&node_id, atol(argv[3]),
+					       atol(argv[4]), argv[5]);
+		}
 
 	} else if (streq(method, "guesstoremote")) {
 		/*   address    node_id    depth    hsm_secret */

@@ -177,6 +177,7 @@ struct channel_inflight *
 new_inflight(struct channel *channel,
 	     struct pubkey *remote_funding,
 	     const struct bitcoin_outpoint *funding_outpoint,
+	     u32 funding_tx_index,
 	     u32 funding_feerate,
 	     struct amount_sat total_funds,
 	     struct amount_sat our_funds,
@@ -205,6 +206,7 @@ new_inflight(struct channel *channel,
 	funding->splice_remote_funding = tal_steal(funding, remote_funding);
 
 	inflight->funding = funding;
+	inflight->funding_tx_index = funding_tx_index;
 	inflight->channel = channel;
 	inflight->remote_tx_sigs = false;
 	inflight->funding_psbt = tal_steal(inflight, psbt);
@@ -384,6 +386,10 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->next_their_htlc_id = 0;
 	channel->funding_spend_watch = NULL;
 	channel->inflight_spend_watches = NULL;
+	/* Original funding: splices increment this.  channel->funding itself
+	 * isn't known until commit, but we save the channel then, so this
+	 * must be set now. */
+	channel->funding_tx_index = 0;
 	/* FIXME: remove push when v1 deprecated */
 	channel->push = AMOUNT_MSAT(0);
 	channel->closing_fee_negotiation_step = 50;
@@ -514,6 +520,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_index_remote,
 			    u64 next_htlc_id,
 			    const struct bitcoin_outpoint *funding,
+			    u32 funding_tx_index,
 			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
@@ -622,6 +629,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	/* Set by wallet_htlcs_load_in_for_channel */
 	channel->next_their_htlc_id = 0;
 	channel->funding = *funding;
+	channel->funding_tx_index = funding_tx_index;
 	channel->funding_sats = funding_sats;
 	channel->funding_spend_watch = NULL;
 	channel->inflight_spend_watches = NULL;
@@ -1411,4 +1419,3 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 
 	return channel_gossip_update_for_error(ctx, channel);
 }
-

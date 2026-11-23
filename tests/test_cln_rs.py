@@ -319,9 +319,9 @@ def test_grpc_request_validation(node_factory):
         (
             "amount_sat_or_all",
             lambda: stub.Withdraw(
-                clnpb.WithdrawRequest(satoshi=clnpb.AmountSatOrAll())
+                clnpb.WithdrawRequest(satoshi_sat=clnpb.AmountSatOrAll())
             ),
-            "satoshi",
+            "satoshi_sat",
         ),
         (
             "amount_or_any",
@@ -373,6 +373,190 @@ def test_grpc_request_validation(node_factory):
     # The worker task must not have panicked, and the plugin must still serve.
     stub.Getinfo(clnpb.GetinfoRequest())
     assert not l1.daemon.is_in_log(r"panicked")
+
+
+def test_grpc_legacy_sat_fields(bitcoind, node_factory):
+    """Deprecated msat fields accept whole sats, reject the rest, and exclude their sat successor."""
+    l1, l2 = node_factory.get_nodes(2)
+    wait_for_grpc_start(l1)
+    l1.connect(l2)
+    l1.fundwallet(10000000)
+    stub = l1.grpc
+    addr = l1.rpc.newaddr("bech32")["bech32"]
+    peer_id = bytes.fromhex(l2.info["id"])
+
+    def assert_invalid(name, call, field, detail):
+        with pytest.raises(grpc.RpcError) as exc:
+            call()
+        assert exc.value.code() == grpc.StatusCode.INVALID_ARGUMENT, (
+            f"{name}: unexpected status {exc.value.code()}: {exc.value.details()}"
+        )
+        assert re.search(detail.format(field=field), exc.value.details()), (
+            f"{name}: unexpected details {exc.value.details()!r}"
+        )
+
+    res = stub.Withdraw(
+        clnpb.WithdrawRequest(
+            destination=addr,
+            satoshi=clnpb.AmountOrAll(amount=clnpb.Amount(msat=1000000)),
+        )
+    )
+    assert res.txid
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    res = stub.FundChannel(
+        clnpb.FundchannelRequest(
+            id=peer_id,
+            amount=clnpb.AmountOrAll(amount=clnpb.Amount(msat=100000000)),
+        )
+    )
+    assert res.channel_id
+
+    assert_invalid(
+        "withdraw_fraction",
+        lambda: stub.Withdraw(
+            clnpb.WithdrawRequest(
+                destination=addr,
+                satoshi=clnpb.AmountOrAll(amount=clnpb.Amount(msat=1500)),
+            )
+        ),
+        "satoshi",
+        r"Invalid value for field `{field}`: msat amount does not fit into sat unit",
+    )
+    assert_invalid(
+        "fundchannel_fraction",
+        lambda: stub.FundChannel(
+            clnpb.FundchannelRequest(
+                id=peer_id,
+                amount=clnpb.AmountOrAll(amount=clnpb.Amount(msat=100000500)),
+            )
+        ),
+        "amount",
+        r"Invalid value for field `{field}`: msat amount does not fit into sat unit",
+    )
+    assert_invalid(
+        "fundchannel_reserve_fraction",
+        lambda: stub.FundChannel(
+            clnpb.FundchannelRequest(
+                id=peer_id,
+                amount=clnpb.AmountOrAll(amount=clnpb.Amount(msat=100000000)),
+                reserve=clnpb.Amount(msat=1500),
+            )
+        ),
+        "reserve",
+        r"Invalid value for field `{field}`: msat amount does not fit into sat unit",
+    )
+    assert_invalid(
+        "withdraw_both",
+        lambda: stub.Withdraw(
+            clnpb.WithdrawRequest(
+                destination=addr,
+                satoshi=clnpb.AmountOrAll(amount=clnpb.Amount(msat=1000000)),
+                satoshi_sat=clnpb.AmountSatOrAll(amount_sat=clnpb.AmountSat(sat=1000)),
+            )
+        ),
+        "satoshi",
+        r"Fields `{field}_sat` and deprecated `{field}` are mutually exclusive",
+    )
+    assert_invalid(
+        "fundchannel_both",
+        lambda: stub.FundChannel(
+            clnpb.FundchannelRequest(
+                id=peer_id,
+                amount=clnpb.AmountOrAll(amount=clnpb.Amount(msat=100000000)),
+                amount_sat=clnpb.AmountSatOrAll(amount_sat=clnpb.AmountSat(sat=100000)),
+            )
+        ),
+        "amount",
+        r"Fields `{field}_sat` and deprecated `{field}` are mutually exclusive",
+    )
+    assert_invalid(
+        "fundchannel_reserve_both",
+        lambda: stub.FundChannel(
+            clnpb.FundchannelRequest(
+                id=peer_id,
+                amount=clnpb.AmountOrAll(amount=clnpb.Amount(msat=100000000)),
+                reserve=clnpb.Amount(msat=1000000),
+                reserve_sat=clnpb.AmountSat(sat=1000),
+            )
+        ),
+        "reserve",
+        r"Fields `{field}_sat` and deprecated `{field}` are mutually exclusive",
+    )
+
+    stub.Getinfo(clnpb.GetinfoRequest())
+    assert not l1.daemon.is_in_log(r"panicked")
+
+
+def test_grpc_sat_amounts_on_the_wire(bitcoind, node_factory):
+    """The amount that reaches the other side matches the requested amount.
+
+    Checks decoded transaction outputs and the channel state, not only the
+    RPC reply, so a unit mix-up (sat vs msat, 1000x) cannot pass unnoticed.
+    """
+    l1, l2 = node_factory.get_nodes(2)
+    wait_for_grpc_start(l1)
+    l1.connect(l2)
+    l1.fundwallet(10000000)
+    stub = l1.grpc
+    addr = l1.rpc.newaddr("bech32")["bech32"]
+    peer_id = bytes.fromhex(l2.info["id"])
+
+    def paid_to(tx_hex, address):
+        decoded = bitcoind.rpc.decoderawtransaction(tx_hex)
+        return [
+            int(round(vout["value"] * 10**8))
+            for vout in decoded["vout"]
+            if vout["scriptPubKey"].get("address") == address
+        ]
+
+    res = stub.Withdraw(
+        clnpb.WithdrawRequest(
+            destination=addr,
+            satoshi=clnpb.AmountOrAll(amount=clnpb.Amount(msat=1000000)),
+        )
+    )
+    assert paid_to(res.tx.hex(), addr) == [1000], "legacy withdraw paid the wrong sats"
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    res = stub.Withdraw(
+        clnpb.WithdrawRequest(
+            destination=addr,
+            satoshi_sat=clnpb.AmountSatOrAll(amount_sat=clnpb.AmountSat(sat=2000)),
+        )
+    )
+    assert paid_to(res.tx.hex(), addr) == [2000], (
+        "withdraw satoshi_sat paid the wrong sats"
+    )
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    received = [
+        int(o["amount_msat"])
+        for o in l1.rpc.listfunds()["outputs"]
+        if o.get("address") == addr
+    ]
+    assert sorted(received) == [1000000, 2000000], f"wallet received {received} msat"
+
+    res = stub.FundChannel(
+        clnpb.FundchannelRequest(
+            id=peer_id,
+            amount=clnpb.AmountOrAll(amount=clnpb.Amount(msat=100000000)),
+        )
+    )
+    funding_out = bitcoind.rpc.decoderawtransaction(res.tx.hex())["vout"][res.outnum]
+    assert round(funding_out["value"] * 10**8) == 100000, (
+        f"funding output is {funding_out['value']} BTC, expected 100000 sat"
+    )
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    chan = l1.rpc.listpeerchannels(l2.info["id"])["channels"][0]
+    assert int(chan["total_msat"]) == 100000000, (
+        f"channel total {chan['total_msat']} msat"
+    )
+    assert int(chan["funding"]["local_funds_msat"]) == 100000000, chan["funding"]
 
 
 def test_grpc_generate_certificate(node_factory):

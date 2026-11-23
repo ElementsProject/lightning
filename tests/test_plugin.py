@@ -451,7 +451,7 @@ def test_failing_plugins(directory):
 
 
 def test_pay_plugin(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={"allow-deprecated-apis": True})
     inv = l2.rpc.invoice(123000, 'label', 'description', 3700)
 
     res = l1.rpc.pay(bolt11=inv['bolt11'])
@@ -461,7 +461,7 @@ def test_pay_plugin(node_factory):
         l1.rpc.call('pay')
 
     # Make sure usage messages are present.
-    msg = 'pay invstring [amount_msat] [label] [riskfactor] [maxfeepercent] '\
+    msg = 'pay (DEPRECATED!) invstring [amount_msat] [label] [riskfactor] [maxfeepercent] '\
           '[retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] '\
           '[maxfee] [description] [partial_msat]'
     # We run with --developer:
@@ -1510,7 +1510,7 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     ], wait_for_announce=True)
 
     i1 = l3.rpc.invoice(amount_msat=1000, label="direct", description="desc")['bolt11']
-    f1 = executor.submit(l1.dev_pay, i1, dev_use_shadow=False)
+    f1 = executor.submit(l1.rpc.xpay, i1)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
 
@@ -1610,7 +1610,7 @@ def test_invoice_payment_notification(node_factory):
     preimage = '1' * 64
     label = "a_descriptive_label"
     inv1 = l2.rpc.invoice(msats, label, 'description', preimage=preimage)
-    l1.dev_pay(inv1['bolt11'], dev_use_shadow=False)
+    l1.rpc.xpay(inv1['bolt11'])
 
     l2.daemon.wait_for_log(r"Received invoice_payment event for label {},"
                            " preimage {}, and amount of {}"
@@ -1886,6 +1886,65 @@ def test_sendpay_notifications_nowaiter(node_factory):
     results = l1.rpc.call('listsendpays_plugin')
     assert len(results['sendpay_success']) == 1
     assert len(results['sendpay_failure']) == 1
+
+
+def test_sendpay_failure_status(node_factory, executor):
+    """sendpay_failure and an already-waiting waitsendpay must report the
+    final failed state, same as a waitsendpay issued afterwards (#7561)."""
+
+    def setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.failure_list = []
+
+        @plugin.subscribe("sendpay_failure")
+        def notify_sendpay_failure(plugin, sendpay_failure, **kwargs):
+            plugin.failure_list.append(sendpay_failure)
+
+        @plugin.method("listsendpays_plugin")
+        def record_lookup(plugin):
+            return {"sendpay_failure": plugin.failure_list}
+
+    def hold_setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.held = None
+
+        @plugin.async_hook("htlc_accepted")
+        def on_htlc_accepted(htlc, request, plugin, **kwargs):
+            plugin.held = request
+
+        @plugin.method("failhtlc")
+        def failhtlc(plugin):
+            plugin.held.set_result({"result": "fail", "failure_message": "2002"})
+            return {}
+
+    l1 = node_factory.get_node(inline_plugin=setup)
+    l2 = node_factory.get_node(inline_plugin=hold_setup)
+    node_factory.join_nodes([l1, l2])
+
+    inv = l2.rpc.invoice(10000, "test_sendpay_failure_status", "desc")
+    route = l1.single_route(l2.info["id"], 10000)
+    l1.rpc.sendpay(route, inv["payment_hash"], payment_secret=inv["payment_secret"])
+    l2.daemon.wait_for_log("Calling htlc_accepted hook")
+
+    # Make sure the waiter is registered before the HTLC fails.
+    fut = executor.submit(l1.rpc.waitsendpay, inv["payment_hash"])
+    l1.daemon.wait_for_log(r"Payment part 0/0/\d+ status 0")
+    l2.rpc.failhtlc()
+
+    with pytest.raises(RpcError, match="WIRE_TEMPORARY_NODE_FAILURE") as waiting:
+        fut.result(TIMEOUT)
+    with pytest.raises(RpcError, match="WIRE_TEMPORARY_NODE_FAILURE") as after:
+        l1.rpc.waitsendpay(inv["payment_hash"])
+
+    notification = only_one(l1.rpc.call("listsendpays_plugin")["sendpay_failure"])
+    for err in (notification, waiting.value.error, after.value.error):
+        assert err["data"]["status"] == "failed"
+        assert "completed_at" in err["data"]
+        assert "updated_index" in err["data"]
+    assert notification["data"] == after.value.error["data"]
+    assert waiting.value.error["data"] == after.value.error["data"]
 
 
 def test_inline_plugin_wait_for_log_no_selfmatch(node_factory):
@@ -2454,6 +2513,65 @@ def test_bcli_retry_timeout(node_factory, bitcoind):
     l1.daemon.wait_for_log(r"timed out after 3 seconds")
     assert l1.daemon.wait() != 0
     assert getblockfrompeer_count > 0
+
+
+def gettxout_failing(times=None):
+    """A bitcoind proxy mock for `gettxout` that fails the way bitcoind does
+    while it starts up: `times` times, then lets the calls through (never,
+    if None)."""
+    failed = 0
+
+    def mock(r):
+        nonlocal failed
+        if times is not None and failed >= times:
+            return None
+        failed += 1
+        return {"id": r["id"], "result": None,
+                "error": {"code": -28, "message": "Loading block index..."}}
+    return mock
+
+
+def test_bcli_getutxout_failure(node_factory, bitcoind):
+    """A failed `gettxout` doesn't make bcli answer that the output is
+    spent: it retries, and fails once `bitcoin-retry-timeout` has passed."""
+    l1 = node_factory.get_node(options={"bitcoin-retry-timeout": 5})
+    _, txid = l1.fundwallet(10**6)
+    out = only_one([o for o in l1.rpc.listfunds()["outputs"] if o["txid"] == txid])
+    args = {"txid": txid, "vout": out["output"]}
+
+    # An error that retrying can't fix comes back at once.
+    with pytest.raises(RpcError, match=r"command failed \(error code: -8"):
+        l1.rpc.call("getutxout", {"txid": "zz", "vout": 0})
+
+    l1.daemon.rpcproxy.mock_rpc("gettxout", gettxout_failing(times=2))
+    txo = l1.rpc.call("getutxout", args)
+    assert txo == {"amount": f"{10**6}sat", "script": out["scriptpubkey"]}
+    assert l1.daemon.rpcproxy.mock_counts["gettxout"] == 3
+
+    l1.daemon.rpcproxy.mock_rpc("gettxout", gettxout_failing())
+    with pytest.raises(RpcError, match="timeout on transient error"):
+        l1.rpc.call("getutxout", args)
+
+
+def test_bcli_getutxout_failure_fundchannel_cancel(node_factory, bitcoind):
+    """With `gettxout` failing for a while, `fundchannel_cancel` still finds
+    the funding tx, which was broadcast by another wallet (here bitcoind),
+    and doesn't forget the channel."""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+
+    amount = 10**6
+    start = l1.rpc.fundchannel_start(l2.info["id"], amount)
+    prep = l1.rpc.txprepare([{start["funding_address"]: amount}])
+    l1.rpc.fundchannel_complete(l2.info["id"], prep["psbt"])
+    signed = l1.rpc.signpsbt(prep["psbt"])["signed_psbt"]
+    bitcoind.rpc.sendrawtransaction(l1.rpc.dev_finalizepsbt(signed)["tx"])
+
+    l1.daemon.rpcproxy.mock_rpc("gettxout", gettxout_failing(times=2))
+    with pytest.raises(RpcError, match="funding transaction has been broadcast"):
+        l1.rpc.fundchannel_cancel(l2.info["id"])
+    only_one(l1.rpc.listpeerchannels(l2.info["id"])["channels"])
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'p2tr addresses not supported by elementsd')
@@ -3393,6 +3511,52 @@ def test_plugin_shutdown(node_factory):
                              'test_libplugin: failed to self-terminate in time, killing.'])
 
 
+@unittest.skipIf(VALGRIND, "Under valgrind, restarting l2 takes longer than the 30 second plugin shutdown wait")
+def test_shutdown_peer_reconnect(node_factory, bitcoind, executor):
+    """A peer can reconnect while lightningd waits for plugins to exit, and
+    make it fail the channel.  lightningd must not ask bcli to broadcast the
+    close once bcli has exited: it broadcasts it on restart."""
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'dev-fast-reconnect': None})
+
+    # l2 forgets the channel, so it answers l1's reestablish with an error.
+    l1.stop()
+    l2.rpc.dev_forget_channel(l1.info['id'], force=True)
+    l2.stop()
+
+    # This plugin doesn't exit when asked to, so shutdown waits up to 30
+    # seconds for it, long after bcli has exited.
+    l1.daemon.opts['plugin'] = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1.daemon.opts['dont_shutdown'] = None
+    l1.start()
+    line = l1.daemon.is_in_log(r'started\([0-9]*\).*test_libplugin')
+    plugin_pid = int(re.search(r'started\(([0-9]*)\)', line).group(1))
+    # l2 is down, so l1 keeps trying to reconnect.
+    l1.daemon.wait_for_log('Failed connected out')
+
+    stop = executor.submit(l1.stop, timeout=TIMEOUT)
+    l1.daemon.wait_for_log('plugin-bcli: Killing plugin: exited during normal operation')
+    l2.start()
+
+    # l1 reconnects, gets l2's error and fails the channel.
+    l1.daemon.wait_for_log('State changed from CHANNELD_NORMAL to AWAITING_UNILATERAL')
+    line = l1.daemon.wait_for_log('Broadcasting txid')
+    txid = re.search(r'Broadcasting txid ([0-9a-f]{64})', line).group(1)
+    # It doesn't send the close to bcli, which has exited.
+    l1.daemon.wait_for_log('Shutting down: not sending sendrawtransaction')
+
+    # Don't wait out the 30 seconds: once the plugin is gone, l1 exits
+    # cleanly.
+    os.kill(plugin_pid, signal.SIGKILL)
+    stop.result(TIMEOUT)
+    assert txid not in bitcoind.rpc.getrawmempool()
+
+    # It broadcasts the close on restart.
+    del l1.daemon.opts['dont_shutdown']
+    l1.start()
+    wait_for(lambda: txid in bitcoind.rpc.getrawmempool())
+
+
 def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
                                      opts={'log-level': 'io'})
@@ -4202,8 +4366,6 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'next_feerate',
                          'type': 'string'},
-                        {'name': 'next_fee_step',
-                         'type': 'u32'},
                         {'name': 'close_to',
                          'type': 'hex'},
                         {'name': 'private',
@@ -5316,8 +5478,6 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
                                 'enabled': True}
     channel_hint_update = {'origin': 'pay',
                            'channel_hint_update': channel_hint_update_core}
-    # pyln-client's plugin.py duplicated payload into same name as update.
-    channel_hint_update['payload'] = {'channel_hint': channel_hint_update_core}
 
     assert data == channel_hint_update
 
@@ -5329,8 +5489,6 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
                     'bolt11': inv1['bolt11']}
     success = {'origin': 'pay',
                'pay_success': success_core}
-    # pyln-client's plugin.py duplicated payload into same name as update.
-    success['payload'] = success_core
     assert data == success
 
     inv2 = l3.rpc.invoice(10000, "second", "desc")
@@ -5344,8 +5502,6 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
     failure = {'origin': 'pay',
                'pay_failure': failure_core}
-    # pyln-client's plugin.py duplicated payload into same name as update.
-    failure['payload'] = failure_core
     assert data == failure
 
 

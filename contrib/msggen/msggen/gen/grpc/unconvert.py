@@ -1,4 +1,6 @@
 # A grpc model
+import re
+
 from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, Service
 from msggen.gen.grpc.convert import GrpcConverterGenerator
 
@@ -22,6 +24,46 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
 
         fn missing_field(field: &str) -> tonic::Status {
             tonic::Status::invalid_argument(format!("Missing required field `{}`", field))
+        }
+
+        fn double_to_u32(field: &str, v: f64) -> Result<u32, tonic::Status> {
+            if v.fract() != 0.0 || !(0.0..=u32::MAX as f64).contains(&v) {
+                return Err(invalid_argument(field, format!("{} is not a u32", v)));
+            }
+            Ok(v as u32)
+        }
+
+        fn msat_to_sat(field: &str, a: pb::Amount) -> Result<cln_rpc::primitives::AmountSat, tonic::Status> {
+            cln_rpc::primitives::AmountSat::from_msat(a.msat)
+                .map_err(|e| invalid_argument(field, e))
+        }
+
+        fn msat_or_all_to_sat(field: &str, a: pb::AmountOrAll) -> Result<cln_rpc::primitives::AmountSatOrAll, tonic::Status> {
+            use cln_rpc::primitives::{AmountSat, AmountSatOrAll};
+            Ok(match a.value {
+                Some(pb::amount_or_all::Value::Amount(a)) => AmountSatOrAll::AmountSat(
+                    AmountSat::from_msat(a.msat).map_err(|e| invalid_argument(field, e))?,
+                ),
+                Some(pb::amount_or_all::Value::All(_)) => AmountSatOrAll::All,
+                None => return Err(invalid_argument(field, "AmountOrAll is empty")),
+            })
+        }
+
+        fn sat_or_legacy<N, L, T>(
+            field: &str,
+            new: Option<N>,
+            legacy: Option<L>,
+            conv_new: impl FnOnce(N) -> Result<T, tonic::Status>,
+            conv_legacy: impl FnOnce(L) -> Result<T, tonic::Status>,
+        ) -> Result<Option<T>, tonic::Status> {
+            match (new, legacy) {
+                (Some(_), Some(_)) => Err(tonic::Status::invalid_argument(format!(
+                    "Fields `{field}_sat` and deprecated `{field}` are mutually exclusive"
+                ))),
+                (Some(n), None) => conv_new(n).map(Some),
+                (None, Some(l)) => conv_legacy(l).map(Some),
+                (None, None) => Ok(None),
+            }
         }
 
         """
@@ -82,6 +124,63 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
             ),
         }.get(typ, ("s.into()", False))
 
+    def with_pinned(self, f, key: str, name: str, rhs: str) -> str:
+        """Bridge a field whose proto label/type is pinned to the released
+        one by substituting `c.{name}` in `rhs` (which is written against
+        the schema-implied proto type) with a converted value."""
+        pin = self.state.pinned.get(key)
+        if pin is None:
+            return rhs
+        proto, schema = pin["proto"], pin["schema"]
+        v = f"c.{name}"
+
+        # Released as plain, so 0/""/false is all an old client can send
+        # to mean "not set".
+        if proto["label"] == "plain" and schema["label"] == "optional":
+            if proto["type"] == "bool":
+                v = f"Some({v}).filter(|v| *v)"
+            elif proto["type"] in ("string", "bytes"):
+                v = f"Some({v}).filter(|v| !v.is_empty())"
+            else:
+                v = f"Some({v}).filter(|v| *v != Default::default())"
+        elif proto["label"] == "optional" and schema["label"] == "plain":
+            v = f'{v}.ok_or_else(|| missing_field("{name}"))?'
+
+        optional = schema["label"] == "optional"
+        if proto["type"] != schema["type"]:
+            conv = {
+                (
+                    "uint64",
+                    "uint32",
+                ): f'|v| u32::try_from(v).map_err(|e| invalid_argument("{name}", e))',
+                ("double", "uint32"): f'|v| double_to_u32("{name}", v)',
+                (
+                    "string",
+                    "bytes",
+                ): f'|v| hex::decode(v).map_err(|e| invalid_argument("{name}", e))',
+            }[(proto["type"], schema["type"])]
+            if optional:
+                v = f"{v}.map({conv}).transpose()?"
+            else:
+                v = f"({conv})({v})?"
+
+        return re.sub(rf"\bc\.{name}\b", lambda _: f"({v})", rhs)
+
+    def legacy_rhs(self, key: str, f, name: str) -> str:
+        legacy = self.state.legacy[key]
+        new = f"c.{legacy['new_name']}"
+        old = f"c.{name}"
+        if f.typename == "sat":
+            conv_new = "|a| Ok(a.into())"
+            conv_old = f'|a| msat_to_sat("{name}", a)'
+        else:
+            conv_new = f'|a| a.try_into().map_err(|e| invalid_argument("{legacy["new_name"]}", e))'
+            conv_old = f'|a| msat_or_all_to_sat("{name}", a)'
+        rhs = f'sat_or_legacy("{name}", {new}, {old}, {conv_new}, {conv_old})?'
+        if not f.optional:
+            rhs += f'.ok_or_else(|| missing_field("{name}"))?'
+        return rhs
+
     def generate_composite(self, prefix, field: CompositeField, override=None) -> None:
         # First pass: generate any sub-fields before we generate the
         # top-level field itself.
@@ -97,10 +196,14 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
             elif isinstance(f, CompositeField):
                 self.generate_composite(prefix, f, override)
 
-        has_deprecated = any([f.deprecated for f in field.fields])
-        deprecated = ",deprecated" if has_deprecated else ""
-
         pbname = self.to_camel_case(str(field.typename))
+        has_deprecated = any(
+            [
+                f.deprecated or f"{pbname}.{f.path}" in self.state.legacy
+                for f in field.fields
+            ]
+        )
+        deprecated = ",deprecated" if has_deprecated else ""
         # And now we can convert the current field:
         self.write(
             f"""\
@@ -114,6 +217,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
 
         for f in field.fields:
             name = f.normalized()
+            key = f"{pbname}.{f.path}"
             if f.omit():
                 continue
 
@@ -155,15 +259,15 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 if f.path == "ListPeers.peers[].channels[].htlcs[].state":
                     continue
                 if not f.optional:
-                    self.write(
-                        f'{name}: c.{name}.try_into().map_err(|e| invalid_argument("{name}", e))?,\n',
-                        numindent=3,
-                    )
+                    rhs = f'c.{name}.try_into().map_err(|e| invalid_argument("{name}", e))?'
                 else:
-                    self.write(
-                        f'{name}: c.{name}.map(|v| v.try_into().map_err(|e| invalid_argument("{name}", e))).transpose()?,\n',
-                        numindent=3,
-                    )
+                    rhs = f'c.{name}.map(|v| v.try_into().map_err(|e| invalid_argument("{name}", e))).transpose()?'
+                self.write(
+                    f"{name}: {self.with_pinned(f, key, name, rhs)},\n", numindent=3
+                )
+
+            elif isinstance(f, PrimitiveField) and key in self.state.legacy:
+                self.write(f"{name}: {self.legacy_rhs(key, f, name)},\n", numindent=3)
 
             elif isinstance(f, PrimitiveField):
                 typ = f.typename + ("?" if f.optional else "")
@@ -222,6 +326,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     typ,
                     f"c.{name}",  # default to just assignment
                 )
+                rhs = self.with_pinned(f, key, name, rhs)
                 self.write(f"{name}: {rhs}, // Rule #1 for type {typ}\n", numindent=3)
 
             elif isinstance(f, CompositeField):

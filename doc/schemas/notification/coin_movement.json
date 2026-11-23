@@ -83,22 +83,6 @@
           "The UNIX timestamp when the movement was recorded."
         ]
       },
-      "tags": {
-        "type": "array",
-        "description": [
-          "Deprecated legacy combined tag array, emitted only for deprecated output compatibility."
-        ],
-        "deprecated": [
-          "v25.09",
-          "v26.09"
-        ],
-        "items": {
-          "type": "string",
-          "description": [
-            "A legacy movement tag."
-          ]
-        }
-      },
       "primary_tag": {
         "type": "string",
         "enum": [
@@ -187,42 +171,12 @@
           "The originating account for an external chain movement, if any."
         ]
       },
-      "txid": {
-        "type": "txid",
-        "description": [
-          "Deprecated legacy field for the spending transaction id."
-        ],
-        "deprecated": [
-          "v25.09",
-          "v26.09"
-        ]
-      },
       "spending_txid": {
         "type": "txid",
         "description": [
           "The spending transaction id for a chain movement, if any."
         ],
         "added": "v25.09"
-      },
-      "utxo_txid": {
-        "type": "txid",
-        "description": [
-          "Deprecated legacy field for the outpoint transaction id."
-        ],
-        "deprecated": [
-          "v25.09",
-          "v26.09"
-        ]
-      },
-      "vout": {
-        "type": "u32",
-        "description": [
-          "Deprecated legacy field for the outpoint output index."
-        ],
-        "deprecated": [
-          "v25.09",
-          "v26.09"
-        ]
       },
       "output_msat": {
         "type": "msat",

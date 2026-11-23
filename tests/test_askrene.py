@@ -1759,10 +1759,10 @@ def test_real_biases(node_factory, bitcoind, executor):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 5, 2: 6, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
+        expected = ({1: 5, 2: 7, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
     else:
         limit = 100
-        expected = ({1: 23, 2: 32, 4: 52, 8: 64, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
+        expected = ({1: 23, 2: 34, 4: 52, 8: 64, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
@@ -3266,3 +3266,227 @@ def test_real_data_maxhops(node_factory, bitcoind, executor):
         results[maxhops] = summary(res)
 
     assert results == expected
+
+
+def test_bias_aging(node_factory):
+    """Test that askrene-age ages both channel and node biases."""
+    # remove xpay, since it creates a layer!
+    l1 = node_factory.get_node(opts={"disable-plugin": "cln-xpay"})
+
+    expect = {
+        "layer": "test_layers",
+        "persistent": False,
+        "disabled_nodes": [],
+        "created_channels": [],
+        "channel_updates": [],
+        "constraints": [],
+        "impressions": [],
+        "biases": [],
+        "node_biases": [],
+    }
+    l1.rpc.askrene_create_layer("test_layers")
+
+    # Add an old channel bias.
+    r = l1.rpc.askrene_bias_channel("test_layers", "1x1x1/1", 10)
+    channel_ts = r["biases"][0]["timestamp"]
+    expect["biases"] = [
+        {"short_channel_id_dir": "1x1x1/1", "bias": 10, "timestamp": channel_ts}
+    ]
+
+    # Aging to the timestamp itself does nothing.
+    assert l1.rpc.askrene_age("test_layers", channel_ts) == {
+        "layer": "test_layers",
+        "num_removed": 0,
+    }
+
+    # Make sure the node bias has a later timestamp.
+    time.sleep(2)
+    node_id = "020000000000000000000000000000000000000000000000000000000000000001"
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers", node=node_id, direction="out", bias=-5, relative=False
+    )
+    node_ts = r["node_biases"][0]["timestamp"]
+    assert channel_ts < node_ts
+    expect["node_biases"] = [
+        {"node": node_id, "in_bias": 0, "out_bias": -5, "timestamp": node_ts}
+    ]
+    assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
+
+    # Aging to the node bias timestamp only removes the older channel bias.
+    assert l1.rpc.askrene_age("test_layers", node_ts) == {
+        "layer": "test_layers",
+        "num_removed": 1,
+    }
+    expect["biases"] = []
+    assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
+
+    # A later cutoff removes the node bias too.
+    assert l1.rpc.askrene_age("test_layers", node_ts + 1) == {
+        "layer": "test_layers",
+        "num_removed": 1,
+    }
+    expect["node_biases"] = []
+    assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
+
+
+def test_flows_account_for_fees(node_factory):
+    """A probability function that neglects the fees together with the flows
+    would fail this test producing a far from optimal flow partition."""
+    known_min = 50_000_000
+    known_max = 50_050_000
+    pay_amount = 60_000_000
+    chan02_capacity = 1000_000
+    btc_capacity = 100_000_000
+    # 0->1->3 is cheap in probability up to 50k sats, but 50k plus fees nearly
+    # touches the known maximum there so the optimal solution is to send a value
+    # x through 0->1->3 such that x+fees == 50k and send the rest through
+    # 0->2->3 that even with unkown liquidity it is a huge channel.
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 1, capacity_sats=1000_000),
+            GenChannel(
+                1, 3, forward=GenChannel.Half(propfee=1000), capacity_sats=btc_capacity
+            ),
+            GenChannel(0, 2, capacity_sats=chan02_capacity),
+            GenChannel(
+                2, 3, forward=GenChannel.Half(propfee=1000), capacity_sats=btc_capacity
+            ),
+        ]
+    )
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    chan01 = only_one(
+        [
+            c
+            for c in l1.rpc.listchannels(source=nodemap[0])["channels"]
+            if c["destination"] == nodemap[1]
+        ]
+    )
+    scidd01 = f"{chan01['short_channel_id']}/{chan01['direction']}"
+    chan02 = only_one(
+        [
+            c
+            for c in l1.rpc.listchannels(source=nodemap[0])["channels"]
+            if c["destination"] == nodemap[2]
+        ]
+    )
+    scidd02 = f"{chan02['short_channel_id']}/{chan02['direction']}"
+    l1.rpc.askrene_create_layer("known_cap")
+    l1.rpc.askrene_inform_channel(
+        layer="known_cap",
+        short_channel_id_dir=scidd01,
+        amount_msat=known_min,
+        inform="unconstrained",
+    )
+    l1.rpc.askrene_inform_channel(
+        layer="known_cap",
+        short_channel_id_dir=scidd01,
+        amount_msat=known_max + 1,
+        inform="constrained",
+    )
+
+    # A generous maxfee must not prevent us from using the known capacity.
+    for maxfee in (
+        pay_amount // 900,
+        pay_amount // 500,
+        pay_amount // 200,
+        pay_amount // 100,
+        pay_amount // 50,
+        pay_amount // 10,
+        pay_amount,
+    ):
+        routes = l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[3],
+            amount_msat=pay_amount,
+            layers=["known_cap"],
+            maxfee_msat=maxfee,
+            final_cltv=99,
+        )["routes"]
+        assert sum(r["amount_msat"] for r in routes) == pay_amount
+
+        # We use the known channel almost to its full capacity, fees included,
+        # but never beyond it.
+        amounts01 = [
+            h["amount_out_msat"]
+            for r in routes
+            for h in r["path"]
+            if h["short_channel_id_dir"] == scidd01
+        ]
+        assert len(amounts01) == 1
+        amount01 = amounts01[0]
+        amounts02 = [
+            h["amount_out_msat"]
+            for r in routes
+            for h in r["path"]
+            if h["short_channel_id_dir"] == scidd02
+        ]
+        assert len(amounts02) == 1
+        amount02 = amounts02[0]
+
+        # total at 0->1 and 0->2 must match the final destination amount plus
+        # fees that are the same over each route.
+        assert amount01 + amount02 == 60_060_000
+
+        # over 0->1->3 we use almost all of its known_min, that is a necessary
+        # condition for optimality
+        assert known_min * 0.98 <= amount01
+
+        # whatever that is, it must not exceed the known_max
+        assert amount01 <= known_max
+
+        prob_fail01 = (
+            (amount01 - known_min) / (known_max - known_min)
+            if amount01 >= known_min
+            else 0.0
+        )
+        prob_fail02 = (amount02) / (chan02_capacity * 1000)
+
+        # the optimal solution is when prob_fail01 is near prob_fail02
+        assert abs(prob_fail01 - prob_fail02) < 0.02
+
+
+def test_flow_fee_adjustment_fallback(node_factory, bitcoind):
+    """When flow_fee_adjustment reduces too much the available liquidity for a
+    payment that needs to squeeze its amount through a tight channel we should
+    fallback to flow_fee_adjustment=1 (no adjustment at all)."""
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 1, capacity_sats=10_000, forward=GenChannel.Half(propfee=0)),
+            GenChannel(0, 1, capacity_sats=10_000, forward=GenChannel.Half(propfee=0)),
+        ]
+    )
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    routes = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1],
+        amount_msat=19_000_000,
+        layers=[],
+        # a big maxfee produces the biggest capacity adjustment
+        maxfee_msat=20_000_000,
+        final_cltv=10,
+    )
+
+    dir01 = direction(nodemap[0], nodemap[1])
+    check_route_as_expected(
+        routes["routes"],
+        [
+            [
+                {
+                    "short_channel_id_dir": f"0x1x0/{dir01}",
+                    "amount_in_msat": 9_500_000,
+                    "cltv_in": 10 + 6,
+                }
+            ],
+            [
+                {
+                    "short_channel_id_dir": f"1x1x1/{dir01}",
+                    "amount_in_msat": 9_500_000,
+                    "cltv_in": 10 + 6,
+                }
+            ],
+        ],
+    )
+    msg = "Could not find routes with enough capacity, retrying without a flow_fee_adjustment"
+    assert l1.daemon.is_in_log(msg, start=0)

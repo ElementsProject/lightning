@@ -136,7 +136,7 @@ def test_downgrade_bias(node_factory, executor):
 @pytest.mark.skipif(not CLN_PREV_VERSION, reason="Depends on CLN_PREV_VERSION")
 @pytest.mark.skipif(not PREV_LIGHTNINGD, reason="Depends on PREV_LIGHTNINGD")
 def test_downgrade_impressions(node_factory, executor):
-    """Impressions are added since v26.09, the downgrade tool should remove
+    """Impressions are added since v26.12, the downgrade tool should remove
     them while the rest of the askrene data remains."""
     cap_msat = 1000_000_000
     gsfile, nodemap = generate_gossip_store(

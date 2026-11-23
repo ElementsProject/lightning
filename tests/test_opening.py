@@ -4011,7 +4011,7 @@ def test_zero_length_upfront_shutdown_script(node_factory, bitcoind):
         amount_msat = min(total_msat // 5, target_msat - paid_msat)
         inv = l2.rpc.invoice(amount_msat, 'drain-{}'.format(n),
                              'move funds to l2')
-        l1.rpc.pay(inv['bolt11'])
+        l1.rpc.xpay(inv['bolt11'])
         paid_msat += amount_msat
         wait_for(lambda expected=paid_msat: l2_msat() >= expected)
         n += 1

@@ -554,7 +554,8 @@ def test_xpay_takeover_null_parms(node_factory, executor):
     """Test passing through RPC a list of parameters some of which have null
     json value."""
     l1, l2, l3 = node_factory.line_graph(
-        3, wait_for_announce=True, opts={"xpay-handle-pay": True}
+        3, wait_for_announce=True, opts={"xpay-handle-pay": True,
+                                         "allow-deprecated-apis": True}
     )
 
     # Amount argument is null.
@@ -831,7 +832,7 @@ lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxr
     sync_blockheight(bitcoind, [l1])
 
     # This works.
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
     # CLTV is blockheight (110) + 1 + 100 + 200 + 400
     l1.daemon.wait_for_log(f'Adding HTLC 0 amount=15002msat cltv={110 + 1 + 100 + 200 + 400}')
 
@@ -1247,9 +1248,7 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
 
 
 def test_xpay_user_layers(node_factory):
-    l1, l2, l3, l4 = node_factory.get_nodes(
-        4, opts={"may_reconnect": True, "xpay-handle-pay": True}
-    )
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={"may_reconnect": True})
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     node_factory.join_nodes([l2, l4], wait_for_announce=True)
 
@@ -1282,7 +1281,7 @@ def test_xpay_user_layers(node_factory):
         RpcError,
         match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
     ):
-        l1.rpc.pay(inv3)
+        l1.rpc.xpay(inv3)
     inv4 = l4.rpc.invoice(1000, "test-xpay-user-layer", "test-xpay-user-layer")[
         "bolt11"
     ]
@@ -1290,7 +1289,7 @@ def test_xpay_user_layers(node_factory):
         RpcError,
         match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
     ):
-        l1.rpc.pay(inv4)
+        l1.rpc.xpay(inv4)
 
     # Without those layers, the same payments should go through
     l1.stop()
@@ -1298,8 +1297,8 @@ def test_xpay_user_layers(node_factory):
     l1.start()
     l1.rpc.connect(l2.info["id"], "localhost", l2.port)
     l1.daemon.wait_for_log(f"channeld.*: billboard: Channel ready for use")
-    l1.rpc.pay(inv3)
-    l1.rpc.pay(inv4)
+    l1.rpc.xpay(inv3)
+    l1.rpc.xpay(inv4)
 
 
 def test_xpay_get_error_with_update(node_factory):
@@ -1854,7 +1853,7 @@ def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     """
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/fail_unknown_next_peer.py')
     payer, hub, a, b, c, d, dest = node_factory.get_nodes(
-        7, opts=[{},
+        7, opts=[{'xpay-failing-node-tolerance': 2},
                  {'plugin': plugin},
                  {},
                  {},
@@ -1876,7 +1875,172 @@ def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     msg = err.value.error['message']
     # One channel disable, then the node is excluded. Walking all four exits
     # is the bug. The exclusion line also contains the failcode name.
-    unknown = msg.count('We got unknown_next_peer')
+    unknown = msg.count('We got a weird error (unknown_next_peer)')
     assert 0 < unknown <= 2, msg
     assert elapsed < 10, 'spent the retry window walking the same node: {}'.format(msg)
-    assert 'disabling node' in msg or 'Repeated unknown_next_peer' in msg
+    assert 'disabling node' in msg or 'Repeated weird errors' in msg
+
+
+def setup_failing_hub(node_factory, num_spokes, alt_ppm,
+                      failure_message="100c" + "00" * 8 + "0000"):
+    """payer -> hub -> {spokes} -> dest, plus payer -> alt -> altspoke -> dest.
+
+    hub is the cheap, well-connected path but fails every forward with
+    failure_message, by default fee_insufficient (with no channel_update, so
+    there is nothing to learn from it).  The alternative path through alt
+    charges alt_ppm.
+    """
+
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, plugin, **kwargs):
+            # Forwards carry forward_msat. Local invoices do not.
+            if onion.get("forward_msat") is None:
+                return {"result": "continue"}
+            return {"result": "fail", "failure_message": failure_message}
+
+    payer = node_factory.get_node()
+    hub = node_factory.get_node(inline_plugin=setup)
+    alt, altspoke, dest, *spokes = node_factory.get_nodes(3 + num_spokes)
+    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
+    for spoke in spokes:
+        node_factory.join_nodes(
+            [hub, spoke, dest], fundamount=10**6, wait_for_announce=True
+        )
+    node_factory.join_nodes(
+        [payer, alt, altspoke, dest], fundamount=10**6, wait_for_announce=True
+    )
+
+    alt.rpc.setchannel(altspoke.info["id"], feebase=1, feeppm=alt_ppm)
+    num_chans = 1 + 2 * num_spokes + 3
+    wait_for(lambda: len(payer.rpc.listchannels()["channels"]) == num_chans * 2)
+    wait_for(
+        lambda: (
+            [
+                c["fee_per_millionth"]
+                for c in payer.rpc.listchannels(source=alt.info["id"])["channels"]
+                if c["destination"] == altspoke.info["id"]
+            ]
+            == [alt_ppm]
+        )
+    )
+    return payer, hub, alt, dest
+
+
+def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
+    """A hub repeatedly returning fee_insufficient gets a node bias.
+
+    The alternative route is only slightly more expensive, so the node bias
+    added on the second failure is enough to route around the hub: we should
+    not need to disable the hub.
+    """
+    payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=300)
+
+    inv = dest.rpc.invoice(100000, "fee-bias", "fee-bias")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert 0 < ret["failed_parts"] <= 2, ret
+    assert not payer.daemon.is_in_log("disabling node for this payment")
+    assert payer.daemon.is_in_log(
+        "adding a global bias to node {}".format(hub.info["id"])
+    )
+
+    # The bias persists in the xpay layer for future payments.
+    layer = only_one(payer.rpc.askrene_listlayers("xpay")["layers"])
+    node_bias = only_one(
+        [b for b in layer["node_biases"] if b["node"] == hub.info["id"]]
+    )
+    assert node_bias["out_bias"] < 0
+    assert "fee_insufficient" in node_bias["description"]
+
+
+def test_xpay_fee_insufficient_disable(node_factory, bitcoind):
+    """A hub repeatedly returning fee_insufficient gets disabled.
+
+    The alternative route is so expensive that the node bias is not
+    enough, so we keep trying the hub until it reaches the default
+    xpay-failing-node-tolerance (4) and is disabled for this payment.  It has
+    more channels than that, so it's the disabling which makes us succeed.
+    """
+    payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=5000)
+    assert (
+        payer.rpc.listconfigs("xpay-failing-node-tolerance")["configs"][
+            "xpay-failing-node-tolerance"
+        ]["value_int"]
+        == 4
+    )
+
+    inv = dest.rpc.invoice(100000, "fee-disable", "fee-disable")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert 2 < ret["failed_parts"] <= 4, ret
+    line = payer.daemon.is_in_log(
+        r"Repeated weird errors \(.*\) from {}: disabling node for this payment".format(
+            hub.info["id"]
+        )
+    )
+    assert line.count("fee_insufficient on") == 4, line
+
+
+def test_xpay_failing_node_tolerance(node_factory, bitcoind):
+    """xpay-failing-node-tolerance controls when a failing node is disabled."""
+    payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=5000)
+    disabled = (
+        r"Repeated weird errors \(.*\) from {}: disabling node for this payment".format(
+            hub.info["id"]
+        )
+    )
+
+    with pytest.raises(RpcError):
+        payer.rpc.setconfig("xpay-failing-node-tolerance", -1)
+
+    payer.rpc.setconfig("xpay-failing-node-tolerance", 1)
+    conf = payer.rpc.listconfigs("xpay-failing-node-tolerance")["configs"][
+        "xpay-failing-node-tolerance"
+    ]
+    assert conf["value_int"] == 1
+
+    # A single failure is now enough to disable the hub.
+    start = len(payer.daemon.logs)
+    inv = dest.rpc.invoice(100000, "tolerance-1", "tolerance-1")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert ret["failed_parts"] == 1, ret
+    assert payer.daemon.is_in_log(disabled, start=start)
+
+    # With a tolerance above the hub's channel count, we never disable it:
+    # we walk all its channels before using the expensive route.
+    payer.rpc.setconfig("xpay-failing-node-tolerance", 100)
+    start = len(payer.daemon.logs)
+    # The alternative route not only costs more fees but it is also likely to
+    # fail for a payment this big, askrene will like to split this payment.
+    inv = dest.rpc.invoice(90000000, "tolerance-100", "tolerance-100")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=60)
+    assert ret["failed_parts"] == 5, ret
+    assert not payer.daemon.is_in_log(disabled, start=start)
+
+
+def test_xpay_failing_node_nonfinal(node_factory, bitcoind):
+    """If an intermediate node returns an error that is meant for the final,
+    then we disable that node right away regardless of the value of
+    xpay-failing-node-tolerance."""
+    # WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS = PERM|15, htlc_msat, height
+    payer, hub, alt, dest = setup_failing_hub(
+        node_factory,
+        num_spokes=5,
+        alt_ppm=5000,
+        failure_message="400f" + "00" * 8 + "00" * 4,
+    )
+    disabled = r"Repeated weird errors \(incorrect_or_unknown_payment_details on [0-9x]+\) from {}: disabling node for this payment".format(
+        hub.info["id"]
+    )
+
+    payer.rpc.setconfig("xpay-failing-node-tolerance", 100)
+    conf = payer.rpc.listconfigs("xpay-failing-node-tolerance")["configs"][
+        "xpay-failing-node-tolerance"
+    ]
+    assert conf["value_int"] == 100
+
+    # Despite the high tolerance, a single failure disables the hub.
+    start = len(payer.daemon.logs)
+    inv = dest.rpc.invoice(100000, "nonfinal", "nonfinal")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert ret["failed_parts"] == 1, ret
+    assert payer.daemon.is_in_log(disabled, start=start)

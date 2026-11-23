@@ -50,6 +50,7 @@ const DEFAULT_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_s
 
 #[derive(Clone)]
 pub struct State {
+    rpc_path: PathBuf,
     sender: ClnSender,
     pending: PendingRequests,
     timeout: std::time::Duration,
@@ -58,10 +59,18 @@ pub struct State {
 impl State {
     pub fn new(rpc_path: PathBuf, timeout: std::time::Duration) -> Self {
         Self {
-            sender: ClnSender::new(rpc_path),
+            sender: ClnSender::new(rpc_path.clone()),
+            rpc_path,
             pending: PendingRequests::new(),
             timeout,
         }
+    }
+
+    /// Connects to core-lightning's RPC.
+    pub async fn rpc(&self) -> Result<ClnRpc, anyhow::Error> {
+        ClnRpc::new(&self.rpc_path)
+            .await
+            .context("failed to connect to core-lightning")
     }
 
     pub fn client(&self) -> LspsClient<MultiplexedTransport<ClnSender>> {
@@ -149,9 +158,7 @@ async fn on_lsps_lsps2_getinfo(
 
     let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
 
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    let mut cln_client = p.state().rpc().await?;
 
     let lsp_status = check_peer_lsp_status(&mut cln_client, &req.lsp_id).await?;
 
@@ -189,9 +196,7 @@ async fn on_lsps_lsps2_buy(
 
     let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
 
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    let mut cln_client = p.state().rpc().await?;
 
     let lsp_status = check_peer_lsp_status(&mut cln_client, &req.lsp_id).await?;
 
@@ -274,9 +279,7 @@ async fn on_lsps_lsps2_approve(
     };
     let ds_rec_json = serde_json::to_string(&ds_rec)?;
 
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    let mut cln_client = p.state().rpc().await?;
 
     let ds_req = DatastoreRequest {
         generation: None,
@@ -322,6 +325,18 @@ fn select_opening_fee_params(
     })
 }
 
+/// Seconds to take off an invoice's expiry so that it does not outlive the
+/// params' `valid_until`. lightningd adds the expiry to its own clock when it
+/// creates the invoice, so the time the `invoice` call takes counts against
+/// `valid_until` too.
+const INVOICE_EXPIRY_MARGIN_SECS: i64 = 5;
+
+/// The expiry, in seconds, for an invoice created at `now` that must not
+/// outlive `valid_until`.
+fn invoice_expiry(valid_until: chrono::DateTime<Utc>, now: chrono::DateTime<Utc>) -> i64 {
+    (valid_until - now).num_seconds() - INVOICE_EXPIRY_MARGIN_SECS
+}
+
 /// RPC Method handler for `lsps-jitchannel`.
 /// Calls lsps2.get_info, selects parameters, calculates fee, calls lsps2.buy,
 /// creates invoice.
@@ -346,9 +361,7 @@ async fn on_lsps_lsps2_invoice(
         req.lsp_id, req.amount_msat, req.token
     );
 
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    let mut cln_client = p.state().rpc().await?;
 
     // 1. Get LSP's opening fee menu.
     let info_res: Lsps2GetInfoResponse = cln_client
@@ -418,7 +431,8 @@ async fn on_lsps_lsps2_invoice(
 
     // We define the invoice expiry here to avoid cloning `selected_params`
     // as they are about to be moved to the `Lsps2BuyRequest`.
-    let expiry = (selected_params.valid_until.as_chrono() - Utc::now()).num_seconds();
+    let valid_until = selected_params.valid_until.as_chrono();
+    let expiry = invoice_expiry(valid_until, Utc::now());
     if expiry <= 10 {
         return Err(anyhow!(
             "Invoice lifetime is too short, options are valid until: {}",
@@ -475,6 +489,17 @@ async fn on_lsps_lsps2_invoice(
             })
             .await?;
 
+        // Not `expiry`: creating the public invoice took time, and this
+        // one must not outlive `valid_until` either. `invoice` accepts an
+        // expiry of 0, so don't create one that is already expired.
+        let reduced_expiry = invoice_expiry(valid_until, Utc::now());
+        if reduced_expiry <= 0 {
+            return Err(anyhow!(
+                "Opening fee params expired while creating the invoice, they were valid until: {}",
+                selected_params.valid_until,
+            ));
+        }
+
         let _: cln_rpc::model::responses::InvoiceResponse = cln_client
             .call_raw(
                 "invoice",
@@ -483,7 +508,7 @@ async fn on_lsps_lsps2_invoice(
                     dev_routes: Some(vec![vec![hint]]),
                     description: req.description,
                     label: req.label,
-                    expiry: Some(expiry as u64),
+                    expiry: Some(reduced_expiry as u64),
                     cltv: None,
                     deschashonly: None,
                     preimage,
@@ -532,13 +557,7 @@ async fn on_invoice_payment(
     let hash = payment_hash(&preimage);
 
     // Delete DS-entries.
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = ok_or_continue!(
-        cln_rpc::ClnRpc::new(rpc_path.clone())
-            .await
-            .context("failed to connect to core-lightning")
-    );
+    let mut cln_client = ok_or_continue!(p.state().rpc().await);
     ok_or_continue!(
         cln_client
             .call_typed(&DeldatastoreRequest {
@@ -572,13 +591,7 @@ async fn on_htlc_accepted(
     );
 
     // Check that the htlc belongs to a jit-channel request.
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = ok_or_continue!(
-        cln_rpc::ClnRpc::new(rpc_path.clone())
-            .await
-            .context("failed to connect to core-lightning")
-    );
+    let mut cln_client = ok_or_continue!(p.state().rpc().await);
 
     let lsp_data = ok_or_continue!(
         cln_client
@@ -681,13 +694,7 @@ async fn on_openchannel(
 
     // Fixme: Check that channel parameters are as negotiated.
 
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = ok_or_continue!(
-        cln_rpc::ClnRpc::new(rpc_path.clone())
-            .await
-            .context("failed to connect to core-lightning")
-    );
+    let mut cln_client = ok_or_continue!(p.state().rpc().await);
 
     let ds_req = ListdatastoreRequest {
         key: Some(vec![
@@ -741,9 +748,7 @@ async fn on_lsps_listprotocols(
     struct Request {
         lsp_id: String,
     }
-    let dir = p.configuration().lightning_dir;
-    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    let mut cln_client = p.state().rpc().await?;
 
     let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
     let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;

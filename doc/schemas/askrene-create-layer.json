@@ -200,7 +200,7 @@
               }
             },
             "impressions": {
-              "added": "v26.09",
+              "added": "v26.12",
               "type": "array",
               "items": {
                 "type": "object",

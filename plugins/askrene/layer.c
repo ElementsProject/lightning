@@ -1086,6 +1086,17 @@ const struct node_bias *layer_set_node_bias(struct layer *layer,
 	return bias;
 }
 
+static void bias_add_clamped(s8 *bias, s8 add)
+{
+	s32 x = *bias;
+	x += add;
+	if (x > 100)
+		x = 100;
+	if (x < -100)
+		x = -100;
+	*bias = x;
+}
+
 void layer_apply_biases(const struct layer *layer,
 			const struct gossmap *gossmap,
 			s8 *biases)
@@ -1112,8 +1123,8 @@ void layer_apply_biases(const struct layer *layer,
 			c = gossmap_nth_chan(gossmap, n, i, &dir);
 			idx = (gossmap_chan_idx(gossmap, c) << 1) | dir;
 
-			biases[idx] += node_bias->out_bias;
-			biases[idx ^ 1] += node_bias->in_bias;
+			bias_add_clamped(&biases[idx], node_bias->out_bias);
+			bias_add_clamped(&biases[idx ^ 1], node_bias->in_bias);
 		}
 	}
 
@@ -1121,12 +1132,13 @@ void layer_apply_biases(const struct layer *layer,
 	     bias;
 	     bias = bias_hash_next(layer->biases, &it)) {
 		struct gossmap_chan *c;
+		u32 idx;
 
 		c = gossmap_find_chan(gossmap, &bias->scidd.scid);
 		if (!c)
 			continue;
-		biases[(gossmap_chan_idx(gossmap, c) << 1) | bias->scidd.dir]
-			+= bias->bias;
+		idx = (gossmap_chan_idx(gossmap, c) << 1) | bias->scidd.dir;
+		bias_add_clamped(&biases[idx], bias->bias);
 	}
 }
 

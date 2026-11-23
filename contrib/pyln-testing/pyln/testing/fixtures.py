@@ -759,8 +759,17 @@ def checkPluginJSON(node):
                 os.path.join("doc/schemas/notification", fname)
             )
 
-    # FIXME: add doc/schemas/hook/
+    try:
+        hookfiles = os.listdir("doc/schemas/hook")
+    except FileNotFoundError:
+        hookfiles = []
+
     hooks = {}
+    for fname in hookfiles:
+        if fname.endswith(".json"):
+            base = fname.replace(".json", "")
+            # Request is 0 and Response is 1
+            hooks[base] = _load_schema(os.path.join("doc/schemas/hook", fname))
 
     for f in (Path(node.daemon.lightning_dir) / "plugin-io").iterdir():
         # e.g. hook_in-peer_connected-124567-358
@@ -785,14 +794,15 @@ def checkPluginJSON(node):
             req = io["params"][parts[1]]
             direction = 1
 
-        # Until v26.09, with channel_state_changed.null_scid, that notification will be non-schema compliant.
-        if (
-            f.name.startswith("notification_out-channel_state_changed-")
-            and node.daemon.opts.get("allow-deprecated-apis", True) is True
-        ):
-            continue
-
         if schema is not None:
+            # channel_state_changed.message is still allowed to be null
+            # while the null_message deprecation is in effect.
+            if (
+                f.name.startswith("notification_out-channel_state_changed-")
+                and node.daemon.opts.get("allow-deprecated-apis", True) is True
+                and req.get("message", "") is None
+            ):
+                continue
             try:
                 schema[direction].validate(req)
             except jsonschema.exceptions.ValidationError as e:

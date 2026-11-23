@@ -560,9 +560,9 @@ network.
   Add a (taproot) fallback address to invoices produced by the `invoice`
 command, so they invoices can also be paid onchain.
 
-* **xpay-handle-pay**=*BOOL* [plugin `xpay`, *dynamic*]
+* **xpay-handle-pay**=*BOOL* [plugin `xpay`, *dynamic*] \(deprecated in v26.12\)
 
-  Setting this makes `xpay` intercept simply `pay` commands (default `false`).
+  Setting this makes `xpay` intercept simply `pay` commands (default `true`).
 
 * **xpay-slow-mode**=*BOOL* [plugin `xpay`, *dynamic*]
 
@@ -571,6 +571,10 @@ command, so they invoices can also be paid onchain.
 * **xpay-user-layer**=*name* [plugin `xpay`]
 
   Specify the name of a layer `xpay` shall use always for every payment.  This is specially useful when combined with `xpay-handle-pay` since the `layers` parameter is not available in the `pay` interface.  This can be specified multiple times to add more layers.
+
+* **xpay-failing-node-tolerance**=*NUMBER* [plugin `xpay`, *dynamic*]
+
+  How many times a forwarding node can give us a weird error before we disable it for the current payment session.  If a node gives us weird errors on its channels repeatedly it could either be that we were unlucky and all the channels we tried have some kind of issue or it is the node that has an issue.  In the first case it would just be a matter of trying again through a different channel, but in the latter case it is better to avoid routing through it otherwise it'll make us waste our time and eventually fail the payment on timeout.  The tolerance must balance the odds of those two cases (the default is 4).  Some critical error types will trigger the node disable at the first hit regardless of the value of the tolerance.
 
 * **askrene-timeout**=*SECONDS* [plugin `askrene`, *dynamic*]
 

@@ -40,6 +40,13 @@ of the specified channel with the specified peer,
 identified by the channel database index.
 Specify *password* if the `hsm_secret_path` is encrypted.
 
+**dumpcommitments** **--point-only** *node\_id* *channel\_dbid* *commitment\_number* *hsm\_secret\_path*
+
+  Show only the per-commitment point of commitment *commitment\_number*
+of the specified channel.
+Unlike the form above, this prints no secrets, so the result is safe to
+give to the peer of that channel.
+
 **guesstoremote** *p2wpkh* *node\_id* *max\_channel\_dbid* *hsm\_secret\_path* \[*password*\]
 
   Brute-force the private key to our funds from a remote unilateral close
@@ -61,6 +68,91 @@ unrecoverable until the channel is closed).
 If *commitment\_point* is omitted, then the channel is assumed to have been
 negotiated with `option_static_remotekey`;
 otherwise, *commitment\_point* is the remote per-commitment point.
+
+**recoverhtlc** *bundle\_path* *destination* *hsm\_secret\_path*
+
+  Sign transactions which spend our HTLC outputs of a commitment
+transaction which the peer broadcast after we lost channel state.
+In that case **lightningd** logs `Unknown commitment #N, recovering our
+funds!`: it recovers our main output, but it cannot find the HTLC outputs
+without the peer's per-commitment point.
+
+Nothing is broadcast, and no private key is printed.
+Each signed transaction pays the address *destination*, and is printed
+with a description of what it spends, so you can check it and then
+broadcast it yourself.
+
+*bundle\_path* is a JSON file describing the commitment transaction and
+the HTLCs to recover from it:
+
+```json
+{
+  "version": 1,
+  "network": "bitcoin",
+  "peer_id": "02...",
+  "channel_dbid": 123,
+  "remote_htlc_basepoint": "03...",
+  "commitment_point": "03...",
+  "commitment_tx": "0200...",
+  "feerate_perkw": 2500,
+  "allow_high_fee": false,
+  "htlcs": [
+    {"direction": "out", "payment_hash": "...", "cltv_expiry": 952295},
+    {"direction": "in", "preimage": "...", "cltv_expiry": 952300}
+  ]
+}
+```
+
+  * *version* is always 1.
+  * *network* is the network name, such as `bitcoin`, `testnet4`, `signet`
+    or `regtest`.
+  * *peer\_id* and *channel\_dbid* are the node id of the peer and the `id`
+    of the channel in the `channels` table of our database.
+  * *remote\_htlc\_basepoint* is `htlc_basepoint_remote` in the same table.
+    The peer knows it too: it is their own HTLC basepoint.
+  * *commitment\_point* is the peer's per-commitment point for the
+    commitment they broadcast, and only the peer has it.
+    A Core Lightning peer can print it, and nothing secret, with
+    `lightning-hsmtool dumpcommitments --point-only <our node id> <their
+    channel dbid> N <their hsm\_secret>`, where *N* is the number in our
+    `Unknown commitment #N` log message.
+  * *commitment\_tx* is the hex of the commitment transaction, as printed by
+    `bitcoin-cli getrawtransaction`.
+  * *feerate\_perkw* is optional, in satoshi per 1000 weight: 250 is
+    1 sat/vB.  The default is 2500.
+  * *allow\_high\_fee* is optional and defaults to false.  By default,
+    recovery refuses a transaction whose fee exceeds one quarter of the
+    recovered amount.  Set it to true only after checking the fee.
+  * Each of *htlcs* with *direction* `out` is an HTLC which we offered: it
+    needs the *payment\_hash* and *cltv\_expiry*, and we take it back once
+    it has expired.
+    Each with *direction* `in` is an HTLC which the peer offered: it needs
+    the *preimage*, and must confirm before the peer takes it back at
+    *cltv\_expiry*.  Its *cltv\_expiry* and *payment\_hash* are optional.
+    The peer can obtain payment hashes and expiries from `listhtlcs`,
+    `listpeerchannels` or its logs.  If neither node retained them, the peer
+    can help identify them while decoding the commitment transaction.
+
+The values from our database can be read from a copy of it, for example:
+
+```
+sqlite3 lightningd.sqlite3 "SELECT c.id, hex(p.node_id), \
+    hex(c.htlc_basepoint_remote) FROM channels c \
+    JOIN peers p ON p.id = c.peer_id"
+```
+
+A transaction is only signed for an HTLC whose script, rebuilt from the
+channel and HTLC values, is paid by an output of *commitment\_tx*: a wrong
+value cannot select a different HTLC output.
+The destination and fee do affect the signed spend, so check both in the
+printed transaction before broadcasting it.
+An HTLC without such an output is skipped with a message, and the others
+are still recovered.  An HTLC too small to have an output in the
+commitment transaction cannot be recovered.
+Parts of one payment which have identical scripts are spent by a single
+transaction.
+Both anchor and non-anchor channels are supported; Elements networks are
+not.
 
 **generatehsm** *hsm\_secret\_path* \[*lang* *seed\_phrase*  \[*passphrase*\]\]
   Generates a new hsm\_secret using BIP39.  If lang, seed\_phrase and optional passphrase are not provided they will be prompted for.  *lang* can be "en" (English), "es" (Spanish), "fr" (French), "it" ("Italian"), "jp" (Japanese), "zhs" (Chinese Simplified) or "zht" ("Chinese Traditional"). Note that the seed phrase consists of multiple words, so should be surrounded by quotes.
