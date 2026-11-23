@@ -1270,6 +1270,11 @@ static const struct db_migration dbmigrations[] = {
 	 " WHERE remote_funding IS NOT NULL;"), NULL,
      /* The revert drops the column */
      NULL, NULL},
+    /* Marks an RBF/splice candidate that's provably lost (a sibling
+     * inflight was confirmed instead), so we stop recomputing its
+     * commitment tx + HTLC sigs on every update */
+    {SQL("ALTER TABLE channel_funding_inflights ADD superseded INTEGER DEFAULT 0;"), NULL,
+     SQL("ALTER TABLE channel_funding_inflights DROP COLUMN superseded"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
