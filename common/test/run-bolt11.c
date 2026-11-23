@@ -897,6 +897,27 @@ int main(int argc, char *argv[])
 	assert(!bolt11_decode(tmpctx, "lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpusp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9qrsgq0lzc236j96a95uv0m3umg28gclm5lqxtqqwk32uuk4k6673k6n5kfvx3d2h8s295fad45fdhmusm8sjudfhlf6dcsxmfvkeywmjdkxcp99202x", NULL, NULL, NULL, &fail));
 	assert(streq(fail, "Invalid sub-millisatoshi amount '2500000001p'"));
 
+	/* The invoice above with the amount changed (and the checksum fixed up)
+	 * to just over 2^64 msat: this used to wrap around to 26290448384msat. */
+	assert(!bolt11_decode(tmpctx, "lnbc1844674411pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpusp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9qrsgq0lzc236j96a95uv0m3umg28gclm5lqxtqqwk32uuk4k6673k6n5kfvx3d2h8s295fad45fdhmusm8sjudfhlf6dcsxmfvkeywmjdkxcp7lxky3", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "Invalid amount '184467441'"));
+
+	/* Same with a multiplier (used to wrap to 90448384msat) */
+	assert(!bolt11_decode(tmpctx, "lnbc184467440738m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpusp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9qrsgq0lzc236j96a95uv0m3umg28gclm5lqxtqqwk32uuk4k6673k6n5kfvx3d2h8s295fad45fdhmusm8sjudfhlf6dcsxmfvkeywmjdkxcpjqk06g", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "Invalid amount '184467440738'"));
+
+	/* 21 million BTC is over 2^64 pico-bitcoin, but fits in msat (the
+	 * signature no longer matches, so don't check it). */
+	{
+		struct sha256 hash;
+		const u5 *sig;
+		bool have_n;
+
+		b11 = bolt11_decode_nosig(tmpctx, "lnbc210000001pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpusp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9qrsgq0lzc236j96a95uv0m3umg28gclm5lqxtqqwk32uuk4k6673k6n5kfvx3d2h8s295fad45fdhmusm8sjudfhlf6dcsxmfvkeywmjdkxcplpud46", NULL, NULL, NULL, &hash, &sig, &have_n, &fail);
+		assert(b11);
+		assert(amount_msat_eq(*b11->msat, amount_msat(2100000000000000000ULL)));
+	}
+
 	/* BOLT #11:
 	 * > ### Missing required `s` field.
 	 * > lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs9qrsgq7ea976txfraylvgzuxs8kgcw23ezlrszfnh8r6qtfpr6cxga50aj6txm9rxrydzd06dfeawfk6swupvz4erwnyutnjq7x39ymw6j38gp49qdkj
