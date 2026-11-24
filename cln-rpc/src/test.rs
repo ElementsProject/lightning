@@ -46,7 +46,7 @@ async fn call_raw_request() {
 
     let rpc_response = serde_json::json!({
         "jsonrpc" : "2.0",
-        "id" : "1",
+        "id" : 1,
         "result" : {"field_6" : 6}
     });
 
@@ -497,10 +497,7 @@ fn test_openchannel2_hook() {
     assert_eq!(d.openchannel2.to_self_delay, 5);
     assert_eq!(d.openchannel2.max_accepted_htlcs, 483);
     assert_eq!(d.openchannel2.channel_flags, 1);
-    assert_eq!(
-        d.openchannel2.channel_type.bits,
-        vec![12, 22]
-    );
+    assert_eq!(d.openchannel2.channel_type.bits, vec![12, 22]);
     assert_eq!(
         d.openchannel2.channel_type.names,
         vec!["static_remotekey/even", "anchors/even"]
@@ -1104,4 +1101,174 @@ fn test_wait_networkevents_response() {
         "connect"
     );
     assert_serde_roundtrip!(d, responses::WaitResponse);
+}
+
+#[tokio::test]
+async fn test_cancelled_call_does_not_desync_subsequent_calls() {
+    let (uds1, uds2) = UnixStream::pair().unwrap();
+    let mut cln = ClnRpc::from_stream(uds1).unwrap();
+    let mut frame = Framed::new(uds2, JsonCodec::default());
+
+    {
+        let empty = json!({});
+        let mut fut = tokio_test::task::spawn(cln.call_raw::<serde_json::Value, _>("slow", &empty));
+        assert!(fut.poll().is_pending());
+    }
+
+    let req1 = frame.next().await.unwrap().unwrap();
+    assert_eq!(req1["id"], 1);
+    frame
+        .send(json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {"from": "stale_call_1"}
+        }))
+        .await
+        .unwrap();
+
+    let server = tokio::spawn(async move {
+        let req2 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req2["id"], 2);
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 2, "result": {"from": "call_2"}}))
+            .await
+            .unwrap();
+
+        let req3 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req3["id"], 3);
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 3, "result": {"from": "call_3"}}))
+            .await
+            .unwrap();
+    });
+
+    let r2: serde_json::Value = cln.call_raw("second", &json!({})).await.unwrap();
+    assert_eq!(r2, json!({"from": "call_2"}));
+
+    let r3: serde_json::Value = cln.call_raw("third", &json!({})).await.unwrap();
+    assert_eq!(r3, json!({"from": "call_3"}));
+
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn test_out_of_order_stale_response_after_cancelled_call() {
+    let (uds1, uds2) = UnixStream::pair().unwrap();
+    let mut cln = ClnRpc::from_stream(uds1).unwrap();
+    let mut frame = Framed::new(uds2, JsonCodec::default());
+
+    {
+        let empty = json!({});
+        let mut fut = tokio_test::task::spawn(cln.call_raw::<serde_json::Value, _>("slow", &empty));
+        assert!(fut.poll().is_pending());
+    }
+
+    let req1 = frame.next().await.unwrap().unwrap();
+    assert_eq!(req1["id"], 1);
+
+    let server = tokio::spawn(async move {
+        let req2 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req2["id"], 2);
+        // Reply to call 2 before the cancelled call 1 finishes.
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 2, "result": {"from": "call_2"}}))
+            .await
+            .unwrap();
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 1, "result": {"from": "stale_call_1"}}))
+            .await
+            .unwrap();
+
+        let req3 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req3["id"], 3);
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 3, "result": {"from": "call_3"}}))
+            .await
+            .unwrap();
+    });
+
+    let r2: serde_json::Value = cln.call_raw("second", &json!({})).await.unwrap();
+    assert_eq!(r2, json!({"from": "call_2"}));
+
+    let r3: serde_json::Value = cln.call_raw("third", &json!({})).await.unwrap();
+    assert_eq!(r3, json!({"from": "call_3"}));
+
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn test_mismatched_response_id_returns_error() {
+    let (uds1, uds2) = UnixStream::pair().unwrap();
+    let mut cln = ClnRpc::from_stream(uds1).unwrap();
+    let mut frame = Framed::new(uds2, JsonCodec::default());
+
+    let server = tokio::spawn(async move {
+        let req1 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req1["id"], 1);
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 999, "result": {"wrong": true}}))
+            .await
+            .unwrap();
+
+        let req2 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req2["id"], 2);
+        frame
+            .send(json!({
+                "jsonrpc": "2.0",
+                "id": null,
+                "error": {"code": -32700, "message": "Parse error"}
+            }))
+            .await
+            .unwrap();
+    });
+
+    let err1 = cln
+        .call_raw::<serde_json::Value, _>("first", &json!({}))
+        .await
+        .unwrap_err();
+    assert!(err1.message.contains("Unexpected response id"));
+
+    let err2 = cln
+        .call_raw::<serde_json::Value, _>("second", &json!({}))
+        .await
+        .unwrap_err();
+    assert!(err2.message.contains("Unexpected response id"));
+
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn test_mid_write_cancellation_flushes_cleanly() {
+    let (uds1, uds2) = UnixStream::pair().unwrap();
+    let mut cln = ClnRpc::from_stream(uds1).unwrap();
+    let mut frame = Framed::new(uds2, JsonCodec::default());
+
+    let huge = json!({"pad": "a".repeat(4 * 1024 * 1024)});
+    {
+        let mut fut = tokio_test::task::spawn(cln.call_raw::<serde_json::Value, _>("huge", &huge));
+        assert!(fut.poll().is_pending());
+    }
+    assert!(cln.dirty_write);
+
+    let server = tokio::spawn(async move {
+        let req1 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req1["id"], 1);
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 1, "result": {"from": "huge"}}))
+            .await
+            .unwrap();
+
+        let req2 = frame.next().await.unwrap().unwrap();
+        assert_eq!(req2["id"], 2);
+        frame
+            .send(json!({"jsonrpc": "2.0", "id": 2, "result": {"from": "after_huge"}}))
+            .await
+            .unwrap();
+    });
+
+    let r2: serde_json::Value = cln.call_raw("after_huge", &json!({})).await.unwrap();
+    assert_eq!(r2, json!({"from": "after_huge"}));
+    assert!(!cln.dirty_write);
+
+    server.await.unwrap();
 }
