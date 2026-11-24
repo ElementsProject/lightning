@@ -938,31 +938,29 @@ where
             // the user-code, which may require some cleanups or
             // similar.
             tokio::select! {
-                    e = self.dispatch_one(&mut input, &self.plugin) => {
-                        if let Err(e) = e {
-                return Err(e)
-                        }
-            },
-            v = receiver.recv() => {
-                        output.lock().await.send(
-                v.context("internal communication error")?
-                        ).await?;
-            },
-                }
+                msg = input.next() => {
+                    if let Some(reply) = self.dispatch_message(msg, &self.plugin)? {
+                        output.lock().await.send(reply).await?;
+                    }
+                },
+                v = receiver.recv() => {
+                    output.lock().await.send(
+                        v.context("internal communication error")?
+                    ).await?;
+                },
+            }
         }
     }
 
-    /// Dispatch one server-side event and then return. Just so we
-    /// have a nicer looking `select` statement in `run` :-)
-    async fn dispatch_one<I>(
+    /// Dispatch one decoded message. Returns an optional immediate reply
+    /// (e.g. a JSON-RPC parse error) for the driver loop to write directly,
+    /// keeping `select!` branches cancel-safe and avoiding channel deadlocks.
+    fn dispatch_message(
         &self,
-        input: &mut FramedRead<I, JsonRpcCodec>,
+        msg: Option<Result<messages::JsonRpc<messages::Notification, messages::Request>, Error>>,
         plugin: &Plugin<S>,
-    ) -> Result<(), Error>
-    where
-        I: Send + AsyncReadExt + Unpin,
-    {
-        match input.next().await {
+    ) -> Result<Option<serde_json::Value>, Error> {
+        match msg {
             Some(Ok(msg)) => {
                 trace!("Received a message: {:?}", msg);
                 match msg {
@@ -1140,7 +1138,7 @@ where
                                 }
                             });
                         }
-                        Ok(())
+                        Ok(None)
                     }
                     messages::JsonRpc::CustomNotification(request) => {
                         // This code handles notifications
@@ -1226,12 +1224,11 @@ where
                                 }
                             }
                         };
-                        Ok(())
+                        Ok(None)
                     }
                     messages::JsonRpc::Error(rpc_error) => {
                         log::warn!("Error in json decoder: {rpc_error}");
-                        plugin.sender.send(rpc_error).await?;
-                        Ok(())
+                        Ok(Some(rpc_error))
                     }
                 }
             }
@@ -1403,8 +1400,7 @@ mod test {
             .unwrap();
 
         driver
-            .dispatch_one(&mut framed_in, &driver.plugin)
-            .await
+            .dispatch_message(framed_in.next().await, &driver.plugin)
             .unwrap();
 
         let response = receiver.recv().await.unwrap();
@@ -1453,8 +1449,7 @@ mod test {
             .unwrap();
 
         driver
-            .dispatch_one(&mut framed_in, &driver.plugin)
-            .await
+            .dispatch_message(framed_in.next().await, &driver.plugin)
             .unwrap();
 
         let response = receiver.recv().await.unwrap();
@@ -1520,8 +1515,7 @@ mod test {
             .unwrap();
 
         driver
-            .dispatch_one(&mut framed_in, &driver.plugin)
-            .await
+            .dispatch_message(framed_in.next().await, &driver.plugin)
             .unwrap();
 
         let response = receiver.recv().await.unwrap();
@@ -1566,8 +1560,7 @@ mod test {
             .unwrap();
 
         driver
-            .dispatch_one(&mut framed_in, &driver.plugin)
-            .await
+            .dispatch_message(framed_in.next().await, &driver.plugin)
             .unwrap();
 
         let response = receiver.recv().await.unwrap();
@@ -1614,8 +1607,7 @@ mod test {
             .unwrap();
 
         driver
-            .dispatch_one(&mut framed_in, &driver.plugin)
-            .await
+            .dispatch_message(framed_in.next().await, &driver.plugin)
             .unwrap();
 
         let response = receiver.recv().await.unwrap();
@@ -1740,5 +1732,105 @@ mod test {
         let ping_resp = master_read.next().await.unwrap().unwrap().unwrap();
         assert_eq!(ping_resp["id"], 12);
         assert_eq!(ping_resp["result"], json!({"ok": true}));
+    }
+
+    #[tokio::test]
+    async fn test_json_error_replies_not_dropped_under_channel_backpressure() {
+        use std::collections::HashSet;
+
+        let (mut master_write, plugin_read) = tokio::io::duplex(65536);
+        let (plugin_write, master_read) = tokio::io::duplex(65536);
+        let framed_in = FramedRead::new(plugin_read, JsonRpcCodec::default());
+        let output = Arc::new(Mutex::new(FramedWrite::new(
+            plugin_write,
+            JsonCodec::default(),
+        )));
+        let mut master_read = FramedRead::new(master_read, JsonCodec::default());
+
+        let (sender, receiver) = tokio::sync::mpsc::channel(4);
+        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+
+        let plugin = Plugin {
+            state: (),
+            options: HashMap::new(),
+            option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            configuration: dummy_configuration(),
+            wait_handle,
+            sender: sender.clone(),
+        };
+
+        let mut rpcmethods: HashMap<String, AsyncCallback<()>> = HashMap::new();
+        rpcmethods.insert(
+            "sentinel".to_string(),
+            Box::new(|_p, _r| Box::pin(async { Ok(json!({"ok": true})) })),
+        );
+
+        let driver = PluginDriver {
+            plugin,
+            rpcmethods,
+            setconfig_callback: None,
+            hooks: HashMap::new(),
+            subscriptions: HashMap::new(),
+            wildcard_subscription: None,
+        };
+
+        // Pre-fill the bounded mpsc channel so receiver.recv() is immediately ready.
+        for id in 1..=4_i64 {
+            sender
+                .try_send(json!({"jsonrpc": "2.0", "id": id, "result": {}}))
+                .unwrap();
+        }
+
+        let driver_handle =
+            tokio::spawn(async move { driver.run(receiver, framed_in, output).await });
+
+        // Keep the channel saturated while malformed frames are processed.
+        let producer = tokio::spawn(async move {
+            for id in 5..=40_i64 {
+                sender
+                    .send(json!({"jsonrpc": "2.0", "id": id, "result": {}}))
+                    .await
+                    .unwrap();
+            }
+        });
+
+        let malformed_ids: HashSet<i64> = (1000..1032).collect();
+        for id in 1000..1032_i64 {
+            let bad = format!(
+                "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"method\":\"foo\",\"params\":[bad]}}\n\n"
+            );
+            master_write.write_all(bad.as_bytes()).await.unwrap();
+        }
+        master_write
+            .write_all(
+                b"{\"jsonrpc\":\"2.0\",\"id\":9999,\"method\":\"sentinel\",\"params\":{}}\n\n",
+            )
+            .await
+            .unwrap();
+
+        let mut seen_normal = HashSet::new();
+        let mut seen_errors = HashSet::new();
+        let mut saw_sentinel = false;
+
+        while seen_normal.len() < 40 || !saw_sentinel {
+            let msg = master_read.next().await.unwrap().unwrap().unwrap();
+            let id = msg["id"].as_i64().unwrap();
+            if id == 9999 {
+                saw_sentinel = true;
+            } else if (1..=40).contains(&id) {
+                seen_normal.insert(id);
+            } else if malformed_ids.contains(&id) {
+                assert_eq!(msg["error"]["code"], -32700);
+                seen_errors.insert(id);
+            } else {
+                panic!("unexpected response id: {msg}");
+            }
+        }
+
+        assert_eq!(seen_errors, malformed_ids);
+
+        producer.await.unwrap();
+        drop(master_write);
+        let _ = driver_handle.await.unwrap();
     }
 }
