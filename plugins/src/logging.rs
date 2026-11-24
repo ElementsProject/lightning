@@ -40,11 +40,12 @@ impl From<log::Level> for LogLevel {
 /// Start a listener that receives incoming log events, and then
 /// writes them out to `stdout`, after wrapping them in a valid
 /// JSON-RPC notification object.
-fn start_writer<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> mpsc::UnboundedSender<LogEntry>
-where
+fn spawn_writer<O>(
+    out: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
+    mut receiver: mpsc::UnboundedReceiver<LogEntry>,
+) where
     O: AsyncWrite + Send + Unpin + 'static,
 {
-    let (sender, mut receiver) = mpsc::unbounded_channel::<LogEntry>();
     tokio::spawn(async move {
         while let Some(i) = receiver.recv().await {
             // We continue draining the queue, even if we get some
@@ -60,7 +61,6 @@ where
             let _ = out.lock().await.send(payload).await;
         }
     });
-    sender
 }
 
 /// Initialize the logger starting a flusher to the passed in sink.
@@ -78,7 +78,9 @@ mod trace {
     use tracing_subscriber::prelude::*;
 
     /// Initialize the logger starting a flusher to the passed in sink.
-    pub fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), log::SetLoggerError>
+    pub fn init<O>(
+        out: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
+    ) -> Result<(), tracing_subscriber::util::TryInitError>
     where
         O: AsyncWrite + Send + Unpin + 'static,
     {
@@ -86,13 +88,14 @@ mod trace {
             .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
             .with_env_var("CLN_PLUGIN_LOG")
             .from_env_lossy();
-        let sender = start_writer(out);
+        let (sender, receiver) = mpsc::unbounded_channel::<LogEntry>();
 
         tracing_subscriber::registry()
             .with(filter)
             .with(LoggingLayer::new(sender))
-            .init();
+            .try_init()?;
 
+        spawn_writer(out, receiver);
         Ok(())
     }
 
@@ -116,20 +119,13 @@ mod trace {
         ) {
             let mut extractor = LogExtract::default();
             event.record(&mut extractor);
-            let mut message = match extractor.msg {
-                Some(m) => m,
-                None => return,
-            };
 
-            // Append any additional fields to the message
-            if !extractor.fields.is_empty() {
-                let fields_str: Vec<String> = extractor
-                    .fields
-                    .iter()
-                    .map(|(k, v)| format!("{}=\"{}\"", k, v))
-                    .collect();
-                message = format!("{} [{}]", message, fields_str.join(", "));
-            }
+            let message = match (extractor.msg, extractor.fields.is_empty()) {
+                (Some(msg), false) => format!("{msg} [{}]", extractor.fields.join(", ")),
+                (Some(msg), true) => msg,
+                (None, false) => format!("[{}]", extractor.fields.join(", ")),
+                (None, true) => return,
+            };
 
             let level = event.metadata().level().into();
             if let Err(err) = self.sender.send(LogEntry { level, message }) {
@@ -160,19 +156,58 @@ mod trace {
     #[derive(Default)]
     struct LogExtract {
         msg: Option<String>,
-        fields: Vec<(String, String)>,
+        fields: Vec<String>,
+    }
+
+    impl LogExtract {
+        fn record_quoted(&mut self, field_name: &str, value: String) {
+            if field_name == "message" {
+                self.msg = Some(value);
+            } else if !is_log_metadata_field(field_name) {
+                self.fields.push(format!("{field_name}=\"{value}\""));
+            }
+        }
+
+        fn record_unquoted(&mut self, field_name: &str, value: impl std::fmt::Display) {
+            if field_name == "message" {
+                self.msg = Some(value.to_string());
+            } else if !is_log_metadata_field(field_name) {
+                self.fields.push(format!("{field_name}={value}"));
+            }
+        }
     }
 
     impl tracing::field::Visit for LogExtract {
-        fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-            let field_name = field.name();
-            let field_value = format!("{value:?}");
+        fn record_f64(&mut self, field: &tracing::field::Field, value: f64) {
+            self.record_unquoted(field.name(), value);
+        }
 
-            if field_name == "message" {
-                self.msg = Some(field_value);
-            } else if !is_log_metadata_field(field_name) {
-                self.fields.push((field_name.to_owned(), field_value));
-            }
+        fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
+            self.record_unquoted(field.name(), value);
+        }
+
+        fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+            self.record_unquoted(field.name(), value);
+        }
+
+        fn record_i128(&mut self, field: &tracing::field::Field, value: i128) {
+            self.record_unquoted(field.name(), value);
+        }
+
+        fn record_u128(&mut self, field: &tracing::field::Field, value: u128) {
+            self.record_unquoted(field.name(), value);
+        }
+
+        fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
+            self.record_unquoted(field.name(), value);
+        }
+
+        fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+            self.record_quoted(field.name(), value.to_owned());
+        }
+
+        fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+            self.record_quoted(field.name(), format!("{value:?}"));
         }
     }
 
@@ -200,6 +235,60 @@ mod trace {
             tracing::subscriber::with_default(subscriber, || {
                 tracing::info!("this must not panic");
             });
+        }
+
+        #[test]
+        fn test_logging_layer_structured_event_without_message() {
+            let (sender, mut receiver) = mpsc::unbounded_channel::<LogEntry>();
+            let subscriber = tracing_subscriber::registry().with(LoggingLayer::new(sender));
+
+            tracing::subscriber::with_default(subscriber, || {
+                tracing::info!(peer_id = "alice", amount = 1000);
+            });
+
+            let entry = receiver
+                .try_recv()
+                .expect("structured tracing event without message field was dropped");
+            assert_eq!(entry.message, r#"[peer_id="alice", amount=1000]"#);
+        }
+
+        #[test]
+        fn test_logging_layer_field_quoting() {
+            let (sender, mut receiver) = mpsc::unbounded_channel::<LogEntry>();
+            let subscriber = tracing_subscriber::registry().with(LoggingLayer::new(sender));
+
+            let url = "ws://127.0.0.1:37473";
+            tracing::subscriber::with_default(subscriber, || {
+                tracing::info!(
+                    peer = "alice",
+                    url = %url,
+                    count = 3,
+                    ratio = 1.5,
+                    ok = true,
+                    "hello"
+                );
+            });
+
+            let entry = receiver.try_recv().unwrap();
+            assert_eq!(
+                entry.message,
+                r#"hello [peer="alice", url="ws://127.0.0.1:37473", count=3, ratio=1.5, ok=true]"#
+            );
+        }
+
+        #[tokio::test]
+        async fn test_logging_init_twice_returns_err_instead_of_panicking() {
+            let out1 = Arc::new(Mutex::new(FramedWrite::new(
+                tokio::io::sink(),
+                JsonCodec::default(),
+            )));
+            let out2 = Arc::new(Mutex::new(FramedWrite::new(
+                tokio::io::sink(),
+                JsonCodec::default(),
+            )));
+
+            crate::logging::init(out1).await.unwrap();
+            assert!(crate::logging::init(out2).await.is_err());
         }
     }
 }
