@@ -992,9 +992,17 @@ where
                         let method_str = method.to_string();
 
                         if let Some(callback) = self.hooks.get(method) {
-                            let call = callback(plugin.clone(), params);
+                            let call =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    callback(plugin.clone(), params)
+                                }));
                             tokio::spawn(async move {
-                                let res = std::panic::AssertUnwindSafe(call).catch_unwind().await;
+                                let res = match call {
+                                    Ok(fut) => {
+                                        std::panic::AssertUnwindSafe(fut).catch_unwind().await
+                                    }
+                                    Err(panic) => Err(panic),
+                                };
                                 match res {
                                     Ok(Ok(v)) => {
                                         let _ = plugin
@@ -1082,9 +1090,17 @@ where
                                 })?,
                             };
 
-                            let call = callback(plugin.clone(), params);
+                            let call =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    callback(plugin.clone(), params)
+                                }));
                             tokio::spawn(async move {
-                                let res = std::panic::AssertUnwindSafe(call).catch_unwind().await;
+                                let res = match call {
+                                    Ok(fut) => {
+                                        std::panic::AssertUnwindSafe(fut).catch_unwind().await
+                                    }
+                                    Err(panic) => Err(panic),
+                                };
                                 match res {
                                     Ok(Ok(v)) => {
                                         let _ = plugin
@@ -1142,38 +1158,64 @@ where
                         // Send to notification to the wildcard
                         // subscription "*" it it exists
                         if let Some(cb) = &self.wildcard_subscription {
-                            let call = cb(plugin.clone(), params.clone());
-                            tokio::spawn(async move {
-                                match std::panic::AssertUnwindSafe(call).catch_unwind().await {
-                                    Ok(Err(e)) => {
-                                        log::warn!("Wildcard notification handler error: '{e}'");
-                                    }
-                                    Err(_) => {
-                                        log::error!("Wildcard notification handler panicked");
-                                    }
-                                    Ok(Ok(())) => {}
+                            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                cb(plugin.clone(), params.clone())
+                            })) {
+                                Ok(call) => {
+                                    tokio::spawn(async move {
+                                        match std::panic::AssertUnwindSafe(call)
+                                            .catch_unwind()
+                                            .await
+                                        {
+                                            Ok(Err(e)) => {
+                                                log::warn!(
+                                                    "Wildcard notification handler error: '{e}'"
+                                                );
+                                            }
+                                            Err(_) => {
+                                                log::error!(
+                                                    "Wildcard notification handler panicked"
+                                                );
+                                            }
+                                            Ok(Ok(())) => {}
+                                        }
+                                    });
                                 }
-                            });
+                                Err(_) => {
+                                    log::error!("Wildcard notification handler panicked");
+                                }
+                            }
                         }
 
                         // Find the appropriate callback and process it
                         // We'll log a warning if no handler is defined
                         match self.subscriptions.get(method) {
                             Some(cb) => {
-                                let call = cb(plugin.clone(), params.clone());
-                                tokio::spawn(async move {
-                                    match std::panic::AssertUnwindSafe(call).catch_unwind().await {
-                                        Ok(Err(e)) => {
-                                            log::warn!("Notification handler error: '{e}'");
-                                        }
-                                        Err(_) => {
-                                            log::error!(
-                                                "Notification handler error: handler panicked"
-                                            );
-                                        }
-                                        Ok(Ok(())) => {}
+                                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    cb(plugin.clone(), params.clone())
+                                })) {
+                                    Ok(call) => {
+                                        tokio::spawn(async move {
+                                            match std::panic::AssertUnwindSafe(call)
+                                                .catch_unwind()
+                                                .await
+                                            {
+                                                Ok(Err(e)) => {
+                                                    log::warn!("Notification handler error: '{e}'");
+                                                }
+                                                Err(_) => {
+                                                    log::error!(
+                                                        "Notification handler error: handler panicked"
+                                                    );
+                                                }
+                                                Ok(Ok(())) => {}
+                                            }
+                                        });
                                     }
-                                });
+                                    Err(_) => {
+                                        log::error!("Notification handler error: handler panicked");
+                                    }
+                                }
                             }
                             None => {
                                 if self.wildcard_subscription.is_none() {
@@ -1580,5 +1622,123 @@ mod test {
         assert_eq!(response["id"], 888);
         assert!(response.get("error").is_some());
         assert_eq!(response["error"]["message"], "recover rpc failed");
+    }
+
+    #[tokio::test]
+    async fn test_sync_callback_panics_do_not_kill_driver() {
+        let (mut master_write, plugin_read) = tokio::io::duplex(4096);
+        let (plugin_write, master_read) = tokio::io::duplex(4096);
+        let mut master_read = FramedRead::new(master_read, JsonCodec::default());
+
+        let start_fut = Builder::new(plugin_read, plugin_write)
+            .with_logging(false)
+            .hook("htlc_accepted", |_p: Plugin<()>, _r| {
+                panic!("sync hook panic");
+                #[allow(unreachable_code)]
+                async {
+                    Ok(json!({"result": "continue"}))
+                }
+            })
+            .rpcmethod(
+                "sync_panic_rpc",
+                "panics before returning future",
+                |_p: Plugin<()>, _r| {
+                    panic!("sync rpc panic");
+                    #[allow(unreachable_code)]
+                    async {
+                        Ok(json!({}))
+                    }
+                },
+            )
+            .rpcmethod("ping", "healthy rpc", |_p: Plugin<()>, _r| async {
+                Ok(json!({"ok": true}))
+            })
+            .subscribe("*", |_p: Plugin<()>, _r| {
+                panic!("sync wildcard notification panic");
+                #[allow(unreachable_code)]
+                async {
+                    Ok(())
+                }
+            })
+            .subscribe("sync_panic_notif", |_p: Plugin<()>, _r| {
+                panic!("sync notification panic");
+                #[allow(unreachable_code)]
+                async {
+                    Ok(())
+                }
+            })
+            .start(());
+
+        let handshake_fut = async {
+            master_write
+                .write_all(
+                    b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getmanifest\",\"params\":{}}\n\n",
+                )
+                .await
+                .unwrap();
+            let _ = master_read.next().await.unwrap().unwrap().unwrap();
+            master_write
+                .write_all(
+                    concat!(
+                        "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"init\",\"params\":{",
+                        "\"options\":{},",
+                        "\"configuration\":{",
+                        "\"lightning-dir\":\"/tmp\",",
+                        "\"rpc-file\":\"lightning-rpc\",",
+                        "\"startup\":true,",
+                        "\"network\":\"regtest\",",
+                        "\"feature_set\":{}",
+                        "}}}\n\n"
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+            let _ = master_read.next().await.unwrap().unwrap().unwrap();
+        };
+
+        let (plugin, ()) = tokio::join!(start_fut, handshake_fut);
+        let _plugin = plugin.unwrap().unwrap();
+
+        master_write
+            .write_all(
+                b"{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"htlc_accepted\",\"params\":{}}\n\n",
+            )
+            .await
+            .unwrap();
+        let hook_resp = master_read.next().await.unwrap().unwrap().unwrap();
+        assert_eq!(hook_resp["id"], 10);
+        assert_eq!(
+            hook_resp["result"],
+            json!({"result": "fail", "failure_message": "2002"})
+        );
+
+        master_write
+            .write_all(
+                b"{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"sync_panic_rpc\",\"params\":{}}\n\n",
+            )
+            .await
+            .unwrap();
+        let rpc_resp = master_read.next().await.unwrap().unwrap().unwrap();
+        assert_eq!(rpc_resp["id"], 11);
+        assert!(
+            rpc_resp["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("panicked")
+        );
+
+        master_write
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"sync_panic_notif\",\"params\":{}}\n\n")
+            .await
+            .unwrap();
+
+        master_write
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"ping\",\"params\":{}}\n\n")
+            .await
+            .unwrap();
+        let ping_resp = master_read.next().await.unwrap().unwrap().unwrap();
+        assert_eq!(ping_resp["id"], 12);
+        assert_eq!(ping_resp["result"], json!({"ok": true}));
     }
 }
