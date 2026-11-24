@@ -113,6 +113,7 @@ pub use crate::{
 ///
 pub struct ClnRpc {
     next_id: AtomicUsize,
+    dirty_write: bool,
 
     #[allow(dead_code)]
     read: FramedRead<OwnedReadHalf, JsonCodec>,
@@ -136,6 +137,7 @@ impl ClnRpc {
 
         Ok(ClnRpc {
             next_id: AtomicUsize::new(1),
+            dirty_write: false,
             read: FramedRead::new(read, JsonCodec::default()),
             write: FramedWrite::new(write, JsonCodec::default()),
         })
@@ -224,29 +226,80 @@ impl ClnRpc {
     async fn call_raw_request(
         &mut self,
         request: serde_json::Value,
-    ) -> Result<serde_json::Value, RpcError>
-where {
+    ) -> Result<serde_json::Value, RpcError> {
+        let expected_id = request.get("id").cloned().ok_or_else(|| RpcError {
+            code: None,
+            message: "Request is missing an `id` field".to_string(),
+            data: None,
+        })?;
+
+        if self.dirty_write {
+            SinkExt::<serde_json::Value>::flush(&mut self.write)
+                .await
+                .map_err(|e| RpcError {
+                    code: None,
+                    message: format!("Error flushing previous request to lightningd: {}", e),
+                    data: None,
+                })?;
+            self.dirty_write = false;
+        }
+
         trace!("Sending request {:?}", request);
+        self.dirty_write = true;
         self.write.send(request).await.map_err(|e| RpcError {
             code: None,
             message: format!("Error passing request to lightningd: {}", e),
             data: None,
         })?;
+        self.dirty_write = false;
 
-        let mut response: serde_json::Value = self
-            .read
-            .next()
-            .await
-            .ok_or_else(|| RpcError {
-                code: None,
-                message: "no response from lightningd".to_string(),
-                data: None,
-            })?
-            .map_err(|_| RpcError {
-                code: None,
-                message: "reading response from socket".to_string(),
-                data: None,
-            })?;
+        let mut response: serde_json::Value = loop {
+            let msg = self
+                .read
+                .next()
+                .await
+                .ok_or_else(|| RpcError {
+                    code: None,
+                    message: "no response from lightningd".to_string(),
+                    data: None,
+                })?
+                .map_err(|e| RpcError {
+                    code: None,
+                    message: format!("Error reading response from socket: {}", e),
+                    data: None,
+                })?;
+
+            match msg.get("id") {
+                Some(id) if id == &expected_id => break msg,
+                Some(id)
+                    if matches!(
+                        (id.as_u64(), expected_id.as_u64()),
+                        (Some(got), Some(exp)) if got < exp
+                    ) =>
+                {
+                    debug!(
+                        "Discarding stale response for cancelled request id {} (expected {})",
+                        id, expected_id
+                    );
+                }
+                Some(id) => {
+                    return Err(RpcError {
+                        code: None,
+                        message: format!(
+                            "Unexpected response id {:?} from lightningd (expected {:?})",
+                            id, expected_id
+                        ),
+                        data: Some(msg),
+                    });
+                }
+                None => {
+                    debug!(
+                        "Ignoring notification without `id` while awaiting {:?}",
+                        expected_id
+                    );
+                }
+            }
+        };
 
         match response.get("result") {
             Some(_) => Ok(response["result"].take()),
