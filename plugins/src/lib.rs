@@ -1301,15 +1301,29 @@ pub enum FeatureBitsKind {
     Init,
 }
 
-#[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
+const JSONRPC_INTERNAL_ERROR: i32 = -32603;
+
+#[derive(Clone, serde::Serialize, Debug)]
 struct RpcError {
-    pub code: Option<i32>,
+    pub code: i32,
     pub message: String,
     pub data: Option<serde_json::Value>,
 }
+
 fn parse_error(error: &anyhow::Error) -> RpcError {
-    if let Ok(o) = serde_json::from_str::<RpcError>(&error.to_string()) {
-        o
+    #[derive(serde::Deserialize)]
+    struct RawRpcError {
+        code: Option<i32>,
+        message: String,
+        data: Option<serde_json::Value>,
+    }
+
+    if let Ok(o) = serde_json::from_str::<RawRpcError>(&error.to_string()) {
+        RpcError {
+            code: o.code.unwrap_or(JSONRPC_INTERNAL_ERROR),
+            message: o.message,
+            data: o.data,
+        }
     } else {
         let message = error
             .chain()
@@ -1317,7 +1331,7 @@ fn parse_error(error: &anyhow::Error) -> RpcError {
             .collect::<Vec<_>>()
             .join(": ");
         RpcError {
-            code: Some(-32700),
+            code: JSONRPC_INTERNAL_ERROR,
             message,
             data: None,
         }
@@ -1342,12 +1356,40 @@ mod test {
 
         let rpc_error = parse_error(&err);
 
-        assert_eq!(rpc_error.code, Some(-32700));
+        assert_eq!(rpc_error.code, JSONRPC_INTERNAL_ERROR);
         assert_eq!(
             rpc_error.message,
             "failed to load config: config file missing: No such file or directory (os error 2)"
         );
         assert_eq!(rpc_error.data, None);
+    }
+
+    #[test]
+    fn parse_error_preserves_explicit_code() {
+        let err = anyhow!(
+            "{}",
+            json!({"code": -32602, "message": "invalid param", "data": {"field": "x"}})
+        );
+        let rpc_error = parse_error(&err);
+
+        assert_eq!(rpc_error.code, -32602);
+        assert_eq!(rpc_error.message, "invalid param");
+        assert_eq!(rpc_error.data, Some(json!({"field": "x"})));
+    }
+
+    #[test]
+    fn parse_error_defaults_missing_or_null_code() {
+        for raw in [
+            json!({"message": "missing code"}),
+            json!({"code": null, "message": "null code"}),
+        ] {
+            let err = anyhow!("{raw}");
+            let rpc_error = parse_error(&err);
+            assert_eq!(rpc_error.code, JSONRPC_INTERNAL_ERROR);
+
+            let serialized = serde_json::to_value(&rpc_error).unwrap();
+            assert_eq!(serialized["code"], JSONRPC_INTERNAL_ERROR);
+        }
     }
 
     fn dummy_configuration() -> Configuration {
