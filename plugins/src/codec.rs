@@ -106,10 +106,10 @@ impl Decoder for JsonCodec {
                         "jsonrpc": "2.0",
                         "id": id,
                         "error": RpcError {
-                            code: Some(-32700),
+                            code: -32700,
                             message: format!("failed to parse as JSON: `{s}`"),
                             data: None,
-                    }
+                        }
                     }))))
                 }
             }
