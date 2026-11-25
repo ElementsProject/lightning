@@ -76,13 +76,9 @@ Platforms: linux/amd64, linux/amd64/v2, linux/amd64/v3, linux/amd64/v4, linux/38
 
 # Building/publishing images on Dockerhub
 
-The release images on Docker Hub are published by the `Publish Docker images 🐳` GitHub action (`.github/workflows/docker-images.yml`), run by hand with the release tag once the GitHub release is public. It builds `elementsproject/lightningd:v<VERSION>` and `v<VERSION>-vls` from the tagged source and `v<VERSION>-signed` from the release tarballs (see the next section), and the `latest`, `latest-vls` and `latest-signed` tags when `push-latest` is checked. It signs each published image with cosign (keyless, under the workflow's GitHub identity); the installation guide shows how users verify that. To build and publish from your own machine instead:
+The release images on Docker Hub are published by the `Publish Docker images 🐳` GitHub action (`.github/workflows/docker-images.yml`), run by hand with the release tag once the GitHub release is public. It builds `elementsproject/lightningd:v<VERSION>` and `v<VERSION>-vls` from the tagged source and `v<VERSION>-signed` from the release tarballs (see the next section), and the `latest`, `latest-vls` and `latest-signed` tags when `push-latest` is checked. It signs each published image with cosign (keyless, under the workflow's GitHub identity); the installation guide shows how users verify that.
 
-1. Ensure that your multiarch setup is working
-
-2. Run script `tools/build-release.sh --push docker` to build `amd64`, `arm64v8`, `latest` and `multiarch` images and publish them on Dockerhub.
-
-3. If you do not want to push the images directly on Dockerhub then run `tools/build-release.sh docker`. It will only create images locally but not push them to Dockerhub.
+To build the same images on your own machine, use `docker build` with the build-args shown in the next section (omit `LIGHTNINGD_FROM` for a source build). For several platforms at once, use `docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7` with the Buildx and QEMU setup above.
 
 # Building an image from a release
 

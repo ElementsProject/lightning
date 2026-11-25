@@ -40,7 +40,7 @@ Here's a checklist for the release process.
 10. Prepare release notes draft including the contributor list from above, and share with the team for editing.
 11. Upgrade your personal nodes to the rc1, to help testing.
 12. Github action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` uploads the pyln modules on test PyPI server. Make sure that the action has been triggered with RC tag and that the modules have been published on `https://test.pypi.org/project/pyln-*/#history`.
-13. Once the pre-release is published (no longer a draft), run the `Publish Docker images 🐳` GitHub action with the version. It builds `elementsproject/lightningd:v<VERSION>rc1` and `v<VERSION>rc1-vls` from the tagged source, and `v<VERSION>rc1-signed` from the release tarballs after `tools/verify-release-tarball.sh` has checked them against the `SHA256SUMS` manifests, their signatures and the keys in `contrib/keys` (`min-signatures` defaults to 2: the CI key's and yours from step 7). Ensure that the RC images have been successfully uploaded to Docker Hub after the action completes. Alternatively, you can publish the source-built images by running the `tools/build-release.sh docker` script. The GitHub action takes approximately 3-4 hours, while the script takes about 6-7 hours. It is highly recommended to test your Docker setup if you haven't done so before. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
+13. Once the pre-release is published (no longer a draft), run the `Publish Docker images 🐳` GitHub action with the version. It builds `elementsproject/lightningd:v<VERSION>rc1` and `v<VERSION>rc1-vls` from the tagged source, and `v<VERSION>rc1-signed` from the release tarballs after `tools/verify-release-tarball.sh` has checked them against the `SHA256SUMS` manifests, their signatures and the keys in `contrib/keys` (`min-signatures` defaults to 2: the CI key's and yours from step 7). It takes approximately 3-4 hours; ensure that the RC images have been uploaded to Docker Hub after it completes.
 
 ## Releasing -rc2, ..., -rcN
 
@@ -68,13 +68,12 @@ Here's a checklist for the release process.
    - Push the tag: `git push origin v$VERSION`
 5. Pushing the tag will trigger the CI pipeline, which will draft the pre-release and upload the build artifacts with project-signed checksums.
 6. Prepare the build environments by executing the `contrib/cl-repro.sh` script.
-7. Run `tools/build-release.sh bin-Fedora bin-Ubuntu sign` (with `--sudo` if you need root to run Docker) to:
+7. Run `tools/build-release.sh bin-Fedora bin-Ubuntu sign` to:
    - Create reproducible zipfile
    - Build reproducible Fedora image
    - Build reproducible Ubuntu-v22.04, Ubuntu-v24.04 and Ubuntu-v26.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
-   - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
-8. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary: `sudo chown ${USER}:${USER} *${VERSION}*`
+8. The tarballs may be owned by root, so revert ownership if necessary: `sudo chown ${USER}:${USER} *${VERSION}*`
 9. Verify the checksums match the pre-release `SHA256SUMS-v<VERSION>`, then append your signatures to the official signature `SHA256SUMS-v<VERSION>.asc` file to confirm the build's integrity.
 10. Send `SHA256SUMS-v<VERSION>` & `SHA256SUMS-v<VERSION>.asc` files to the rest of the team to check and sign the release.
 11. Team members can verify the release with the help of `build-release.sh`:
@@ -92,7 +91,7 @@ Here's a checklist for the release process.
 
 1. Edit the GitHub draft and include the `SHA256SUMS-v<VERSION>.asc` file.
 2. Publish the release as not a draft.
-3. Run the `Publish Docker images 🐳` GitHub action with the version and `push-latest` checked. It publishes `elementsproject/lightningd:v<VERSION>` and `v<VERSION>-vls`, built from the tagged source, and `v<VERSION>-signed`, which installs the reproducibly built release tarballs after `tools/verify-release-tarball.sh` has checked them against the `SHA256SUMS` manifests, the signatures from step 1 and the keys in `contrib/keys`, plus the `latest`, `latest-vls` and `latest-signed` tags. It needs the published release, so it cannot run earlier, and takes approximately 3-4 hours. Alternatively, the source-built images can be published by running the `tools/build-release.sh docker` script. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
+3. Run the `Publish Docker images 🐳` GitHub action with the version and `push-latest` checked. It publishes `elementsproject/lightningd:v<VERSION>` and `v<VERSION>-vls`, built from the tagged source, and `v<VERSION>-signed`, which installs the reproducibly built release tarballs after `tools/verify-release-tarball.sh` has checked them against the `SHA256SUMS` manifests, the signatures from step 1 and the keys in `contrib/keys`, plus the `latest`, `latest-vls` and `latest-signed` tags. It needs the published release, so it cannot run earlier, and takes approximately 3-4 hours.
 4. Announce the final release on core-lightning's release-chat channel on Discord & Telegram.
 5. Write release blog, post it on [Blockstream](https://blog.blockstream.com/) and announce the release on Twitter.
 

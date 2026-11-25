@@ -31,11 +31,9 @@ fi
 FORCE_UNCLEAN=false
 VERIFY_RELEASE=false
 WITHOUT_ZIP=false
-NO_PUSH=false
-SUDO=
 
-ALL_TARGETS="bin-Fedora bin-Ubuntu docker sign"
-# ALL_TARGETS="bin-Fedora bin-Ubuntu tarball deb docker sign"
+ALL_TARGETS="bin-Fedora bin-Ubuntu sign"
+# ALL_TARGETS="bin-Fedora bin-Ubuntu tarball deb sign"
 
 TARGETS=""
 
@@ -64,21 +62,13 @@ while [ $# -gt 0 ]; do
         --without-zip)
             WITHOUT_ZIP=true
             ;;
-        --no-push)
-            NO_PUSH=true
-            ;;
-        --sudo)
-            SUDO=sudo
-            ;;
         --help)
-            echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [--no-push] [TARGETS]"
+            echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
             echo Known targets: "$ALL_TARGETS"
             echo "Example: tools/build-release.sh"
             echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
             echo "Example: tools/build-release.sh --verify"
             echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
-            echo "Example: tools/build-release.sh docker"
-            echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 docker"
             exit 0
             ;;
         -*)
@@ -238,36 +228,6 @@ for target in $TARGETS; do
         exit 1
     esac
 done
-
-if [ -z "${TARGETS##* docker *}" ] || [ -z "${TARGETS##* docker}" ]; then
-    echo "Building Docker Images"
-    DOCKER_USER="elementsproject"
-    echo "Creating multi-platform images tagged as $VERSION and latest"
-    if $NO_PUSH; then
-        # Build without publishing: the result only populates the builder's
-        # cache, so a later run without --no-push pushes from cache quickly.
-        DOCKER_OPTS="--platform linux/amd64,linux/arm64,linux/arm/v7"
-    else
-        DOCKER_OPTS="--push --platform linux/amd64,linux/arm64,linux/arm/v7"
-    fi
-    DOCKER_OPTS="$DOCKER_OPTS --build-arg VERSION=$VERSION"
-    DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:$VERSION"
-    DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:latest"
-    DOCKER_OPTS="$DOCKER_OPTS --cache-to=type=local,dest=/tmp/docker-cache --cache-from=type=local,src=/tmp/docker-cache"
-    echo "Docker Options: $DOCKER_OPTS"
-    if $SUDO docker buildx ls | grep -q 'cln-builder'; then
-        $SUDO docker buildx use cln-builder
-    else
-        $SUDO docker buildx create --name=cln-builder --use
-    fi
-    # shellcheck disable=SC2086
-    $SUDO docker buildx build $DOCKER_OPTS .
-    if $NO_PUSH; then
-        echo "Built multi-platform images without pushing (rerun without --no-push to publish)"
-    else
-        echo "Pushed multi-platform images tagged as $VERSION and latest"
-    fi
-fi
 
 if [ -z "${TARGETS##* sign *}" ] || [ -z "${TARGETS##* sign}" ]; then
     echo "Signing Release"
