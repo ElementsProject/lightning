@@ -29,14 +29,15 @@ impl Decoder for RawMultiLineCodec {
         let bytes = &buf[..];
         let mut i = self.search_pos;
 
-        while i + 1 < bytes.len() {
-            if bytes[i] == b'\n' && bytes[i + 1] == b'\n' {
-                let mut frame = buf.split_to(i + 2);
-                frame.truncate(i);
+        while let Some(offset) = memchr::memchr(b'\n', &bytes[i..]) {
+            let pos = i + offset;
+            if pos + 1 < bytes.len() && bytes[pos + 1] == b'\n' {
+                let mut frame = buf.split_to(pos + 2);
+                frame.truncate(pos);
                 self.search_pos = 0;
                 return Ok(Some(frame));
             }
-            i += 1;
+            i = pos + 1;
         }
 
         self.search_pos = bytes.len().saturating_sub(1);
