@@ -3019,6 +3019,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     })
     l1.restart()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    wait_for(lambda: l2.rpc.getpeer(l1.info['id'])['connected'])
 
     # Can do HTLCs.
     l2.pay(l1, 10**5)
@@ -3036,7 +3037,10 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
         'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
     })
     l1.restart()
-    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    # Connect from l1 (already autoreconnecting): dialing from l2 races that
+    # attempt and can hit a simultaneous-connect teardown.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    wait_for(lambda: l2.rpc.getpeer(l1.info['id'])['connected'])
 
     l2.pay(l1, 10**9 // 2)
     l1.rpc.dev_fail(l2.info['id'])
