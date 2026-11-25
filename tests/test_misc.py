@@ -3159,8 +3159,13 @@ def test_recoverchannel_closed_sibling(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l2])
     l2.rpc.recoverchannel(scb)
     # Connect from l1 (already autoreconnecting): dialing from l2 races that
-    # attempt and can hit a simultaneous-connect teardown.
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # attempt and can hit a simultaneous-connect teardown.  l2 disconnects as
+    # soon as it sends the stub-channel errors, which can beat l1's
+    # peer_connected hook and fail connect with "disconnected during connection".
+    try:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    except RpcError as err:
+        assert "disconnected during connection" in err.error['message']
 
     wait_for(lambda: [c['state'] for c in l1.rpc.listpeerchannels()['channels']
                       if c.get('short_channel_id') == c_live] == ['AWAITING_UNILATERAL'])
