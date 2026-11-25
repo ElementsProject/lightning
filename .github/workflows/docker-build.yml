@@ -12,40 +12,68 @@ on:
       platforms-to-build:
         type: string
         required: true
+      # JSON array; see the plan job for the known ones.
+      variants:
+        type: string
+        default: '["lightningd", "lightningd-vls-signer"]'
+      # lightningd-signed: good signatures each manifest must carry.
+      min-signatures:
+        type: string
+        default: '1'
 
 jobs:
-  # Turn the comma-separated platforms-to-build input into a JSON matrix array,
-  # so we can fan out per-platform without hardcoding the list twice.
+  # One job per variant and platform.
   plan:
-    name: Plan platform matrix
+    name: Plan build matrix
     runs-on: ubuntu-24.04
     outputs:
-      platforms: ${{ steps.plan.outputs.platforms }}
+      matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - id: plan
         env:
           PLATFORMS_TO_BUILD: ${{ inputs.platforms-to-build }}
+          VARIANTS: ${{ inputs.variants }}
         run: |
-          IFS=',' read -ra ARR <<< "$PLATFORMS_TO_BUILD"
-          JSON=$(printf '%s\n' "${ARR[@]}" | jq -R . | jq -sc .)
-          echo "platforms=$JSON" >> "$GITHUB_OUTPUT"
+          # variant -> Dockerfile target + LIGHTNINGD_FROM build-arg;
+          # docker-publish.yml maps it to a tag suffix.
+          MATRIX=$(jq -nc --arg platforms "$PLATFORMS_TO_BUILD" --argjson variants "$VARIANTS" '
+            {
+              "lightningd":            {target: "lightningd",            from: "source"},
+              "lightningd-vls-signer": {target: "lightningd-vls-signer", from: "source"},
+              "lightningd-signed":     {target: "lightningd",            from: "release"}
+            } as $known
+            | [ $variants[] as $v
+                | ($known[$v] // error("unknown variant \($v)"))
+                | ($platforms | split(",")[]) as $p
+                | {variant: $v, target: .target, from: .from, platform: $p} ]')
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build ${{ matrix.target == 'lightningd-vls-signer' && 'vls' || 'normal' }} / ${{ matrix.platform }}
+    name: Build ${{ matrix.variant }} / ${{ matrix.platform }}
     needs: plan
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - lightningd
-          - lightningd-vls-signer
-        platform: ${{ fromJson(needs.plan.outputs.platforms) }}
+        include: ${{ fromJson(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-22.04-arm' || 'ubuntu-22.04' }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v7
       with:
+        # Build the tag the image is labelled with.
+        ref: ${{ inputs.version }}
         fetch-depth: 0
+
+    - name: Check this release has the signed image
+      if: matrix.from == 'release'
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        # An older Dockerfile would silently compile from source.
+        if [ ! -f tools/verify-release-tarball.sh ]; then
+          echo "::error::$VERSION predates the -signed image"
+          exit 1
+        fi
 
     - name: Set up QEMU
       if: matrix.platform == 'linux/arm/v7'
@@ -68,11 +96,14 @@ jobs:
         file: ./Dockerfile
         target: ${{ matrix.target }}
         platforms: ${{ matrix.platform }}
+        # release mode fetches the tarballs from the GitHub release.
         build-args: |
           VERSION=${{ inputs.version }}
+          LIGHTNINGD_FROM=${{ matrix.from }}
+          CLN_RELEASE_MIN_SIGNATURES=${{ inputs.min-signatures }}
         outputs: type=image,name=${{ inputs.dh-repository-owner }}/lightningd,push-by-digest=true,name-canonical=true,push=true
-        cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform }}
-        cache-to: type=gha,mode=max,scope=${{ matrix.target }}-${{ matrix.platform }}
+        cache-from: type=gha,scope=${{ matrix.variant }}-${{ matrix.platform }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.variant }}-${{ matrix.platform }}
 
     - name: Save digest
       run: |
@@ -82,7 +113,7 @@ jobs:
     - name: Upload digest
       uses: actions/upload-artifact@v7
       with:
-        name: digest_${{ matrix.target }}_${{ strategy.job-index }}
+        name: digest_${{ matrix.variant }}_${{ strategy.job-index }}
         path: /tmp/digests/digest.txt
         if-no-files-found: error
         retention-days: 1

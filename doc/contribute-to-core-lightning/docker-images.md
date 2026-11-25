@@ -75,11 +75,32 @@ Platforms: linux/amd64, linux/amd64/v2, linux/amd64/v3, linux/amd64/v4, linux/38
 ```
 
 # Building/publishing images on Dockerhub
+
+The release images on Docker Hub are published by the `Publish Docker images 🐳` GitHub action (`.github/workflows/docker-images.yml`), run by hand with the release tag once the GitHub release is public. It builds `elementsproject/lightningd:v<VERSION>` and `v<VERSION>-vls` from the tagged source and `v<VERSION>-signed` from the release tarballs (see the next section), and the `latest`, `latest-vls` and `latest-signed` tags when `push-latest` is checked. To build and publish from your own machine instead:
+
 1. Ensure that your multiarch setup is working
 
 2. Run script `tools/build-release.sh --push docker` to build `amd64`, `arm64v8`, `latest` and `multiarch` images and publish them on Dockerhub.
 
 3. If you do not want to push the images directly on Dockerhub then run `tools/build-release.sh docker`. It will only create images locally but not push them to Dockerhub.
+
+# Building an image from a release
+
+`docker build` compiles the checkout. For a tagged release the image can instead install the reproducibly built tarball the release carries, after checking it against `SHA256SUMS-v<VERSION>` and the signatures in `SHA256SUMS-v<VERSION>.asc` with the maintainer keys in `contrib/keys` (`tools/verify-release-tarball.sh` does the checking). The `Publish Docker images 🐳` action publishes such an image as `elementsproject/lightningd:v<VERSION>-signed` (and `latest-signed`) next to the source-built ones. Because it runs once the release is public, the manifests it checks carry the maintainers' signatures and not only the CI release key's, and it can be re-run for any published release.
+
+What `-signed` promises: the manifest carried the required number of good signatures from keys in `contrib/keys` (the action requires two by default, a local build one) and no bad one (signatures from other keys are ignored), the tarball matched its line in the manifest, and the binaries were installed as they are, not stripped, so `sha256sum /usr/local/bin/lightningd` in the image equals the file in the tarball anyone can download and verify.
+
+```shell
+docker build --build-arg LIGHTNINGD_FROM=release --build-arg VERSION=v26.06.9 -t lightningd:v26.06.9 .
+```
+
+Add `--build-arg CLN_RELEASE_MIN_SIGNATURES=2` to require more than one signature. The tarball, manifest and signatures are fetched from the GitHub release. To use copies you already have, put them in a directory and pass it as the `cln-release` build context:
+
+```shell
+docker build --build-arg LIGHTNINGD_FROM=release --build-arg VERSION=v26.06.9 --build-context cln-release=./release -t lightningd:v26.06.9 .
+```
+
+Each platform installs the Ubuntu 22.04 tarball for its architecture (`amd64`, `arm64` or `armv7`). The arm64 and armv7 tarballs have their own manifests, `SHA256SUMS-v<VERSION>-arm64` and `SHA256SUMS-v<VERSION>-armv7`, so a multi-platform build needs those (and their `.asc` files) in the directory too.
 
 
 # Miscellaneous
