@@ -10768,10 +10768,11 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitNetworkevents {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub created_index: Option<u64>,
+	    #[serde(rename = "type")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub item_type: Option<WaitNetworkeventsType>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub peer_id: Option<PublicKey>,
 	}

@@ -206,7 +206,8 @@ def gen_enum(e, meta, override):
         defi += rename_if_necessary(str(e.name), e.name.normalized())
         defi += f"    pub {e.name.normalized()}: {typename},\n"
     else:
-        defi = f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
+        defi = rename_if_necessary(str(e.name), e.name.normalized())
+        defi += f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
         defi += f"    pub {e.name.normalized()}: Option<{typename}>,\n"
 
     return defi, decl
@@ -237,7 +238,7 @@ def rename_if_necessary(original, name):
 
 
 def gen_array(a, meta, override=None):
-    name = a.name.normalized().replace("[]", "")
+    name = a.name.normalized()
     logger.debug(f"Generating array field {a.name} -> {name} ({a.path})")
     _, decl = gen_field(a.itemtype, meta, override)
 
@@ -255,7 +256,7 @@ def gen_array(a, meta, override=None):
         return ("", "")  # Override said not to include
 
     itemtype = typemap.get(itemtype, itemtype)
-    alias = a.name.normalized()
+    alias = str(a.name).replace("[]", "")
     defi = ""
     if a.deprecated:
         defi += "    #[deprecated]\n"

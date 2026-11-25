@@ -623,6 +623,7 @@ fn test_htlc_accepted_hook() {
       "peer_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
       "onion": {
         "payload": "",
+        "type": "tlv",
         "short_channel_id": "1x2x3",
         "forward_msat": 42,
         "outgoing_cltv_value": 500014,
@@ -647,6 +648,7 @@ fn test_htlc_accepted_hook() {
     );
 
     assert_eq!(d.onion.payload, "");
+    assert_eq!(d.onion.item_type, Some(HtlcAcceptedOnionType::TLV));
     assert_eq!(d.onion.short_channel_id.unwrap().to_string(), "1x2x3");
     assert_eq!(d.onion.forward_msat.unwrap(), Amount::from_msat(42));
     assert_eq!(d.onion.outgoing_cltv_value.unwrap(), 500014);
@@ -674,6 +676,7 @@ fn test_htlc_accepted_hook() {
         d.forward_to.unwrap().to_string(),
         "0000000000000000000000000000000000000000000000000000000000000000"
     );
+    assert_eq!(serde_json::to_value(&d).unwrap()["onion"]["type"], "tlv");
     assert_serde_roundtrip!(d, HtlcAcceptedEvent);
 }
 
@@ -1071,4 +1074,34 @@ fn test_fundchannel_rpc() {
         AmountSatOrAll::AmountSat(AmountSat::from_sat(100_000))
     );
     assert_serde_roundtrip!(d, FundchannelRequest);
+}
+
+#[test]
+fn test_wait_networkevents_response() {
+    let r = serde_json::json!({
+        "subsystem": "networkevents",
+        "created": 1,
+        "networkevents": {
+            "created_index": 1,
+            "type": "connect",
+            "peer_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"
+        }
+    });
+
+    let d: responses::WaitResponse = serde_json::from_value(r).unwrap();
+    let ne = d.networkevents.as_ref().unwrap();
+    assert_eq!(ne.created_index, Some(1));
+    assert_eq!(
+        ne.item_type,
+        Some(responses::WaitNetworkeventsType::CONNECT)
+    );
+    assert_eq!(
+        ne.peer_id.unwrap().to_string(),
+        "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"
+    );
+    assert_eq!(
+        serde_json::to_value(&d).unwrap()["networkevents"]["type"],
+        "connect"
+    );
+    assert_serde_roundtrip!(d, responses::WaitResponse);
 }
