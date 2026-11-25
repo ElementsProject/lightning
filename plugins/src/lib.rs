@@ -133,10 +133,10 @@ where
     /// The state gets cloned for each request
     state: S,
     /// "options" field of "init" message sent by cln
-    options: HashMap<String, UntypedConfigOption>,
+    options: Arc<HashMap<String, UntypedConfigOption>>,
     option_values: Arc<std::sync::Mutex<HashMap<String, Option<options::Value>>>>,
     /// "configuration" field of "init" message sent by cln
-    configuration: Configuration,
+    configuration: Arc<Configuration>,
     /// A signal that allows us to wait on the plugin's shutdown.
     wait_handle: tokio::sync::broadcast::Sender<()>,
 
@@ -807,9 +807,9 @@ where
 
         let plugin = Plugin {
             state,
-            options: self.options,
+            options: Arc::new(self.options),
             option_values: Arc::new(std::sync::Mutex::new(self.option_values)),
-            configuration: self.configuration,
+            configuration: Arc::new(self.configuration),
             wait_handle,
             sender,
         };
@@ -990,7 +990,7 @@ where
                             .remove("params")
                             .context("Missing 'params' field in request")?;
 
-                        let plugin = plugin.clone();
+                        let sender = plugin.sender.clone();
 
                         if let Some(callback) = self.hooks.get(method_str.as_str()) {
                             let call =
@@ -1006,8 +1006,7 @@ where
                                 };
                                 match res {
                                     Ok(Ok(v)) => {
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1023,8 +1022,7 @@ where
                                                 error: {e}. Returning safe fallback response to \
                                                 avoid crashing the main daemon."
                                             );
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1033,8 +1031,7 @@ where
                                                 .await
                                                 .context("returning hook fallback response");
                                         } else {
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1051,8 +1048,7 @@ where
                                                 Returning safe fallback response to avoid hanging \
                                                 the main daemon."
                                             );
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1066,8 +1062,7 @@ where
                                             );
                                             let err =
                                                 anyhow!("Hook handler for '{method_str}' panicked");
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1104,8 +1099,7 @@ where
                                 };
                                 match res {
                                     Ok(Ok(v)) => {
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1115,8 +1109,7 @@ where
                                             .context("returning custom response");
                                     }
                                     Ok(Err(e)) => {
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1128,8 +1121,7 @@ where
                                     Err(_) => {
                                         log::error!("RPC handler for '{method_str}' panicked.");
                                         let err = anyhow!("RPC method '{method_str}' panicked");
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1233,7 +1225,7 @@ where
         self.options.values().cloned().collect()
     }
     pub fn configuration(&self) -> Configuration {
-        self.configuration.clone()
+        (*self.configuration).clone()
     }
     pub fn state(&self) -> &S {
         &self.state
@@ -1359,9 +1351,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1404,9 +1396,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1476,9 +1468,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1519,9 +1511,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1564,9 +1556,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1739,9 +1731,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender: sender.clone(),
         };
