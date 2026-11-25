@@ -21,6 +21,10 @@ jobs:
   publish:
     name: Tag and publish ${{ matrix.variant }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read
+      id-token: write  # cosign keyless signing
     strategy:
       fail-fast: false
       matrix:
@@ -80,3 +84,18 @@ jobs:
           TAG_ARGS+=(-t "${DH_REPOSITORY_OWNER}/lightningd:latest${TAG_SUFFIX}")
         fi
         docker buildx imagetools create "${TAG_ARGS[@]}" $DIGEST_REFS
+
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v4.1.4
+
+    # Keyless, under this workflow's OIDC identity; one signature covers
+    # every tag of the digest, --recursive the per-platform manifests too.
+    # Verification: doc/getting-started/getting-started/installation.md
+    - name: Sign the published image
+      env:
+        DH_REPOSITORY_OWNER: ${{ inputs.dh-repository-owner }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        IMAGE="${DH_REPOSITORY_OWNER}/lightningd"
+        DIGEST=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}${TAG_SUFFIX}" --format '{{.Manifest.Digest}}')
+        cosign sign --yes --recursive "${IMAGE}@${DIGEST}"

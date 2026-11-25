@@ -76,7 +76,7 @@ Platforms: linux/amd64, linux/amd64/v2, linux/amd64/v3, linux/amd64/v4, linux/38
 
 # Building/publishing images on Dockerhub
 
-The release images on Docker Hub are published by the `Publish Docker images 🐳` GitHub action (`.github/workflows/docker-images.yml`), run by hand with the release tag once the GitHub release is public. It builds `elementsproject/lightningd:v<VERSION>` and `v<VERSION>-vls` from the tagged source and `v<VERSION>-signed` from the release tarballs (see the next section), and the `latest`, `latest-vls` and `latest-signed` tags when `push-latest` is checked. To build and publish from your own machine instead:
+The release images on Docker Hub are published by the `Publish Docker images 🐳` GitHub action (`.github/workflows/docker-images.yml`), run by hand with the release tag once the GitHub release is public. It builds `elementsproject/lightningd:v<VERSION>` and `v<VERSION>-vls` from the tagged source and `v<VERSION>-signed` from the release tarballs (see the next section), and the `latest`, `latest-vls` and `latest-signed` tags when `push-latest` is checked. It signs each published image with cosign (keyless, under the workflow's GitHub identity); the installation guide shows how users verify that. To build and publish from your own machine instead:
 
 1. Ensure that your multiarch setup is working
 

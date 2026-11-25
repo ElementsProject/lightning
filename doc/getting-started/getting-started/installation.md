@@ -44,6 +44,32 @@ docker run --rm --init -v /path/on/host/lightning-data:/root/.lightning -p 9735:
 
 See all of the docker images for Core Lightning on [Docker Hub](https://hub.docker.com/r/elementsproject/lightningd/tags).
 
+## Verifying the Docker image
+
+Two checks are available. The first works for every image published by the release workflow, the second only for the `-signed` images. Images published before the workflow existed have no signature.
+
+**Who published it.** Each image is signed with [cosign](https://docs.sigstore.dev/cosign/) by the GitHub Actions workflow that pushes it. This confirms that the image under a tag is the one that workflow pushed, and not something uploaded by someone else with access to the repository:
+
+```shell
+cosign verify \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/ElementsProject/lightning/\.github/workflows/docker-publish\.yml@' \
+  elementsproject/lightningd:v<VERSION>
+```
+
+On success it lists the checks it performed, prints the signature as JSON and exits 0. A missing or foreign signature fails with `no matching signatures`.
+
+**What is inside.** The `v<VERSION>-signed` images (and `latest-signed`) install the reproducibly built release tarball unchanged, so every file it contains is byte for byte the one in `clightning-v<VERSION>-Ubuntu-22.04-<arch>.tar.xz` (`amd64`, `arm64` or `armv7`), whose checksum is in the GPG-signed `SHA256SUMS-v<VERSION>` of the GitHub release. First verify the tarball itself as described in [Verifying a reproducible build](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build), then compare its contents with the image:
+
+```shell
+mkdir tarball && tar xJf clightning-v<VERSION>-Ubuntu-22.04-amd64.tar.xz -C tarball
+(cd tarball/usr && find . -type f -exec sha256sum {} +) > tarball.sha256
+docker run --rm -v "$PWD/tarball.sha256:/tarball.sha256:ro" --entrypoint sh \
+  elementsproject/lightningd:v<VERSION>-signed -c 'cd /usr/local && sha256sum -c /tarball.sha256'
+```
+
+Every line should end in `OK`. A `FAILED` or missing file means the image does not ship the signed release; do not use it, and contact the maintainers. The base operating system, `bitcoin-cli` and the shared libraries in the image are not covered by this check, only by the cosign signature.
+
 # Third-party apps
 
 For a GUI experience, you can install and use Core Lightning via a variety of third-party applications such as [Ride the Lightning](https://www.ridethelightning.info/), [Umbrel](https://getumbrel.com/), [BTCPayServer](https://btcpayserver.org/), [Raspiblitz](https://raspiblitz.org/), and [Start9](https://start9.com/).

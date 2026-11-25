@@ -60,6 +60,11 @@ jobs:
   docker-publish:
     name: Docker publish
     needs: docker-build
+    # id-token for cosign; a called workflow cannot exceed the caller's.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     uses: ./.github/workflows/docker-publish.yml
     with:
       version: ${{ inputs.version }}
