@@ -86,6 +86,32 @@ async fn call_raw() {
 }
 
 #[tokio::test]
+async fn call_raw_null_result() {
+    let req = serde_json::json!({});
+    let (uds1, uds2) = UnixStream::pair().unwrap();
+    let mut cln = ClnRpc::from_stream(uds1).unwrap();
+    let mut frame = Framed::new(uds2, JsonCodec::default());
+
+    let handle =
+        tokio::task::spawn(
+            async move { cln.call_raw::<serde_json::Value, _>("approve", &req).await },
+        );
+
+    let _ = frame.next().await.unwrap().unwrap();
+    frame
+        .send(json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": null
+        }))
+        .await
+        .unwrap();
+
+    let resp = handle.await.unwrap().unwrap();
+    assert_eq!(resp, serde_json::Value::Null);
+}
+
+#[tokio::test]
 async fn test_call_enum_remote_error() {
     // Set up the rpc-connection
     // The frame represents a Mock rpc-server
