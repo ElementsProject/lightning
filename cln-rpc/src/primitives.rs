@@ -1071,6 +1071,32 @@ mod test {
 
         let res = serde_json::to_string(&stream).unwrap();
         assert_eq!(res, "{\"31337\":\"0102030405\",\"42\":\"\"}");
+
+        // Deserialization sorts numerically ascending by `typ` (BOLT 1) rather than
+        // HashMap random order or lexicographical key order ("10" < "2").
+        let parsed: TlvStream =
+            serde_json::from_str(r#"{"31337":"0102030405","10":"0a","2":"02","42":""}"#).unwrap();
+        let types: Vec<u64> = parsed.entries.iter().map(|e| e.typ).collect();
+        assert_eq!(types, vec![2, 10, 42, 31337]);
+        assert_eq!(parsed.entries[0].value, vec![0x02]);
+        assert_eq!(parsed.entries[1].value, vec![0x0a]);
+        assert_eq!(parsed.entries[2].value, Vec::<u8>::new());
+        assert_eq!(parsed.entries[3].value, vec![1, 2, 3, 4, 5]);
+
+        let empty: TlvStream = serde_json::from_str("{}").unwrap();
+        assert!(empty.entries.is_empty());
+
+        for bad in [
+            r#"{"42":"zzzz"}"#,
+            r#"{"42":"abc"}"#,
+            r#"{"42":"01","42":"02"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<TlvStream>(bad).is_err(),
+                "expected error for {}",
+                bad
+            );
+        }
     }
 
     #[test]
@@ -1376,17 +1402,38 @@ impl<'de> Deserialize<'de> for TlvStream {
     where
         D: Deserializer<'de>,
     {
-        let map: std::collections::HashMap<u64, String> = Deserialize::deserialize(deserializer)?;
+        struct TlvStreamVisitor;
 
-        let entries = map
-            .iter()
-            .map(|(k, v)| TlvEntry {
-                typ: *k,
-                value: hex::decode(v).unwrap(),
-            })
-            .collect();
+        impl<'de> serde::de::Visitor<'de> for TlvStreamVisitor {
+            type Value = TlvStream;
 
-        Ok(TlvStream { entries })
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a map of TLV type numbers to hex-encoded values")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut entries = Vec::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some((typ, hex_val)) = map.next_entry::<u64, String>()? {
+                    let value = hex::decode(&hex_val).map_err(|e| {
+                        serde::de::Error::custom(format!("Invalid hex for TLV type {}: {}", typ, e))
+                    })?;
+                    entries.push(TlvEntry { typ, value });
+                }
+                entries.sort_by_key(|e| e.typ);
+                if let Some(dup) = entries.windows(2).find(|w| w[0].typ == w[1].typ) {
+                    return Err(serde::de::Error::custom(format!(
+                        "Duplicate TLV type {}",
+                        dup[0].typ
+                    )));
+                }
+                Ok(TlvStream { entries })
+            }
+        }
+
+        deserializer.deserialize_map(TlvStreamVisitor)
     }
 }
 
