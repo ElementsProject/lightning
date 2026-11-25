@@ -121,6 +121,7 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/ecdh.h					\
 	common/errcode.h				\
 	common/forward_failure_reason.h		\
+	common/funding_tx_status.h			\
 	common/gossip_constants.h			\
 	common/hash_str.h				\
 	common/hsm_version.h				\

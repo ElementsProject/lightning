@@ -49,6 +49,9 @@ enum forward_failure_reason {
 	 * channel and can't pay the commitment fee for another HTLC output.
 	 * Our own balance was sufficient */
 	FORWARD_FAIL_PEER_CANNOT_AFFORD_FEE = 16,
+	/* Outgoing channel is a zero-conf channel whose funding transaction
+	 * has never been observed broadcast (mempool or confirmed) */
+	FORWARD_FAIL_FUNDING_NOT_BROADCAST = 17,
 };
 
 /* Returns NULL for FORWARD_FAIL_UNKNOWN - it is never serialized
@@ -94,6 +97,8 @@ static inline const char *forward_failure_reason_name(enum forward_failure_reaso
 		return "max_htlc_value_in_flight";
 	case FORWARD_FAIL_PEER_CANNOT_AFFORD_FEE:
 		return "peer_cannot_afford_fee";
+	case FORWARD_FAIL_FUNDING_NOT_BROADCAST:
+		return "funding_not_broadcast";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "unknown_reason_%i", (int)r);

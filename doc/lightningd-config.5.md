@@ -737,6 +737,18 @@ all DNS lookups, to avoid leaking information.
 uniform length.  Some implementations don't accept these extra bytes,
 and our detection of them is not always reliable, so this option defaults to `false`.
 
+* **zeroconf-require-funding-seen**=*BOOL*
+
+  If set to `true`, we don't send HTLCs (payments or forwards) over a zero-conf
+channel (`minimum_depth` 0) that our peer funded until our own bitcoind has seen
+its funding transaction in the mempool or in a block.  Forwards over it fail with
+`failure_reason` `funding_not_broadcast` until then.  We still exchange
+`channel_ready` and accept incoming HTLCs over such a channel at once, so
+just-in-time channels (e.g. LSPS2), whose funder only broadcasts the funding
+transaction once the HTLC over it is accepted, keep working.  Channels we funded
+ourselves are not affected.  Zero-conf means trusting the funder, so this
+defaults to `false`.
+
 * **tor-service-password**=*PASSWORD*
 
   Set a Tor control password, which may be needed for *autotor:* to

@@ -211,7 +211,7 @@ new_inflight(struct channel *channel,
 	inflight->remote_tx_sigs = false;
 	inflight->funding_psbt = tal_steal(inflight, psbt);
 	inflight->last_tx = NULL;
-	inflight->tx_broadcast = false;
+	inflight->funding_tx_status = FUNDING_TX_STATUS_UNKNOWN;
 	inflight->scid = NULL;
 
 	/* Channel lease infos */
@@ -378,6 +378,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 
 	channel->last_htlc_sigs = NULL;
 	channel->remote_channel_ready = false;
+	channel->funding_tx_status = FUNDING_TX_STATUS_UNKNOWN;
 	channel->scid = NULL;
 	channel->old_scids = NULL;
 	channel->next_index[LOCAL] = 1;
@@ -579,7 +580,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_stats *stats,
 			    struct channel_state_change **state_changes STEALS,
 			    const struct wally_psbt *funding_psbt STEALS,
-			    bool withheld)
+			    bool withheld,
+			    enum funding_tx_status funding_tx_status)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -631,6 +633,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->funding = *funding;
 	channel->funding_tx_index = funding_tx_index;
 	channel->funding_sats = funding_sats;
+	channel->funding_tx_status = funding_tx_status;
 	channel->funding_spend_watch = NULL;
 	channel->inflight_spend_watches = NULL;
 	channel->push = push;
@@ -750,6 +753,18 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->funding_psbt = tal_steal(channel, funding_psbt);
 	channel->withheld = withheld;
 	return channel;
+}
+
+bool channel_zeroconf_funding_unseen(const struct channel *channel)
+{
+	if (!channel->peer->ld->zeroconf_require_funding_seen)
+		return false;
+	if (channel->minimum_depth != 0)
+		return false;
+	/* If we funded it, we're the ones who broadcast (or withhold) it */
+	if (channel->opener != REMOTE)
+		return false;
+	return channel->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN;
 }
 
 const char *channel_state_name(const struct channel *channel)

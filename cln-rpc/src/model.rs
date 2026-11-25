@@ -9365,6 +9365,8 @@ pub mod responses {
 	    MAX_HTLC_VALUE_IN_FLIGHT = 14,
 	    #[serde(rename = "peer_cannot_afford_fee")]
 	    PEER_CANNOT_AFFORD_FEE = 15,
+	    #[serde(rename = "funding_not_broadcast")]
+	    FUNDING_NOT_BROADCAST = 16,
 	}
 
 	impl TryFrom<i32> for ListforwardsForwardsFailureReason {
@@ -9387,6 +9389,7 @@ pub mod responses {
 	    13 => Ok(ListforwardsForwardsFailureReason::CHANNEL_SHUTTING_DOWN),
 	    14 => Ok(ListforwardsForwardsFailureReason::MAX_HTLC_VALUE_IN_FLIGHT),
 	    15 => Ok(ListforwardsForwardsFailureReason::PEER_CANNOT_AFFORD_FEE),
+	    16 => Ok(ListforwardsForwardsFailureReason::FUNDING_NOT_BROADCAST),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsForwardsFailureReason", o)),
 	        }
 	    }
@@ -9411,6 +9414,7 @@ pub mod responses {
 	            ListforwardsForwardsFailureReason::CHANNEL_SHUTTING_DOWN => "CHANNEL_SHUTTING_DOWN",
 	            ListforwardsForwardsFailureReason::MAX_HTLC_VALUE_IN_FLIGHT => "MAX_HTLC_VALUE_IN_FLIGHT",
 	            ListforwardsForwardsFailureReason::PEER_CANNOT_AFFORD_FEE => "PEER_CANNOT_AFFORD_FEE",
+	            ListforwardsForwardsFailureReason::FUNDING_NOT_BROADCAST => "FUNDING_NOT_BROADCAST",
 	        }.to_string()
 	    }
 	}
@@ -11330,6 +11334,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsZeroconfrequirefundingseen {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsAddr {
 	    pub sources: Vec<String>,
 	    pub values_str: Vec<String>,
@@ -11657,6 +11667,9 @@ pub mod responses {
 	    #[serde(rename = "watchtime-blocks")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub watchtime_blocks: Option<ListconfigsConfigsWatchtimeblocks>,
+	    #[serde(rename = "zeroconf-require-funding-seen")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub zeroconf_require_funding_seen: Option<ListconfigsConfigsZeroconfrequirefundingseen>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub addr: Option<ListconfigsConfigsAddr>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

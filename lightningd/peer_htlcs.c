@@ -785,6 +785,18 @@ const u8 *send_htlc_out(const tal_t *ctx,
 		return towire_unknown_next_peer(ctx);
 	}
 
+	/* We accept HTLCs over it, but don't risk our own funds on a zero-conf
+	 * channel whose funding tx may never be broadcast. */
+	if (channel_zeroconf_funding_unseen(out)) {
+		log_info(out->log, "Attempt to send HTLC but funding tx %s"
+			 " not yet seen",
+			 fmt_bitcoin_txid(tmpctx, &out->funding.txid));
+		if (reason)
+			*reason = FORWARD_FAIL_FUNDING_NOT_BROADCAST;
+		return towire_temporary_channel_failure(ctx,
+							channel_update_for_error(tmpctx, in, out));
+	}
+
 	if (!out->owner) {
 		log_info(out->log, "Attempt to send HTLC but unowned (%s)",
 			 channel_state_name(out));
@@ -849,6 +861,8 @@ struct channel *best_channel(struct lightningd *ld,
 	list_for_each(&next_peer->channels, channel, list) {
 		struct amount_msat spendable;
 		if (!channel_state_can_add_htlc(channel->state))
+			continue;
+		if (channel_zeroconf_funding_unseen(channel))
 			continue;
 		spendable = channel_amount_spendable(channel);
 		if (!amount_msat_greater(spendable, best_spendable))

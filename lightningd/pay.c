@@ -881,6 +881,7 @@ find_channel_for_htlc_add(struct lightningd *ld,
 	if (!channel && memeqzero(&scid_or_alias, sizeof(scid_or_alias))) {
 		list_for_each(&peer->channels, channel, list) {
 			if (channel_state_can_add_htlc(channel->state) &&
+			    !channel_zeroconf_funding_unseen(channel) &&
 			    amount_msat_greater(channel->our_msat, *amount)) {
 				goto found;
 			}
