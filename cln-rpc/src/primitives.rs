@@ -837,26 +837,34 @@ pub enum Feerate {
 impl TryFrom<&str> for Feerate {
     type Error = Error;
     fn try_from(s: &str) -> Result<Feerate> {
-        let number: u32 = s
-            .chars()
-            .map(|c| c.to_digit(10))
-            .take_while(|opt| opt.is_some())
-            .fold(0, |acc, digit| acc * 10 + (digit.unwrap() as u32));
-
-        let s = s.to_lowercase();
-        if s.ends_with("perkw") {
-            Ok(Feerate::PerKw(number))
-        } else if s.ends_with("perkb") {
-            Ok(Feerate::PerKb(number))
-        } else if s == "slow" {
-            Ok(Feerate::Slow)
-        } else if s == "normal" {
-            Ok(Feerate::Normal)
-        } else if s == "urgent" {
-            Ok(Feerate::Urgent)
-        } else {
-            Err(anyhow!("Unable to parse feerate from string: {}", s))
+        if s.eq_ignore_ascii_case("slow") {
+            return Ok(Feerate::Slow);
+        } else if s.eq_ignore_ascii_case("normal") {
+            return Ok(Feerate::Normal);
+        } else if s.eq_ignore_ascii_case("urgent") {
+            return Ok(Feerate::Urgent);
         }
+
+        let bytes = s.as_bytes();
+        if bytes.len() > 5 {
+            let split = bytes.len() - 5;
+            let suffix = &bytes[split..];
+            let parse_rate = |num_str: &str| -> Result<u32> {
+                if !num_str.bytes().all(|b| b.is_ascii_digit()) {
+                    return Err(anyhow!("Unable to parse feerate from string: {}", s));
+                }
+                num_str
+                    .parse::<u32>()
+                    .with_context(|| format!("Unable to parse feerate from string: {}", s))
+            };
+            if suffix.eq_ignore_ascii_case(b"perkw") {
+                return Ok(Feerate::PerKw(parse_rate(&s[..split])?));
+            } else if suffix.eq_ignore_ascii_case(b"perkb") {
+                return Ok(Feerate::PerKb(parse_rate(&s[..split])?));
+            }
+        }
+
+        Err(anyhow!("Unable to parse feerate from string: {}", s))
     }
 }
 
@@ -993,6 +1001,7 @@ mod test {
             ("urgent", Feerate::Urgent),
             ("12345perkb", Feerate::PerKb(12345)),
             ("54321perkw", Feerate::PerKw(54321)),
+            ("4294967295perkw", Feerate::PerKw(u32::MAX)),
         ];
 
         for (input, output) in tests.into_iter() {
@@ -1000,6 +1009,29 @@ mod test {
             assert_eq!(parsed, output);
             let serialized: String = (&parsed).into();
             assert_eq!(serialized, input);
+        }
+
+        assert_eq!(Feerate::try_from("SLOW").unwrap(), Feerate::Slow);
+        assert_eq!(Feerate::try_from("100PerKW").unwrap(), Feerate::PerKw(100));
+
+        for bad in [
+            "",
+            "perkw",
+            "perkb",
+            "abcperkb",
+            "-500perkw",
+            "+500perkw",
+            "123garbageperkw",
+            "4294967296perkw",
+            "99999999999perkb",
+            "🚀perkw",
+            "ééé",
+        ] {
+            assert!(
+                Feerate::try_from(bad).is_err(),
+                "expected error for {:?}",
+                bad
+            );
         }
     }
 
