@@ -974,22 +974,25 @@ where
                             "As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used."
                         )
                     }
-                    messages::JsonRpc::CustomRequest(id, request) => {
+                    messages::JsonRpc::CustomRequest(id, mut request) => {
                         trace!("Dispatching custom method {:?}", request);
-                        let method = request
-                            .get("method")
+                        let obj = request
+                            .as_object_mut()
+                            .context("Request is not a JSON object")?;
+                        let method_str = match obj
+                            .remove("method")
                             .context("Missing 'method' in request")?
-                            .as_str()
-                            .context("'method' is not a string")?;
-                        let params = request
-                            .get("params")
-                            .context("Missing 'params' field in request")?
-                            .clone();
+                        {
+                            serde_json::Value::String(s) => s,
+                            _ => return Err(anyhow!("'method' is not a string")),
+                        };
+                        let params = obj
+                            .remove("params")
+                            .context("Missing 'params' field in request")?;
 
                         let plugin = plugin.clone();
-                        let method_str = method.to_string();
 
-                        if let Some(callback) = self.hooks.get(method) {
+                        if let Some(callback) = self.hooks.get(method_str.as_str()) {
                             let call =
                                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                                     callback(plugin.clone(), params)
@@ -1077,13 +1080,13 @@ where
                                 }
                             });
                         } else {
-                            let callback = match method {
-                                name if name.eq("setconfig") => {
+                            let callback = match method_str.as_str() {
+                                "setconfig" => {
                                     self.setconfig_callback.as_ref().ok_or_else(|| {
-                                        anyhow!("No handler for method '{method}' registered")
+                                        anyhow!("No handler for method '{method_str}' registered")
                                     })?
                                 }
-                                _ => self.rpcmethods.get(method).with_context(|| {
+                                method => self.rpcmethods.get(method).with_context(|| {
                                     anyhow!("No handler for method '{method}' registered")
                                 })?,
                             };
@@ -1140,57 +1143,40 @@ where
                         }
                         Ok(None)
                     }
-                    messages::JsonRpc::CustomNotification(request) => {
+                    messages::JsonRpc::CustomNotification(mut request) => {
                         // This code handles notifications
                         trace!("Dispatching custom notification {:?}", request);
-                        let method = request
-                            .get("method")
+                        let obj = request
+                            .as_object_mut()
+                            .context("Notification is not a JSON object")?;
+                        let method = match obj
+                            .remove("method")
                             .context("Missing 'method' in request")?
-                            .as_str()
-                            .context("'method' is not a string")?;
-
-                        let params = request
-                            .get("params")
+                        {
+                            serde_json::Value::String(s) => s,
+                            _ => return Err(anyhow!("'method' is not a string")),
+                        };
+                        let params = obj
+                            .remove("params")
                             .context("Missing 'params' field in request")?;
 
-                        // Send to notification to the wildcard
-                        // subscription "*" it it exists
-                        if let Some(cb) = &self.wildcard_subscription {
-                            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                cb(plugin.clone(), params.clone())
-                            })) {
-                                Ok(call) => {
-                                    tokio::spawn(async move {
-                                        match std::panic::AssertUnwindSafe(call)
-                                            .catch_unwind()
-                                            .await
-                                        {
-                                            Ok(Err(e)) => {
-                                                log::warn!(
-                                                    "Wildcard notification handler error: '{e}'"
-                                                );
-                                            }
-                                            Err(_) => {
-                                                log::error!(
-                                                    "Wildcard notification handler panicked"
-                                                );
-                                            }
-                                            Ok(Ok(())) => {}
-                                        }
-                                    });
-                                }
-                                Err(_) => {
-                                    log::error!("Wildcard notification handler panicked");
-                                }
-                            }
-                        }
-
-                        // Find the appropriate callback and process it
-                        // We'll log a warning if no handler is defined
-                        match self.subscriptions.get(method) {
-                            Some(cb) => {
+                        let spawn_notification =
+                            |cb: &AsyncNotificationCallback<S>,
+                             plugin: Plugin<S>,
+                             params: serde_json::Value,
+                             is_wildcard: bool| {
+                                let err_prefix = if is_wildcard {
+                                    "Wildcard notification handler error"
+                                } else {
+                                    "Notification handler error"
+                                };
+                                let panic_msg = if is_wildcard {
+                                    "Wildcard notification handler panicked"
+                                } else {
+                                    "Notification handler error: handler panicked"
+                                };
                                 match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                    cb(plugin.clone(), params.clone())
+                                    cb(plugin, params)
                                 })) {
                                     Ok(call) => {
                                         tokio::spawn(async move {
@@ -1198,32 +1184,33 @@ where
                                                 .catch_unwind()
                                                 .await
                                             {
-                                                Ok(Err(e)) => {
-                                                    log::warn!("Notification handler error: '{e}'");
-                                                }
-                                                Err(_) => {
-                                                    log::error!(
-                                                        "Notification handler error: handler panicked"
-                                                    );
-                                                }
+                                                Ok(Err(e)) => log::warn!("{err_prefix}: '{e}'"),
+                                                Err(_) => log::error!("{panic_msg}"),
                                                 Ok(Ok(())) => {}
                                             }
                                         });
                                     }
-                                    Err(_) => {
-                                        log::error!("Notification handler error: handler panicked");
-                                    }
+                                    Err(_) => log::error!("{panic_msg}"),
                                 }
+                            };
+
+                        let sub = self.subscriptions.get(method.as_str());
+
+                        match (&self.wildcard_subscription, sub) {
+                            (Some(wild_cb), Some(sub_cb)) => {
+                                spawn_notification(wild_cb, plugin.clone(), params.clone(), true);
+                                spawn_notification(sub_cb, plugin.clone(), params, false);
                             }
-                            None => {
-                                if self.wildcard_subscription.is_none() {
-                                    log::warn!(
-                                        "No handler for notification '{}' registered",
-                                        method
-                                    );
-                                }
+                            (Some(wild_cb), None) => {
+                                spawn_notification(wild_cb, plugin.clone(), params, true);
                             }
-                        };
+                            (None, Some(sub_cb)) => {
+                                spawn_notification(sub_cb, plugin.clone(), params, false);
+                            }
+                            (None, None) => {
+                                log::warn!("No handler for notification '{}' registered", method);
+                            }
+                        }
                         Ok(None)
                     }
                     messages::JsonRpc::Error(rpc_error) => {

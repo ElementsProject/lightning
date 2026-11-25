@@ -6,28 +6,23 @@
 use crate::{Error, RpcError};
 use bytes::{BufMut, BytesMut};
 use serde_json::value::Value;
-use std::str::FromStr;
 use std::{io, str};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::messages::JsonRpc;
 use crate::messages::{Notification, Request};
 
-/// A simple codec that parses messages separated by two successive
-/// `\n` newlines.
+/// Framing codec that splits `\n\n`-delimited messages into raw byte slices
+/// without allocating an intermediate `String`.
 #[derive(Default)]
-pub struct MultiLineCodec {
+struct RawMultiLineCodec {
     search_pos: usize,
 }
 
-fn utf8(buf: &[u8]) -> Result<&str, io::Error> {
-    str::from_utf8(buf)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Unable to decode input as UTF8"))
-}
-
-impl Decoder for MultiLineCodec {
-    type Item = String;
+impl Decoder for RawMultiLineCodec {
+    type Item = BytesMut;
     type Error = Error;
+
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
         let bytes = &buf[..];
         let mut i = self.search_pos;
@@ -35,22 +30,45 @@ impl Decoder for MultiLineCodec {
         while let Some(offset) = memchr::memchr(b'\n', &bytes[i..]) {
             let pos = i + offset;
             if pos + 1 < bytes.len() && bytes[pos + 1] == b'\n' {
-                let line = buf.split_to(pos + 2);
-                let line = &line[..pos];
-
+                let mut frame = buf.split_to(pos + 2);
+                frame.truncate(pos);
                 self.search_pos = 0;
-
-                return Ok(Some(utf8(line)?.to_owned()));
+                return Ok(Some(frame));
             }
             i = pos + 1;
         }
 
         self.search_pos = bytes.len().saturating_sub(1);
-
         Ok(None)
     }
 }
 
+/// A simple codec that parses messages separated by two successive
+/// `\n` newlines.
+#[cfg(test)]
+#[derive(Default)]
+pub struct MultiLineCodec {
+    inner: RawMultiLineCodec,
+}
+
+fn utf8(buf: &[u8]) -> Result<&str, io::Error> {
+    str::from_utf8(buf)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Unable to decode input as UTF8"))
+}
+
+#[cfg(test)]
+impl Decoder for MultiLineCodec {
+    type Item = String;
+    type Error = Error;
+    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
+        match self.inner.decode(buf)? {
+            Some(line) => Ok(Some(utf8(&line)?.to_owned())),
+            None => Ok(None),
+        }
+    }
+}
+
+#[cfg(test)]
 impl<T> Encoder<T> for MultiLineCodec
 where
     T: AsRef<str>,
@@ -70,7 +88,7 @@ where
 pub struct JsonCodec {
     /// Sub-codec used to split the input into chunks that can then be
     /// parsed by the JSON parser.
-    inner: MultiLineCodec,
+    inner: RawMultiLineCodec,
 }
 
 impl<T> Encoder<T> for JsonCodec
@@ -79,8 +97,9 @@ where
 {
     type Error = Error;
     fn encode(&mut self, msg: T, buf: &mut BytesMut) -> Result<(), Self::Error> {
-        let s = msg.into().to_string();
-        self.inner.encode(s, buf)
+        serde_json::to_writer(buf.writer(), &msg.into())?;
+        buf.put_slice(b"\n\n");
+        Ok(())
     }
 }
 
@@ -92,11 +111,12 @@ impl Decoder for JsonCodec {
         match self.inner.decode(buf) {
             Ok(None) => Ok(None),
             Err(e) => Err(e),
-            Ok(Some(s)) => {
-                if let Ok(v) = Value::from_str(&s) {
+            Ok(Some(bytes)) => {
+                if let Ok(v) = serde_json::from_slice(&bytes) {
                     Ok(Some(Ok(v)))
                 } else {
-                    let id = if let Some(i) = recover_id(&s) {
+                    let s = utf8(&bytes)?;
+                    let id = if let Some(i) = recover_id(s) {
                         i
                     } else {
                         log::error!("failed to parse JSON id: {s}");
@@ -110,7 +130,7 @@ impl Decoder for JsonCodec {
                             code: Some(-32700),
                             message: format!("failed to parse as JSON: `{s}`"),
                             data: None,
-                    }
+                        }
                     }))))
                 }
             }
@@ -120,7 +140,7 @@ impl Decoder for JsonCodec {
 
 /// A codec that reads fully formed [crate::messages::JsonRpc]
 /// messages. Internally it uses the [JsonCodec] which itself is built
-/// on the [MultiLineCodec].
+/// on the [RawMultiLineCodec].
 #[derive(Default)]
 pub(crate) struct JsonRpcCodec {
     inner: JsonCodec,
@@ -136,7 +156,7 @@ impl Decoder for JsonRpcCodec {
             Err(e) => Err(e),
             Ok(Some(Err(rpc_err))) => Ok(Some(JsonRpc::Error(rpc_err))),
             Ok(Some(Ok(v))) => {
-                let req: Self::Item = serde_json::from_value(v)?;
+                let req = JsonRpc::from_value(v)?;
                 Ok(Some(req))
             }
         }
