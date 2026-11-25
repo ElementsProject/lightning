@@ -1,0 +1,74 @@
+---
+# https://docs.corelightning.org/docs/release-checklist
+#
+# Run by hand once the release is public: <version> and <version>-vls are
+# built from source, <version>-signed from the GPG-signed release tarballs.
+name: "Publish Docker images 🐳"
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published release tag, e.g. v26.06.9'
+        required: true
+      variants:
+        description: 'Images to publish, as a JSON array'
+        default: '["lightningd", "lightningd-vls-signer", "lightningd-signed"]'
+      min-signatures:
+        description: 'Good signatures each SHA256SUMS manifest must carry from keys in contrib/keys'
+        default: '2'
+      dh-repository-owner:
+        description: 'Dockerhub repository owner'
+        default: 'elementsproject'
+      platforms-to-build:
+        description: 'List of platforms to build'
+        default: 'linux/amd64,linux/arm64,linux/arm/v7'
+      push-latest:
+        description: 'Also tag latest, latest-vls, latest-signed'
+        type: boolean
+        default: false
+
+jobs:
+  check-release:
+    name: Check the release is published
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Release must exist and not be a draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Where the Dockerfile fetches the release from.
+          GH_REPO: ElementsProject/lightning
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Draft releases serve no assets.
+          if [ "$(gh release view "$VERSION" --json isDraft --jq .isDraft)" != false ]; then
+            echo "::error::release $VERSION is a draft or does not exist"
+            exit 1
+          fi
+
+  docker-build:
+    name: Docker build
+    needs: check-release
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      version: ${{ inputs.version }}
+      dh-repository-owner: ${{ inputs.dh-repository-owner }}
+      platforms-to-build: ${{ inputs.platforms-to-build }}
+      variants: ${{ inputs.variants }}
+      min-signatures: ${{ inputs.min-signatures }}
+    secrets: inherit
+
+  docker-publish:
+    name: Docker publish
+    needs: docker-build
+    # id-token for cosign; a called workflow cannot exceed the caller's.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      version: ${{ inputs.version }}
+      dh-repository-owner: ${{ inputs.dh-repository-owner }}
+      push-latest: ${{ github.event.inputs.push-latest }}
+      variants: ${{ inputs.variants }}
+    secrets: inherit

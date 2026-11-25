@@ -21,16 +21,6 @@ on:
         description: Create a draft release
         default: false
         type: boolean
-      dh-repository-owner:
-        description: 'Dockerhub repository owner'
-        default: 'elementsproject'
-      platforms-to-build:
-        description: 'List of platforms to build'
-        default: 'linux/amd64,linux/arm64,linux/arm/v7'
-      push-latest:
-        description: 'Push the latest Docker tag'
-        type: boolean
-        default: false
       dist-location:
         description: 'PyPI distribution location'
         type: choice
@@ -47,16 +37,6 @@ jobs:
       version: ${{ github.event.inputs.version }}
       skip_validation: ${{ github.event.inputs.skip_validation == 'true' }}
 
-
-  docker-build:
-    name: Docker build
-    needs: check-version
-    uses: ./.github/workflows/docker-build.yml
-    with:
-      version: ${{ needs.check-version.outputs.version }}
-      dh-repository-owner: ${{ github.event.inputs.dh-repository-owner || 'elementsproject' }}
-      platforms-to-build: ${{ github.event.inputs.platforms-to-build || 'linux/amd64,linux/arm64,linux/arm/v7' }}
-    secrets: inherit
 
   pypi-build:
     name: PyPI build
@@ -77,20 +57,10 @@ jobs:
 
   gate:
     name: All builds succeeded
-    needs: [docker-build, pypi-build, release-build]
+    needs: [pypi-build, release-build]
     runs-on: ubuntu-24.04
     steps:
-      - run: echo "All three build paths succeeded — proceeding to publish."
-
-  docker-publish:
-    name: Docker publish
-    needs: [check-version, gate]
-    uses: ./.github/workflows/docker-publish.yml
-    with:
-      version: ${{ needs.check-version.outputs.version }}
-      dh-repository-owner: ${{ github.event.inputs.dh-repository-owner || 'elementsproject' }}
-      push-latest: ${{ github.event.inputs.push-latest }}
-    secrets: inherit
+      - run: echo "All build paths succeeded — proceeding to publish."
 
   pypi-publish:
     name: PyPI publish

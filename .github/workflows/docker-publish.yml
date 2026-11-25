@@ -12,19 +12,23 @@ on:
       push-latest:
         type: string
         required: true
+      # JSON array; see docker-build.yml.
+      variants:
+        type: string
+        default: '["lightningd", "lightningd-vls-signer"]'
 
 jobs:
   publish:
-    name: Tag and publish ${{ matrix.target }}
+    name: Tag and publish ${{ matrix.variant }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read
+      id-token: write  # cosign keyless signing
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: lightningd
-            tag_suffix: ''
-          - target: lightningd-vls-signer
-            tag_suffix: '-vls'
+        variant: ${{ fromJson(inputs.variants) }}
     steps:
     - name: Setup Docker Buildx
       uses: docker/setup-buildx-action@v4
@@ -38,7 +42,7 @@ jobs:
     - name: Download platform digests for this target
       uses: actions/download-artifact@v8
       with:
-        pattern: digest_${{ matrix.target }}_*
+        pattern: digest_${{ matrix.variant }}_*
         path: /tmp/digests
         merge-multiple: false
 
@@ -47,8 +51,16 @@ jobs:
         DH_REPOSITORY_OWNER: ${{ inputs.dh-repository-owner }}
         PUSH_LATEST: ${{ inputs.push-latest }}
         VERSION: ${{ inputs.version }}
-        REF_TYPE: ${{ github.ref_type }}
+        VARIANT: ${{ matrix.variant }}
       run: |
+        case "$VARIANT" in
+          lightningd)            TAG_SUFFIX="";;
+          lightningd-vls-signer) TAG_SUFFIX="-vls";;
+          lightningd-signed)     TAG_SUFFIX="-signed";;
+          *) echo "unknown variant $VARIANT" >&2; exit 1;;
+        esac
+        echo "TAG_SUFFIX=$TAG_SUFFIX" >> $GITHUB_ENV
+
         DIGEST_REFS=""
         for f in /tmp/digests/*/digest.txt; do
           D=$(cat "$f")
@@ -56,8 +68,7 @@ jobs:
         done
         echo "DIGEST_REFS=$DIGEST_REFS" >> $GITHUB_ENV
 
-        if [[ "$PUSH_LATEST" == "true" ]] ||
-          ([[ "$REF_TYPE" == "tag" ]] && [[ ! "$VERSION" =~ rc ]]); then
+        if [[ "$PUSH_LATEST" == "true" ]]; then
           echo "PUSHLATEST=true" >> $GITHUB_ENV
         else
           echo "PUSHLATEST=false" >> $GITHUB_ENV
@@ -67,10 +78,24 @@ jobs:
       env:
         DH_REPOSITORY_OWNER: ${{ inputs.dh-repository-owner }}
         VERSION: ${{ inputs.version }}
-        TAG_SUFFIX: ${{ matrix.tag_suffix }}
       run: |
         TAG_ARGS=(-t "${DH_REPOSITORY_OWNER}/lightningd:${VERSION}${TAG_SUFFIX}")
         if [[ "$PUSHLATEST" == "true" ]]; then
           TAG_ARGS+=(-t "${DH_REPOSITORY_OWNER}/lightningd:latest${TAG_SUFFIX}")
         fi
         docker buildx imagetools create "${TAG_ARGS[@]}" $DIGEST_REFS
+
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v4.1.4
+
+    # Keyless, under this workflow's OIDC identity; one signature covers
+    # every tag of the digest, --recursive the per-platform manifests too.
+    # Verification: doc/getting-started/getting-started/installation.md
+    - name: Sign the published image
+      env:
+        DH_REPOSITORY_OWNER: ${{ inputs.dh-repository-owner }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        IMAGE="${DH_REPOSITORY_OWNER}/lightningd"
+        DIGEST=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}${TAG_SUFFIX}" --format '{{.Manifest.Digest}}')
+        cosign sign --yes --recursive "${IMAGE}@${DIGEST}"
