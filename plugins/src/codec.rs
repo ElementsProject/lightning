@@ -5,6 +5,7 @@
 /// present in the messages.
 use crate::{Error, RpcError};
 use bytes::{BufMut, BytesMut};
+use serde::Serialize;
 use serde_json::value::Value;
 use std::{io, str};
 use tokio_util::codec::{Decoder, Encoder};
@@ -80,6 +81,21 @@ where
         buf.put(line.as_bytes());
         buf.put_u8(b'\n');
         buf.put_u8(b'\n');
+        Ok(())
+    }
+}
+
+/// Encoder that serializes any `Serialize` value directly into `BytesMut`
+/// followed by `\n\n`, avoiding intermediate `Value` and `String` allocations.
+#[derive(Default)]
+pub(crate) struct RawJsonEncoder;
+
+impl<T: Serialize> Encoder<T> for RawJsonEncoder {
+    type Error = Error;
+
+    fn encode(&mut self, msg: T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        serde_json::to_writer(buf.writer(), &msg)?;
+        buf.put_slice(b"\n\n");
         Ok(())
     }
 }
