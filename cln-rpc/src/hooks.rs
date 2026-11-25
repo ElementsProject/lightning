@@ -274,10 +274,11 @@ pub mod events{
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct HtlcAcceptedOnion {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub forward_msat: Option<Amount>,
+        #[serde(rename = "type")]
         #[serde(skip_serializing_if = "Option::is_none")]
         pub item_type: Option<HtlcAcceptedOnionType>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub forward_msat: Option<Amount>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub next_node_id: Option<PublicKey>,
         #[serde(skip_serializing_if = "Option::is_none")]

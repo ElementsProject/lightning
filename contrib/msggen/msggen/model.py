@@ -16,11 +16,12 @@ class FieldName:
         self.name = name
 
     def normalized(self):
+        name = self.name.replace("[]", "")
         name = {
             "type": "item_type",
             "return": "return_",
-        }.get(self.name, self.name)
-        name = name.replace(' ', '_').replace('-', '_').replace('[]', '').replace("/", "_")
+        }.get(name, name)
+        name = name.replace(" ", "_").replace("-", "_").replace("/", "_")
         return name
 
     def __str__(self):
