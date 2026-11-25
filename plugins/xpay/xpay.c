@@ -1365,7 +1365,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 						   "We got %s for %s: HTLC slots are full,"
 						   " disabling it for this payment",
 						   errmsg,
-						   describe_scidd(attempt, index));
+						   describe_scidd_from_index(attempt, index));
 				goto disable_channel;
 			}
 			add_result_summary(attempt, LOG_DBG,

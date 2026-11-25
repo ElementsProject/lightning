@@ -1273,6 +1273,18 @@ def test_xpay_local_too_many_htlcs_not_capacity(node_factory, executor):
                and "HTLC slots are full, disabling it for this payment" in l
                for l in l1.daemon.logs) == 1
 
+    # askrene updates are submitted before xpay returns, and the private
+    # layer is removed only after they complete. Wait for that so a missing
+    # constraint is not a race. The shared xpay layer must not keep a
+    # capacity cap on l1->l2: that outlives the payment and blocks later
+    # ones (#9597).
+    wait_for(lambda: not any(layer['layer'].startswith('xpay-')
+                             for layer in l1.rpc.askrene_listlayers()['layers']))
+    scid = first_scid(l1, l2)
+    constraints = only_one(l1.rpc.askrene_listlayers('xpay')['layers'])['constraints']
+    assert not any(c['short_channel_id_dir'].startswith(scid + '/')
+                   for c in constraints)
+
 
 def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
     """We should wait a (reasonable) amount if the final node gives us a blockheight that would explain our failure."""
