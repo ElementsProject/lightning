@@ -4,7 +4,7 @@ from hashlib import sha256
 from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
-from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, SLOW_MACHINE, VALGRIND, scid_to_int
 from utils import (
     wait_for, only_one, sync_blockheight, TIMEOUT,
     mine_funding_to_announce, first_scid, serialize_payload_tlv, serialize_payload_final_tlv,
@@ -423,8 +423,10 @@ def test_payment_failed_persistence(node_factory, executor, xpay_handle_pay):
 
     l1.fundchannel(l2, 100000)
 
-    # Expires almost immediately, so it will fail.
-    inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1', 5)
+    # Expires quickly so it will fail after restart, while giving slow runs
+    # (e.g. Valgrind) enough time to send the HTLC before expiry.
+    expiry = 30 if (VALGRIND or SLOW_MACHINE) else 10
+    inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1', expiry)
 
     # Fire off a pay request, it'll get interrupted by a restart
     executor.submit(l1.rpc.pay, inv1['bolt11'])
@@ -438,8 +440,12 @@ def test_payment_failed_persistence(node_factory, executor, xpay_handle_pay):
     del l1.daemon.opts['dev-no-reconnect']
     l1.daemon.disconnect = None
 
-    # Make sure invoice has expired.
-    time.sleep(5 + 1)
+    # Make sure invoice has expired (strictly past expires_at so pay/xpay
+    # also consider it expired).
+    wait_for(lambda: (
+        int(time.time()) > inv1['expires_at']
+        and only_one(l2.rpc.listinvoices('inv1')['invoices'])['status'] == 'expired'
+    ))
 
     # Should reconnect, and fail the payment
     l1.start()
