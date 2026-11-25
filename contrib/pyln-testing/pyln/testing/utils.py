@@ -1398,12 +1398,21 @@ class LightningNode(object):
         # Give yourself some funds to work with
         addr = self.rpc.newaddr('bech32')['bech32']
 
-        def has_funds_on_addr(addr):
+        def has_funds_on_addr(addr, require_synced=False):
             """Check if the given address has funds in the internal wallet.
             """
-            outs = self.rpc.listfunds()['outputs']
-            addrs = [o['address'] for o in outs]
-            return addr in addrs
+            outs = [o for o in self.rpc.listfunds()['outputs']
+                    if o.get('address') == addr]
+            if not outs:
+                return False
+            if not require_synced:
+                return True
+            # With --experimental-bwatch, bwatch can populate our_outputs
+            # before chaintopology advances tip->height; fundpsbt(minconf=1)
+            # checks topology height, so wait until topology reaches the
+            # output's confirmation height.
+            bh = outs[0].get('blockheight')
+            return bh is not None and self.rpc.getinfo()['blockheight'] >= bh
 
         # We should not have funds on that address yet, we just generated it.
         assert not has_funds_on_addr(addr)
@@ -1411,7 +1420,7 @@ class LightningNode(object):
         self.bitcoin.send_and_mine_block(addr, amount + 1000000)
 
         # Now we should.
-        wait_for(lambda: has_funds_on_addr(addr))
+        wait_for(lambda: has_funds_on_addr(addr, require_synced=True))
 
         # connect if necessary
         if not self.is_connected(l2):
