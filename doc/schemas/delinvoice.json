@@ -309,7 +309,7 @@
         "status": "unpaid",
         "description": "l36 description",
         "expires_at": 1738604800,
-        "created_index": 9
+        "created_index": 10
       }
     },
     {
@@ -333,7 +333,7 @@
         "paid_at": 1738000000,
         "payment_preimage": "3e3b17b070d9dc503e3b17b070d9dc503e3b17b070d9dc503e3b17b070d9dc50",
         "expires_at": 1738604800,
-        "created_index": 10,
+        "created_index": 11,
         "updated_index": 9
       }
     }
