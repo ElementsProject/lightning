@@ -61,7 +61,7 @@ pub enum HtlcState {
     SENT_REMOVE_ACK_REVOCATION = 19,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum ChannelTypeName {
     #[serde(rename = "static_remotekey/even")]
@@ -488,17 +488,25 @@ impl<'de> Deserialize<'de> for ShortChannelIdDir {
 impl FromStr for ShortChannelIdDir {
     type Err = crate::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Result<Vec<String>, _> = s.split('/').map(|p| p.parse()).collect();
-        let parts = parts.with_context(|| format!("Malformed short_channel_id_dir: {}", s))?;
-        if parts.len() != 2 {
+        let (scid_str, dir_str) = s
+            .split_once('/')
+            .ok_or_else(|| anyhow!("Malformed short_channel_id_dir: element count mismatch"))?;
+        if dir_str.contains('/') {
             return Err(anyhow!(
                 "Malformed short_channel_id_dir: element count mismatch"
             ));
         }
+        let direction = dir_str.parse::<u32>()?;
+        if direction > 1 {
+            return Err(anyhow!(
+                "Malformed short_channel_id_dir: direction {} out of range",
+                direction
+            ));
+        }
 
         Ok(ShortChannelIdDir {
-            short_channel_id: ShortChannelId::from_str(&parts[0])?,
-            direction: parts[1].parse::<u32>()?,
+            short_channel_id: ShortChannelId::from_str(scid_str)?,
+            direction,
         })
     }
 }
@@ -674,16 +682,18 @@ impl Display for ChannelState {
     }
 }
 
-impl From<i32> for ChannelTypeName {
-    fn from(value: i32) -> Self {
+impl TryFrom<i32> for ChannelTypeName {
+    type Error = crate::Error;
+
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
         match value {
-            0 => ChannelTypeName::STATIC_REMOTEKEY_EVEN,
-            1 => ChannelTypeName::ANCHOR_OUTPUTS_EVEN,
-            2 => ChannelTypeName::ANCHORS_ZERO_FEE_HTLC_TX_EVEN,
-            3 => ChannelTypeName::SCID_ALIAS_EVEN,
-            4 => ChannelTypeName::ZEROCONF_EVEN,
-            5 => ChannelTypeName::ANCHORS_EVEN,
-            o => panic!("Unmapped ChannelTypeName {}", o),
+            0 => Ok(ChannelTypeName::STATIC_REMOTEKEY_EVEN),
+            1 => Ok(ChannelTypeName::ANCHOR_OUTPUTS_EVEN),
+            2 => Ok(ChannelTypeName::ANCHORS_ZERO_FEE_HTLC_TX_EVEN),
+            3 => Ok(ChannelTypeName::SCID_ALIAS_EVEN),
+            4 => Ok(ChannelTypeName::ZEROCONF_EVEN),
+            5 => Ok(ChannelTypeName::ANCHORS_EVEN),
+            o => Err(anyhow!("Unmapped ChannelTypeName {}", o)),
         }
     }
 }
@@ -716,31 +726,32 @@ impl Display for ChannelTypeName {
     }
 }
 
-impl From<i32> for HtlcState {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => HtlcState::SENT_ADD_HTLC,
-            1 => HtlcState::SENT_ADD_COMMIT,
-            2 => HtlcState::RCVD_ADD_REVOCATION,
-            3 => HtlcState::RCVD_ADD_ACK_COMMIT,
-            4 => HtlcState::SENT_ADD_ACK_REVOCATION,
-            5 => HtlcState::RCVD_ADD_ACK_REVOCATION,
-            6 => HtlcState::RCVD_REMOVE_HTLC,
-            7 => HtlcState::RCVD_REMOVE_COMMIT,
-            8 => HtlcState::SENT_REMOVE_REVOCATION,
-            9 => HtlcState::SENT_REMOVE_ACK_COMMIT,
-            10 => HtlcState::RCVD_REMOVE_ACK_REVOCATION,
-            11 => HtlcState::RCVD_ADD_HTLC,
-            12 => HtlcState::RCVD_ADD_COMMIT,
-            13 => HtlcState::SENT_ADD_REVOCATION,
-            14 => HtlcState::SENT_ADD_ACK_COMMIT,
-            15 => HtlcState::SENT_REMOVE_HTLC,
-            16 => HtlcState::SENT_REMOVE_COMMIT,
-            17 => HtlcState::RCVD_REMOVE_REVOCATION,
-            18 => HtlcState::RCVD_REMOVE_ACK_COMMIT,
-            19 => HtlcState::SENT_REMOVE_ACK_REVOCATION,
+impl TryFrom<i32> for HtlcState {
+    type Error = crate::Error;
 
-            n => panic!("Unmapped HtlcState variant: {}", n),
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(HtlcState::SENT_ADD_HTLC),
+            1 => Ok(HtlcState::SENT_ADD_COMMIT),
+            2 => Ok(HtlcState::RCVD_ADD_REVOCATION),
+            3 => Ok(HtlcState::RCVD_ADD_ACK_COMMIT),
+            4 => Ok(HtlcState::SENT_ADD_ACK_REVOCATION),
+            5 => Ok(HtlcState::RCVD_ADD_ACK_REVOCATION),
+            6 => Ok(HtlcState::RCVD_REMOVE_HTLC),
+            7 => Ok(HtlcState::RCVD_REMOVE_COMMIT),
+            8 => Ok(HtlcState::SENT_REMOVE_REVOCATION),
+            9 => Ok(HtlcState::SENT_REMOVE_ACK_COMMIT),
+            10 => Ok(HtlcState::RCVD_REMOVE_ACK_REVOCATION),
+            11 => Ok(HtlcState::RCVD_ADD_HTLC),
+            12 => Ok(HtlcState::RCVD_ADD_COMMIT),
+            13 => Ok(HtlcState::SENT_ADD_REVOCATION),
+            14 => Ok(HtlcState::SENT_ADD_ACK_COMMIT),
+            15 => Ok(HtlcState::SENT_REMOVE_HTLC),
+            16 => Ok(HtlcState::SENT_REMOVE_COMMIT),
+            17 => Ok(HtlcState::RCVD_REMOVE_REVOCATION),
+            18 => Ok(HtlcState::RCVD_REMOVE_ACK_COMMIT),
+            19 => Ok(HtlcState::SENT_REMOVE_ACK_REVOCATION),
+            n => Err(anyhow!("Unmapped HtlcState variant: {}", n)),
         }
     }
 }
@@ -933,6 +944,42 @@ mod test {
         ] {
             assert!(ShortChannelId::from_str(bad).is_err(), "{} parsed", bad);
         }
+    }
+
+    #[test]
+    fn test_short_channel_id_dir_from_str() {
+        let d0 = ShortChannelIdDir::from_str("1x2x3/0").unwrap();
+        assert_eq!(d0.short_channel_id.to_string(), "1x2x3");
+        assert_eq!(d0.direction, 0);
+
+        let d1 = ShortChannelIdDir::from_str("1x2x3/1").unwrap();
+        assert_eq!(d1.direction, 1);
+
+        for bad in ["1x2x3", "1x2x3/2", "1x2x3/-1", "1x2x3/0/1", "1x2x3/a"] {
+            assert!(ShortChannelIdDir::from_str(bad).is_err(), "{} parsed", bad);
+        }
+    }
+
+    #[test]
+    fn test_enum_try_from_i32() {
+        assert_eq!(
+            ChannelTypeName::try_from(0).unwrap(),
+            ChannelTypeName::STATIC_REMOTEKEY_EVEN
+        );
+        assert_eq!(
+            ChannelTypeName::try_from(5).unwrap(),
+            ChannelTypeName::ANCHORS_EVEN
+        );
+        assert!(ChannelTypeName::try_from(-1).is_err());
+        assert!(ChannelTypeName::try_from(6).is_err());
+
+        assert_eq!(HtlcState::try_from(0).unwrap(), HtlcState::SENT_ADD_HTLC);
+        assert_eq!(
+            HtlcState::try_from(19).unwrap(),
+            HtlcState::SENT_REMOVE_ACK_REVOCATION
+        );
+        assert!(HtlcState::try_from(-1).is_err());
+        assert!(HtlcState::try_from(20).is_err());
     }
 
     #[test]
