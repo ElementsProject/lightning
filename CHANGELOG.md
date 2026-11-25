@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.12rc1] - 2026-11-16: "CODENAME"
+## [26.12rc2] - 2026-11-25: "CODENAME"
 
 ### Added
 
@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
  - nix: development shells now stop `startup_regtest.sh` daemons when the shell exits. ([#9677])
  - nix: development shells now include `eatmydata` for `contrib/startup_regtest.sh`. ([#9677])
  - nix: development shells now include `uv` for Python dependency and command execution. ([#9677])
+ - xpay: option maxparts to limit the number of payment parts in Multi-Path-Payments ([#9692])
+ - askrene-constrain-channel: a new rpc to provide askrene with a direct rigid constraint on a channel's liquidity. ([#9380])
+ - askrene-channel-observation: a new rpc to provide askrene with information about the outcome of a payment attempt through a channel. ([#9380])
+ - askrene: observations data type, to keep track of the outcome of the result of payment attempts ([#9380])
+ - xpay: add xpay-failing-node-tolerance option to set the number of weird failures that trigger a node to be disabled during the current payment session. ([#9681])
 
 ### Changed
 
@@ -29,6 +34,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
  - cln-rpc and cln-grpc: forward_event adds created_index, in_htlc_id, preimage and updated_index, and listfunds adds csv_lock and spendable_at. ([#9537])
  - cln-rpc: hook types follow the corrected schemas: htlc_accepted cltv_expiry_relative is signed, openchannel to_self_delay and max_accepted_htlcs are u16, openchannel2 and rbf_channel responses accept channel lease fields, and rpc_command return.result is an object or an array. ([#9537])
  - Update libwally to v1.6.1 ([#9698], [#9741])
+ - release binaries are now one static build per architecture (amd64, arm64, armhf) instead of non-static builds per distribution (Ubuntu, Fedora). ([#9639])
+ - askrene-getroutes: liquidity bounds change with the evidence gathered from observations ([#9380])
+ - xpay: `xpay-slow-mode` now only waits until all parts have completed before returning failure: success is always returned immediately. ([#9724])
+ - pay: retrying a payment_hash where a part already succeeded now reports "Already succeeded" even if other parts are still pending. ([#9724])
 
 ### Deprecated
 
@@ -37,6 +46,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - JSON-RPC: 'invokerune' and 'destroyrune' (use 'createrune' and 'blacklistrune') ([#9606])
  - Config: option `xpay-handle-pay`, `pay` is deprecated and will be replaced by `xpay` in v27.03, hence `xpay-handle-pay` is not needed anymore. The configuration option will no longer be shown in listconfigs. ([#9254])
  - cln-grpc only: deprecate amount fields for onchain methods, use *_sat fields instead. Old msat fields still work, but must be whole satoshis. Affected messages: AddpsbtoutputRequest, WithdrawRequest, FundpsbtRequest, UtxopsbtRequest, FundchannelRequest, FundchannelStartRequest, MultifundchannelDestinations, OpenchannelBumpRequest, and OpenchannelInitRequest ([#9678])
+ - askrene-inform-channel: deprecated in favor of askrene-constrain-channel for hard constraints and askrene-channel-observation to inform the outcome of a payment attempt. ([#9380])
 
 ### Removed
 
@@ -97,6 +107,17 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - nix-builds: correctly set PYTHON in case where `uv` is not present ([#9423])
  - nix: the flake build (`nix build`) no longer fails because ./configure cannot detect Python. ([#9203])
  - Fixed spurious bitcoind startup failures by retrying bitcoin-cli -rpcwait checks when RPC briefly fails. ([#9240])
+ - xpay: xkeysend and sendamount, which work only under single path payments, no longer fall back to MPP after a getroutes failure ([#9692])
+ - cln-plugin: prevent `JsonRpc::Error` replies from being silently dropped when the internal response channel is full. ([#9759])
+ - cln-rpc: verify JSON-RPC response IDs and flush interrupted writes so cancelling an RPC future (e.g., via `timeout` or `select!`) no longer desynchronizes subsequent calls on the same `ClnRpc`. ([#9763])
+ - cln-plugin: catch synchronous panics in hook, RPC, and notification callbacks instead of crashing the plugin driver loop. ([#9760])
+ - Recover: refresh backups across multiple peer-storage providers. ([#9684])
+ - lightningd: no longer crashes when a channel is force-closed while plugins shut down (e.g. a peer reconnects and sends an error); the close is broadcast on restart. ([#9720])
+ - lightningd: a `setconfig` after one that failed to write an explicit `--conf` file no longer crashes the node. ([#9711])
+ - bcli: `getutxout` waits for bitcoind (e.g. while it starts up) until `bitcoin-retry-timeout`, instead of reporting the output as spent when `gettxout` fails. ([#9718])
+ - xpay: instantly disable nodes that return plain wrong or impossible to recover error codes, eg. incorrect_or_unknown_payment_details from an intermediate node or permanent_node_failure, the disable operation applies to the current payment session and in addition a negative bias is applied to this node for all subsequent payments. ([#9681])
+ - xpay: avoid channel and nodes that fail too often with weird errors ([#9681])
+ - Tools: `lightning-downgrade` is now installed by `make install` and included in the release archives. ([#9747])
 
 ### EXPERIMENTAL
 
@@ -155,7 +176,20 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#9631]: https://github.com/ElementsProject/lightning/pull/9631
 [#9488]: https://github.com/ElementsProject/lightning/pull/9488
 [#9741]: https://github.com/ElementsProject/lightning/pull/9741
-[26.12rc1]: https://github.com/ElementsProject/lightning/releases/tag/v26.12rc1
+[#9747]: https://github.com/ElementsProject/lightning/pull/9747
+[#9692]: https://github.com/ElementsProject/lightning/pull/9692
+[#9763]: https://github.com/ElementsProject/lightning/pull/9763
+[#9720]: https://github.com/ElementsProject/lightning/pull/9720
+[#9380]: https://github.com/ElementsProject/lightning/pull/9380
+[#9639]: https://github.com/ElementsProject/lightning/pull/9639
+[#9681]: https://github.com/ElementsProject/lightning/pull/9681
+[#9760]: https://github.com/ElementsProject/lightning/pull/9760
+[#9759]: https://github.com/ElementsProject/lightning/pull/9759
+[#9724]: https://github.com/ElementsProject/lightning/pull/9724
+[#9711]: https://github.com/ElementsProject/lightning/pull/9711
+[#9684]: https://github.com/ElementsProject/lightning/pull/9684
+[#9718]: https://github.com/ElementsProject/lightning/pull/9718
+[26.12rc2]: https://github.com/ElementsProject/lightning/releases/tag/v26.12rc2
 
 ## [26.06.10] - 2026-11-05: "Quantum-Resistant Lightning Channel VII"
 
