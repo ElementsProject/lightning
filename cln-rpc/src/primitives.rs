@@ -1049,6 +1049,9 @@ mod test {
         );
         let serialized: String = serde_json::to_string(&od).unwrap();
         assert_eq!(a, serialized);
+
+        assert!(serde_json::from_str::<OutputDesc>(r#"{}"#).is_err());
+        assert!(serde_json::from_str::<OutputDesc>(r#"{"a":1,"b":2}"#).is_err());
     }
 
     #[test]
@@ -1158,15 +1161,32 @@ impl<'de> Deserialize<'de> for OutputDesc {
     where
         D: Deserializer<'de>,
     {
-        let map: std::collections::HashMap<String, Amount> =
-            Deserialize::deserialize(deserializer)?;
+        struct OutputDescVisitor;
 
-        let (address, amount) = map.iter().next().unwrap();
+        impl<'de> serde::de::Visitor<'de> for OutputDescVisitor {
+            type Value = OutputDesc;
 
-        Ok(OutputDesc {
-            address: address.to_string(),
-            amount: *amount,
-        })
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a single-entry map of address to amount")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let (address, amount) = map
+                    .next_entry::<String, Amount>()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                if map.next_entry::<String, Amount>()?.is_some() {
+                    return Err(serde::de::Error::custom(
+                        "OutputDesc must contain exactly one entry",
+                    ));
+                }
+                Ok(OutputDesc { address, amount })
+            }
+        }
+
+        deserializer.deserialize_map(OutputDescVisitor)
     }
 }
 
