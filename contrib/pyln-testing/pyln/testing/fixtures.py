@@ -15,6 +15,7 @@ from pyln.client import Millisatoshi
 from typing import Dict
 from pathlib import Path
 
+import functools
 import json
 import jsonschema  # type: ignore
 import logging
@@ -238,6 +239,7 @@ def teardown_checks(request):
         raise ValueError(str(errors))
 
 
+@functools.lru_cache(maxsize=2)
 def _extra_validator(is_request: bool):
     """JSON Schema validator with additions for our specialized types"""
 
@@ -525,7 +527,7 @@ def _load_schema(filename):
         ]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def jsonschemas():
     """Load schema file if it exist: returns request/response schemas by pairs"""
     try:
@@ -741,10 +743,8 @@ def checkBroken(node):
     return 0
 
 
-def checkPluginJSON(node):
-    if node.bad_notifications:
-        return 0
-
+@functools.lru_cache(maxsize=1)
+def _plugin_schemas():
     try:
         notificationfiles = os.listdir("doc/schemas/notification")
     except FileNotFoundError:
@@ -770,6 +770,15 @@ def checkPluginJSON(node):
             base = fname.replace(".json", "")
             # Request is 0 and Response is 1
             hooks[base] = _load_schema(os.path.join("doc/schemas/hook", fname))
+
+    return notifications, hooks
+
+
+def checkPluginJSON(node):
+    if node.bad_notifications:
+        return 0
+
+    notifications, hooks = _plugin_schemas()
 
     for f in (Path(node.daemon.lightning_dir) / "plugin-io").iterdir():
         # e.g. hook_in-peer_connected-124567-358
