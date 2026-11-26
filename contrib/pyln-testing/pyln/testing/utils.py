@@ -16,6 +16,7 @@ from pyln.client.plugin import PluginLogHandler
 
 import tempfile
 import errno
+import functools
 import json
 import logging
 import lzma
@@ -863,6 +864,12 @@ def mnemonic_from_seed(seed):
     return mnem
 
 
+@functools.lru_cache(maxsize=None)
+def _cln_version(executable):
+    cln_version_proc = subprocess.check_output([executable, "--version"])
+    return NodeVersion(cln_version_proc.decode('ascii').strip())
+
+
 class LightningD(TailableProc):
     def __init__(
             self,
@@ -886,9 +893,8 @@ class LightningD(TailableProc):
 
         self.opts = LIGHTNINGD_CONFIG.copy()
 
-        # Query the version of the cln-binary
-        cln_version_proc = subprocess.check_output([self.executable, "--version"])
-        self.cln_version = NodeVersion(cln_version_proc.decode('ascii').strip())
+        # Query the version of the cln-binary (cached per executable path)
+        self.cln_version = _cln_version(self.executable)
 
         if self.cln_version <= "v24.02.2":
             self.opts['log-level'] = "debug"
@@ -2111,31 +2117,43 @@ class NodeFactory(object):
 
     def killall(self, expected_successes):
         """Returns true if every node we expected to succeed actually succeeded"""
-        unexpected_fail = False
-        err_msgs = []
-        for i in range(len(self.nodes)):
-            leaks = None
+        def _check_memleak(node):
             # leak detection upsets VALGRIND by reading uninitialized mem,
             # and valgrind adds extra fds.
             # If it's dead, we'll catch it below.
-            if not VALGRIND:
-                try:
-                    # This also puts leaks in log.
-                    leaks = self.nodes[i].rpc.dev_memleak()['leaks']
-                    self.nodes[i].rpc.dev_report_fds()
-                except Exception:
-                    pass
-
+            if VALGRIND:
+                return None
             try:
-                self.nodes[i].stop()
+                # This also puts leaks in log.
+                leaks = node.rpc.dev_memleak()['leaks']
+                node.rpc.dev_report_fds()
+                return leaks
             except Exception:
-                if expected_successes[i]:
-                    unexpected_fail = True
+                return None
 
+        def _stop_node(node, expected_success):
+            try:
+                node.stop()
+                return False
+            except Exception:
+                return expected_success
+
+        leak_futs = [self.executor.submit(_check_memleak, n) for n in self.nodes]
+        all_leaks = [f.result() for f in leak_futs]
+
+        stop_futs = [
+            self.executor.submit(_stop_node, n, exp)
+            for n, exp in zip(self.nodes, expected_successes)
+        ]
+        stop_fails = [f.result() for f in stop_futs]
+
+        unexpected_fail = any(stop_fails)
+        err_msgs = []
+        for node, leaks in zip(self.nodes, all_leaks):
             if leaks is not None and len(leaks) != 0:
                 unexpected_fail = True
                 err_msgs.append("Node {} has memory leaks: {}".format(
-                    self.nodes[i].daemon.lightning_dir,
+                    node.daemon.lightning_dir,
                     json.dumps(leaks, sort_keys=True, indent=4)
                 ))
 
