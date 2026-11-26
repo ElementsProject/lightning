@@ -5969,6 +5969,7 @@ def test_pay_middle_fail(node_factory, bitcoind, executor):
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 @pytest.mark.parametrize("old_hsmsecret", [True, False])
 @pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
 def test_payerkey(node_factory, old_hsmsecret):
     """payerkey calculation should not change across releases!"""
     nodes = node_factory.get_nodes(7, opts={'old_hsmsecret': old_hsmsecret})

@@ -1578,6 +1578,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v2')
+@pytest.mark.xdist_group("heavy")
 def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 

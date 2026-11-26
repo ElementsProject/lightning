@@ -3670,6 +3670,7 @@ def test_commando(node_factory, executor):
 
 
 @pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
     nodes = node_factory.get_nodes(5, opts=[{'broken_log': 'Throttling incoming peer'}, {}, {}, {}, {}])

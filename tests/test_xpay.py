@@ -1813,6 +1813,7 @@ def test_xpay_maxhops(node_factory, bitcoind):
 
 @pytest.mark.slow_test
 @unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+@pytest.mark.xdist_group("heavy")
 def test_xpay_maxhops_bolt11(node_factory, chainparams):
     """A bolt11 final payload that no longer fits the cheap route forces the short one.
 
@@ -1908,6 +1909,7 @@ def test_xpay_maxhops_bolt11(node_factory, chainparams):
     assert ret["amount_sent_msat"] - amount > 1000
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     """Issue 9590: repeated unknown_next_peer must exclude the next node.
 
@@ -1997,6 +1999,7 @@ def setup_failing_hub(node_factory, num_spokes, alt_ppm,
     return payer, hub, alt, dest
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
     """A hub repeatedly returning fee_insufficient gets a node bias.
 
@@ -2023,6 +2026,7 @@ def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
     assert "fee_insufficient" in node_bias["description"]
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_fee_insufficient_disable(node_factory, bitcoind):
     """A hub repeatedly returning fee_insufficient gets disabled.
 
@@ -2050,6 +2054,7 @@ def test_xpay_fee_insufficient_disable(node_factory, bitcoind):
     assert line.count("fee_insufficient on") == 4, line
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_failing_node_tolerance(node_factory, bitcoind):
     """xpay-failing-node-tolerance controls when a failing node is disabled."""
     payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=5000)
@@ -2087,6 +2092,7 @@ def test_xpay_failing_node_tolerance(node_factory, bitcoind):
     assert not payer.daemon.is_in_log(disabled, start=start)
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_failing_node_nonfinal(node_factory, bitcoind):
     """If an intermediate node returns an error that is meant for the final,
     then we disable that node right away regardless of the value of
