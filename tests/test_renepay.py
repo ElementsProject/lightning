@@ -81,11 +81,15 @@ def test_mpp(node_factory):
         {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'dev-allow-localhost': None, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
-    node_factory.join_nodes(
-        [l1, l2, l4, l6], wait_for_announce=True, fundamount=1000000
-    )
-    node_factory.join_nodes(
-        [l1, l3, l5, l6], wait_for_announce=True, fundamount=1000000
+    start_channels(
+        [
+            (l1, l2, 1000000),
+            (l2, l4, 1000000),
+            (l4, l6, 1000000),
+            (l1, l3, 1000000),
+            (l3, l5, 1000000),
+            (l5, l6, 1000000),
+        ]
     )
 
     send_amount = Millisatoshi("1200000sat")
@@ -109,8 +113,14 @@ def test_errors(node_factory, bitcoind):
     failmsg = r"We don\'t have any channels"
     with pytest.raises(RpcError, match=failmsg):
         l1.rpc.call("renepay", {"invstring": inv})
-    node_factory.join_nodes([l1, l2, l4], wait_for_announce=True, fundamount=1000000)
-    node_factory.join_nodes([l1, l3, l5], wait_for_announce=True, fundamount=1000000)
+    start_channels(
+        [
+            (l1, l2, 1000000),
+            (l2, l4, 1000000),
+            (l1, l3, 1000000),
+            (l3, l5, 1000000),
+        ]
+    )
 
     failmsg = r"failed to find a feasible flow"
     with pytest.raises(RpcError, match=failmsg):
@@ -261,11 +271,15 @@ def test_limits(node_factory):
         {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
-    node_factory.join_nodes(
-        [l1, l2, l4, l6], wait_for_announce=True, fundamount=1000000
-    )
-    node_factory.join_nodes(
-        [l1, l3, l5, l6], wait_for_announce=True, fundamount=1000000
+    start_channels(
+        [
+            (l1, l2, 1000000),
+            (l2, l4, 1000000),
+            (l4, l6, 1000000),
+            (l1, l3, 1000000),
+            (l3, l5, 1000000),
+            (l5, l6, 1000000),
+        ]
     )
 
     inv = l4.rpc.invoice("any", "any", "description")
@@ -312,6 +326,7 @@ def start_channels(connections):
         nodes.append(src)
         nodes.append(dst)
         src.rpc.connect(dst.info["id"], "localhost", dst.port)
+    nodes = list(dict.fromkeys(nodes))
 
     bitcoind = nodes[0].bitcoin
     # If we got here, we want to fund channels
