@@ -117,22 +117,23 @@ def check_balance_snaps(n, expected_bals):
 
 
 def check_coin_moves(n, account_id, expected_moves, chainparams):
-    moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
-    # moves can lag; wait for a few seconds if we don't have correct number.
-    # then move on: we'll get details below.
-    expected_count = 0
-    for m in enumerate(expected_moves):
-        if isinstance(m, list):
-            expected_count += len(m)
-        else:
-            expected_count += 1
+    # moves can lag; wait briefly if we don't have the expected count yet,
+    # then move on so we get detailed mismatch output below.
+    expected_count = sum(len(m) if isinstance(m, list) else 1 for m in expected_moves)
 
-    if len(moves) != expected_count:
-        time.sleep(5)
+    def get_acct_moves():
         moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
+        return [m for m in moves if m['account_id'] == account_id]
+
+    acct_moves = get_acct_moves()
+    if len(acct_moves) < expected_count:
+        try:
+            wait_for(lambda: len(get_acct_moves()) >= expected_count, timeout=10)
+        except ValueError:
+            pass
+        acct_moves = get_acct_moves()
 
     node_id = n.info['id']
-    acct_moves = [m for m in moves if m['account_id'] == account_id]
     # Stash moves for errors, if needed
     _acct_moves = acct_moves
     for mv in acct_moves:

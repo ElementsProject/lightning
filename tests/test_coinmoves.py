@@ -8,7 +8,6 @@ import os
 import unittest
 import pytest
 import re
-import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 
 
@@ -690,13 +689,12 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
     # Make sure it's stable!
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l1, l2])
-    time.sleep(5)
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     check_channel_moves(l1, expected_channel1)
     check_chain_moves(l1, expected_chain1)
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l2, expected_chain2)
-    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
-    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # We didn't send any HTLCs
     check_balances(l1, l2, fundchannel['channel_id'], 0)
@@ -1007,13 +1005,12 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
     # Make sure it's stable!
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l1, l2])
-    time.sleep(5)
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     check_channel_moves(l1, expected_channel1)
     check_chain_moves(l1, expected_chain1)
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l2, expected_chain2)
-    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
-    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # We didn't send any HTLCs
     check_balances(l1, l2, fundchannel['channel_id'], 0)
@@ -1196,13 +1193,12 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
     # Make sure it's stable!
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l1, l2])
-    time.sleep(5)
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     check_channel_moves(l1, expected_channel1)
     check_chain_moves(l1, expected_chain1)
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l2, expected_chain2)
-    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
-    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # We send a HTLC but it didn't finalize.
     check_balances(l1, l2, fundchannel['channel_id'], 0)
@@ -1469,13 +1465,12 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
     # Make sure it's stable!
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l1, l2])
-    time.sleep(5)
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     check_channel_moves(l1, expected_channel1)
     check_chain_moves(l1, expected_chain1)
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l2, expected_chain2)
-    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
-    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # We send an HTLC, but it's not accounted in channel.
     check_balances(l1, l2, fundchannel['channel_id'], 0)
@@ -1688,13 +1683,12 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
     # Make sure it's stable!
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l1, l2])
-    time.sleep(5)
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     check_channel_moves(l1, expected_channel1)
     check_chain_moves(l1, expected_chain1)
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l2, expected_chain2)
-    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
-    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # We send no in-channel HTLCs
     check_balances(l1, l2, fundchannel['channel_id'], 0)
@@ -1905,10 +1899,9 @@ def test_coinmoves_unilateral_htlc_penalty(node_factory, bitcoind):
     # Make sure it's stable!
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l2])
-    time.sleep(5)
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l2, expected_chain2)
-    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     channel2 = account_balances(l2.rpc.listchannelmoves()['channelmoves'])
     chain2 = account_balances(l2.rpc.listchainmoves()['chainmoves'])
