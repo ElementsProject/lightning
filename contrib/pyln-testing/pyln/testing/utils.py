@@ -98,15 +98,14 @@ RUST = env("RUST", "0") == "1"
 
 def wait_for(success, timeout=TIMEOUT):
     start_time = time.time()
-    interval = 0.25
+    interval = 0.05
+    max_interval = 2 if SLOW_MACHINE else 1
     while not success():
         time_left = start_time + timeout - time.time()
         if time_left <= 0:
             raise ValueError("Timeout while waiting for {}".format(success))
         time.sleep(min(interval, time_left))
-        interval *= 2
-        if interval > 5:
-            interval = 5
+        interval = min(interval * 2, max_interval)
 
 
 def write_config(filename, opts, regtest_opts=None, section_name='regtest'):
@@ -522,10 +521,14 @@ class TailableProc(object):
         logging.debug("Waiting for {} in the logs".format(regexs))
         exs = [re.compile(r) for r in regexs]
         start_time = time.time()
+        poll_interval = 0.02
         while True:
             if self.logsearch_start >= len(self.logs):
                 if not self.logs_catchup():
-                    time.sleep(0.25)
+                    time.sleep(poll_interval)
+                    poll_interval = min(poll_interval * 2, 0.25)
+                else:
+                    poll_interval = 0.02
 
                 if timeout is not None and time.time() > start_time + timeout:
                     print("Time-out: can't find {} in logs".format(exs))
@@ -1556,14 +1559,17 @@ class LightningNode(object):
     def wait_for_route(self, destination, timeout=TIMEOUT):
         """ Wait for a route to the destination to become available.
         """
-        start_time = time.time()
-        while time.time() < start_time + timeout:
+        def has_route():
             try:
                 self.single_route(destination.info['id'], 1)
                 return True
             except Exception:
-                time.sleep(1)
-        if time.time() > start_time + timeout:
+                return False
+
+        try:
+            wait_for(has_route, timeout=timeout)
+            return True
+        except ValueError:
             raise ValueError("Error waiting for a route to destination {}".format(destination))
 
     # This helper waits for all HTLCs to settle
