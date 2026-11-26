@@ -143,6 +143,7 @@ void disconnect_peer(struct peer *peer)
 					     close_subd_timeout, peer->subds[i]));
 		} else {
 			/* We told lightningd that peer spoke, but it hasn't returned yet. */
+			tal_free(peer->subds[i]);
 			tal_arr_remove(&peer->subds, i);
 			i--;
 		}
@@ -1746,6 +1747,7 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 	for (size_t i = 0; i < tal_count(peer->subds); i++) {
 		/* Might not be connected yet (no destructor, simple) */
 		if (!peer->subds[i]->conn) {
+			tal_free(peer->subds[i]);
 			tal_arr_remove(&peer->subds, i);
 			i--;
 			continue;
