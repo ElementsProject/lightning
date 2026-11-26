@@ -3715,9 +3715,11 @@ def test_autoclean(node_factory):
     if VALGRIND:
         short_timeout = 10
         longer_timeout = 60
+        cycle = 10
     else:
-        short_timeout = 5
-        longer_timeout = 20
+        short_timeout = 3
+        longer_timeout = 12
+        cycle = 2
 
     assert l3.rpc.autoclean_status('expiredinvoices')['autoclean']['expiredinvoices']['enabled'] is False
     l3.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=short_timeout)
@@ -3748,7 +3750,7 @@ def test_autoclean(node_factory):
     assert len(l3.rpc.listinvoices('inv2')['invoices']) == 1
     assert l3.rpc.listinvoices('inv1')['invoices'][0]['description'] == 'description1'
 
-    l3.rpc.setconfig('autoclean-cycle', 10)
+    l3.rpc.setconfig('autoclean-cycle', cycle)
 
     # It will always go unpaid->expired->deleted, but we might miss it!
     was_expired = False
@@ -3764,7 +3766,7 @@ def test_autoclean(node_factory):
                 was_expired = True
             else:
                 assert only_one(invs)['status'] == 'unpaid'
-        time.sleep(1)
+        time.sleep(0.2)
 
     # We can actually race between the delete and this being updated!
     wait_for(lambda: l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1)
@@ -3785,8 +3787,8 @@ def test_autoclean(node_factory):
     wait_for(lambda: only_one(l3.rpc.listinvoices('inv2')['invoices'])['status'] == 'expired')
     wait_for(lambda: only_one(l3.rpc.listinvoices('inv3')['invoices'])['status'] == 'expired')
 
-    # Give it time to notice (runs every 10 seconds, give it 15)
-    time.sleep(15)
+    # Give it time to notice (wait more than two autoclean cycles)
+    time.sleep(cycle * 2 + 1)
 
     # They're still there!
     assert l3.rpc.listinvoices('inv2')['invoices'] != []
@@ -3823,7 +3825,7 @@ def test_autoclean(node_factory):
     assert only_one(l1.rpc.listpays(inv5['bolt11'])['pays'])['status'] == 'failed'
     assert only_one(l1.rpc.listpays(inv4['bolt11'])['pays'])['status'] == 'complete'
     l1.rpc.setconfig('autoclean-failedpays-age', 1)
-    l1.rpc.setconfig('autoclean-cycle', 5)
+    l1.rpc.setconfig('autoclean-cycle', cycle)
 
     wait_for(lambda: l1.rpc.listpays(inv5['bolt11'])['pays'] == [])
     wait_for(lambda: l1.rpc.autoclean_status()['autoclean']['failedpays']['cleaned'] == 1)
@@ -3839,7 +3841,7 @@ def test_autoclean(node_factory):
     assert len(l2.rpc.listforwards()['forwards']) == 2
 
     # Clean failed ones.
-    l2.rpc.setconfig('autoclean-cycle', 5)
+    l2.rpc.setconfig('autoclean-cycle', cycle)
     l2.rpc.setconfig('autoclean-failedforwards-age', 2)
     wait_for(lambda: l2.rpc.listforwards(status='failed')['forwards'] == [])
 
@@ -3871,10 +3873,11 @@ def test_autoclean(node_factory):
 
 def test_autoclean_timer_crash(node_factory):
     """Running two autocleans at once crashed timer code"""
-    node_factory.get_node(options={'autoclean-cycle': 1,
-                                   'autoclean-failedforwards-age': 31536000,
-                                   'autoclean-expiredinvoices-age': 31536000})
-    time.sleep(20)
+    l1 = node_factory.get_node(options={'autoclean-cycle': 1,
+                                        'autoclean-failedforwards-age': 31536000,
+                                        'autoclean-expiredinvoices-age': 31536000})
+    time.sleep(4)
+    l1.rpc.getinfo()
 
 
 def test_autoclean_once(node_factory):
@@ -5111,7 +5114,7 @@ def test_autoclean_batch(node_factory):
     assert (l1.rpc.autoclean_status('expiredinvoices')
             == {'autoclean': {'expiredinvoices': {'enabled': True, 'cleaned': 100, 'age': 2}}})
 
-    l1.rpc.setconfig('autoclean-cycle', 5)
+    l1.rpc.setconfig('autoclean-cycle', 1)
     wait_for(lambda: l1.rpc.autoclean_status('expiredinvoices')
              == {'autoclean': {'expiredinvoices': {'enabled': True, 'cleaned': 200, 'age': 2}}})
 
