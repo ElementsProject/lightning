@@ -2282,7 +2282,7 @@ def receive_maxparts_plugin(plugin):
 
         parts = held.setdefault(phash, [])
         parts.append((htlc, request))
-        maxparts = plugin.get_option("receive_maxparts")
+        maxparts = int(plugin.get_option("receive_maxparts"))
         if maxparts and len(parts) > maxparts:
             plugin.log(
                 f"Rejecting {phash}: {len(parts)} parts exceeds receive_maxparts={maxparts}"
@@ -2301,9 +2301,12 @@ def receive_maxparts_plugin(plugin):
 
 @pytest.mark.slow_test
 @pytest.mark.xdist_group("heavy")
-@pytest.mark.parametrize(
-    "receive_maxparts,amount_sat",
-    [
+def test_xpay_maxparts_receiver_limit(node_factory):
+    """Destination refuses payments in more than receive_maxparts parts:
+    without maxparts xpay fails, with maxparts it succeeds"""
+    NUM_PATHS = 12
+    CHANNEL_SIZE_SATS = 10**6
+    cases = [
         (7, 5_000_000),
         (6, 5_000_000),
         (5, 4_000_000),
@@ -2311,45 +2314,76 @@ def receive_maxparts_plugin(plugin):
         (3, 2_000_000),
         (2, 1_500_000),
         (1, 900_000),
-    ],
-)
-def test_xpay_maxparts_receiver_limit(node_factory, receive_maxparts, amount_sat):
-    """Destination refuses payments in more than receive_maxparts parts:
-    without maxparts xpay fails, with maxparts it succeeds"""
-    NUM_PATHS = 12
-    CHANNEL_SIZE_SATS = 10**6
-    l1 = node_factory.get_node()
+    ]
     l2 = node_factory.get_node(
         inline_plugin=receive_maxparts_plugin,
-        options={"receive_maxparts": receive_maxparts},
+        options={"receive_maxparts": cases[0][0]},
     )
+    l1, *nodes = node_factory.get_nodes(1 + NUM_PATHS)
     # NUM_PATHS disjoint paths between l1 and l2.
-    for n in node_factory.get_nodes(NUM_PATHS):
-        node_factory.join_nodes(
-            [l1, n, l2], fundamount=CHANNEL_SIZE_SATS, wait_for_announce=True
-        )
+    open_channels(
+        [(l1, n) for n in nodes] + [(n, l2) for n in nodes],
+        fundamount=CHANNEL_SIZE_SATS,
+        wait_for_announce=True,
+    )
 
     def num_flows():
         line = l1.daemon.wait_for_log(r"Final answer has [0-9]+ flows")
         return int(re.search(r"Final answer has ([0-9]+) flows", line).group(1))
 
-    # Unconstrained, xpay splits into more parts than the destination accepts.
-    inv = l2.rpc.invoice(f"{amount_sat}sat", "unconstrained", "unconstrained")["bolt11"]
-    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
-        l1.rpc.xpay(invstring=inv, maxparts=0)
-    assert num_flows() > receive_maxparts
-    l2.daemon.wait_for_log(f"exceeds receive_maxparts={receive_maxparts}")
-    wait_for(lambda: l1.rpc.askrene_listreservations() == {"reservations": []})
+    for receive_maxparts, amount_sat in cases:
+        l2.rpc.setconfig("receive_maxparts", receive_maxparts)
+        l1.rpc.askrene_age("xpay", int(time.time()))
 
-    # Respecting the destination's limit, it succeeds.
-    inv = l2.rpc.invoice(f"{amount_sat}sat", "constrained", "constrained")["bolt11"]
-    ret = l1.rpc.xpay(invstring=inv, maxparts=receive_maxparts)
-    assert ret["amount_msat"] == amount_sat * 1000
-    assert ret["failed_parts"] == 0
-    assert ret["successful_parts"] <= receive_maxparts
-    assert num_flows() <= receive_maxparts
-    l2.daemon.wait_for_log("Accepting .* in [0-9]+ parts")
-    assert only_one(l2.rpc.listinvoices("constrained")["invoices"])["status"] == "paid"
+        # Unconstrained, xpay splits into more parts than the destination accepts.
+        unconstrained_lbl = f"unconstrained-{receive_maxparts}"
+        inv = l2.rpc.invoice(f"{amount_sat}sat", unconstrained_lbl, unconstrained_lbl)["bolt11"]
+        with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+            l1.rpc.xpay(invstring=inv, maxparts=0)
+        assert num_flows() > receive_maxparts
+        l2.daemon.wait_for_log(f"exceeds receive_maxparts={receive_maxparts}")
+        wait_for(lambda: l1.rpc.askrene_listreservations() == {"reservations": []})
+
+        # Respecting the destination's limit, it succeeds.
+        constrained_lbl = f"constrained-{receive_maxparts}"
+        inv = l2.rpc.invoice(f"{amount_sat}sat", constrained_lbl, constrained_lbl)["bolt11"]
+        ret = l1.rpc.xpay(invstring=inv, maxparts=receive_maxparts)
+        assert ret["amount_msat"] == amount_sat * 1000
+        assert ret["failed_parts"] == 0
+        assert ret["successful_parts"] <= receive_maxparts
+        assert num_flows() <= receive_maxparts
+        l2.daemon.wait_for_log("Accepting .* in [0-9]+ parts")
+        assert only_one(l2.rpc.listinvoices(constrained_lbl)["invoices"])["status"] == "paid"
+
+        # Rebalance used paths back to l1 so the next case sees fresh capacity.
+        for i, n in enumerate(nodes):
+            chan_l2_n = only_one(l2.rpc.listpeerchannels(n.info["id"])["channels"])
+            send_back_msat = int(Millisatoshi(chan_l2_n["spendable_msat"])) - 10_000_000
+            if send_back_msat > 10_000_000:
+                chan_n_l1 = only_one(n.rpc.listpeerchannels(l1.info["id"])["channels"])
+                rebal_inv = l1.rpc.invoice(
+                    send_back_msat, f"rebal-{receive_maxparts}-{i}", "rebal"
+                )
+                route = [
+                    {
+                        "id": n.info["id"],
+                        "channel": chan_l2_n["short_channel_id"],
+                        "amount_msat": send_back_msat + 1_000_000,
+                        "delay": 30,
+                    },
+                    {
+                        "id": l1.info["id"],
+                        "channel": chan_n_l1["short_channel_id"],
+                        "amount_msat": send_back_msat,
+                        "delay": 15,
+                    },
+                ]
+                l2.rpc.sendpay(
+                    route,
+                    rebal_inv["payment_hash"],
+                    payment_secret=rebal_inv["payment_secret"],
+                )
+                l2.rpc.waitsendpay(rebal_inv["payment_hash"])
 
 
 @pytest.mark.slow_test
