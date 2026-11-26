@@ -3904,6 +3904,7 @@ def test_version_reexec(node_factory, bitcoind):
     # We use a file to tell our openingd wrapper where the real one is
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-real"), 'w') as f:
         f.write(os.path.abspath('lightningd/lightning_openingd'))
+    l1.daemon.opts.pop('dev-no-version-checks', None)
     l1.start()
     # This is a "version" message
     verfile = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-version")

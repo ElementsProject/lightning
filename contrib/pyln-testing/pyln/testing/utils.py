@@ -1118,9 +1118,11 @@ class LightningNode(object):
 
         # Various developer options let us be more aggressive
         self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
-        # Don't run --version on every subdaemon if we're valgrinding and slow.
-        if SLOW_MACHINE and VALGRIND:
-            self.daemon.opts["dev-no-version-checks"] = None
+        # Skip per-startup subdaemon --version spawns and full-binary plugin
+        # checksumming (~1 GB of debug binaries per node).  Dedicated tests
+        # (test_version_reexec, test_restart_on_update) clear these options.
+        self.daemon.opts["dev-no-version-checks"] = None
+        self.daemon.opts["dev-no-plugin-checksum"] = None
         dbgvar = os.getenv("DEBUG_SUBD")
         if dbgvar and ':' in dbgvar:
             path = dbgvar.split(':')[0]
@@ -1135,7 +1137,6 @@ class LightningNode(object):
             self.daemon.opts["dev-debug-self"] = None
         if VALGRIND:
             self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
-            self.daemon.opts["dev-no-plugin-checksum"] = None
         else:
             # Under valgrind, scanning can access uninitialized mem.
             self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
