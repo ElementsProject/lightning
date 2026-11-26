@@ -5,7 +5,7 @@ import unittest
 import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from utils import (
-    TEST_NETWORK, wait_for, only_one
+    TEST_NETWORK, sync_blockheight, wait_for, only_one
 )
 
 # The DB version right before the funding_tx_index migrations in
@@ -73,7 +73,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'Retransmitting channel_ready')
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -175,7 +175,7 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(r'billboard: Channel ready for use.')
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
