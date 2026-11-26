@@ -5158,7 +5158,8 @@ def test_fetchinvoice_invoice_expiry(node_factory, bitcoind):
     # l2 is the offer node; dev-currency-expiry=2 makes the currency window short.
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{},
-                                           {'plugin': plugin,
+                                           {'disable-plugin': 'cln-currencyrate',
+                                            'plugin': plugin,
                                             'dev-currency-expiry': 10}])
 
     # Plain msat offer: no currency, no absolute expiry → default expiry (7200).

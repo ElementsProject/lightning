@@ -1105,7 +1105,8 @@ def test_xpay_currency_offer(node_factory):
     """Test that xpay and sendamount correctly report the currency name when rejecting non-msat offers."""
     plugin = Path(__file__).parent / "plugins" / "currencyUSDAUD5000.py"
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts=[{}, {'plugin': str(plugin)}])
+                                     opts=[{}, {'disable-plugin': 'cln-currencyrate',
+                                                'plugin': str(plugin)}])
 
     offerusd = l2.rpc.offer('10USD', 'USD test')['bolt12']
 
