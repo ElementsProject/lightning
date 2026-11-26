@@ -106,6 +106,8 @@ struct state {
 	bool dev_accept_any_channel_type;
 };
 
+static void handle_dev_memleak(struct state *state, const u8 *msg);
+
 /*~ If we can't agree on parameters, we fail to open the channel.
  *  Tell lightningd why. */
 static void NORETURN negotiation_aborted(struct state *state, const char *why)
@@ -1028,6 +1030,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				       state->channel_type);
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
+	while (state->developer && fromwire_openingd_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
 
 	/* We don't allocate off tmpctx, because that's freed inside
 	 * opening_negotiate_msg */

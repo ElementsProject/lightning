@@ -643,6 +643,8 @@ static bool is_dust(struct tx_state *tx_state,
 		|| amount_sat_less(amount, tx_state->remoteconf.dust_limit);
 }
 
+static void handle_dev_memleak(struct state *state, const u8 *msg);
+
 static char *validate_inputs(struct state *state,
 			     struct tx_state *tx_state,
 			     enum tx_role role_to_validate)
@@ -662,6 +664,10 @@ static char *validate_inputs(struct state *state,
 					       role_to_validate);
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
 
 	if (!fromwire_dualopend_validate_inputs_reply(msg)) {
 		if (!fromwire_dualopend_fail(tmpctx, msg, &err_reason))
@@ -2392,6 +2398,10 @@ static u8 *accepter_commits(struct state *state,
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
 
 	if (fromwire_peektype(msg) != WIRE_DUALOPEND_COMMIT_SEND_ACK)
 		master_badmsg(WIRE_DUALOPEND_COMMIT_SEND_ACK, msg);
@@ -2437,6 +2447,10 @@ static u8 *accepter_commits(struct state *state,
 	tal_free(pbase);
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
 
 	if (fromwire_peektype(msg) != WIRE_DUALOPEND_SEND_TX_SIGS)
 		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
@@ -2693,6 +2707,10 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
 
 	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
@@ -3067,6 +3085,10 @@ static u8 *opener_commits(struct state *state,
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
 
 	if (fromwire_peektype(msg) != WIRE_DUALOPEND_COMMIT_SEND_ACK)
 		master_badmsg(WIRE_DUALOPEND_COMMIT_SEND_ACK, msg);
@@ -3902,6 +3924,10 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
 
 	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
