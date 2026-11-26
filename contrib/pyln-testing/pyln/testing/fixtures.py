@@ -1,5 +1,5 @@
 from concurrent import futures
-from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
+from pyln.testing.db import SqliteDbProvider, PostgresDbProvider, ScopedDbProvider
 from pyln.testing.utils import (
     NodeFactory,
     BitcoinD,
@@ -556,73 +556,77 @@ def node_factory(
     node_cls,
     jsonschemas,
 ):
+    scoped_db_provider = ScopedDbProvider(db_provider)
     nf = NodeFactory(
         request,
         test_name,
         bitcoind,
         executor,
         directory=directory,
-        db_provider=db_provider,
+        db_provider=scoped_db_provider,
         node_cls=node_cls,
         jsonschemas=jsonschemas,
     )
 
     yield nf
-    ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
+    try:
+        ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
 
-    for e in errs:
-        teardown_checks.add_error(e)
+        for e in errs:
+            teardown_checks.add_error(e)
 
-    def map_node_error(nodes, f, msg):
-        ret = False
-        for n in nodes:
-            if n and f(n):
-                ret = True
-                teardown_checks.add_node_error(n, msg.format(n=n))
-        return ret
+        def map_node_error(nodes, f, msg):
+            ret = False
+            for n in nodes:
+                if n and f(n):
+                    ret = True
+                    teardown_checks.add_node_error(n, msg.format(n=n))
+            return ret
 
-    map_node_error(nf.nodes, printValgrindErrors, "reported valgrind errors")
-    map_node_error(nf.nodes, printCrashLog, "had crash.log files")
-    map_node_error(nf.nodes, checkBroken, "had BROKEN or That's weird messages")
-    map_node_error(
-        nf.nodes,
-        lambda n: not n.allow_warning and n.daemon.is_in_log(r" WARNING:"),
-        "had warning messages",
-    )
-    map_node_error(nf.nodes, checkReconnect, "had unexpected reconnections")
-    map_node_error(nf.nodes, checkPluginJSON, "had malformed hooks/notifications")
-
-    # On any bad gossip complaints, print out every nodes' gossip_store
-    if map_node_error(nf.nodes, checkBadGossip, "had bad gossip messages"):
-        for n in nf.nodes:
-            dumpGossipStore(n)
-
-    map_node_error(
-        nf.nodes, lambda n: n.daemon.is_in_log("Bad reestablish"), "had bad reestablish"
-    )
-    map_node_error(
-        nf.nodes,
-        lambda n: n.daemon.is_in_log("bad hsm request"),
-        "had bad hsm requests",
-    )
-    map_node_error(
-        nf.nodes,
-        lambda n: n.daemon.is_in_log(r"Accessing a null column"),
-        "Accessing a null column",
-    )
-    map_node_error(nf.nodes, checkMemleak, "had memleak messages")
-    map_node_error(
-        nf.nodes,
-        lambda n: n.rc != 0 and not n.may_fail,
-        "Node exited with return code {n.rc}",
-    )
-    if not ok:
+        map_node_error(nf.nodes, printValgrindErrors, "reported valgrind errors")
+        map_node_error(nf.nodes, printCrashLog, "had crash.log files")
+        map_node_error(nf.nodes, checkBroken, "had BROKEN or That's weird messages")
         map_node_error(
-            nf.nodes, prinErrlog, "some node failed unexpected, non-empty errlog file"
+            nf.nodes,
+            lambda n: not n.allow_warning and n.daemon.is_in_log(r" WARNING:"),
+            "had warning messages",
         )
+        map_node_error(nf.nodes, checkReconnect, "had unexpected reconnections")
+        map_node_error(nf.nodes, checkPluginJSON, "had malformed hooks/notifications")
 
-    for n in nf.nodes:
-        n.daemon.cleanup_files()
+        # On any bad gossip complaints, print out every nodes' gossip_store
+        if map_node_error(nf.nodes, checkBadGossip, "had bad gossip messages"):
+            for n in nf.nodes:
+                dumpGossipStore(n)
+
+        map_node_error(
+            nf.nodes, lambda n: n.daemon.is_in_log("Bad reestablish"), "had bad reestablish"
+        )
+        map_node_error(
+            nf.nodes,
+            lambda n: n.daemon.is_in_log("bad hsm request"),
+            "had bad hsm requests",
+        )
+        map_node_error(
+            nf.nodes,
+            lambda n: n.daemon.is_in_log(r"Accessing a null column"),
+            "Accessing a null column",
+        )
+        map_node_error(nf.nodes, checkMemleak, "had memleak messages")
+        map_node_error(
+            nf.nodes,
+            lambda n: n.rc != 0 and not n.may_fail,
+            "Node exited with return code {n.rc}",
+        )
+        if not ok:
+            map_node_error(
+                nf.nodes, prinErrlog, "some node failed unexpected, non-empty errlog file"
+            )
+
+        for n in nf.nodes:
+            n.daemon.cleanup_files()
+    finally:
+        scoped_db_provider.cleanup()
 
 
 def getErrlog(node):
@@ -845,7 +849,7 @@ providers = {
 }
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def db_provider(test_base_dir):
     provider = providers[os.getenv("TEST_DB_PROVIDER", "sqlite3")](test_base_dir)
     provider.start()

@@ -2939,6 +2939,7 @@ def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db
     # Let's just call it again to make sure it really works.
     l1.rpc.listconfigs()
     l1.stop()
+    db.stop()
 
 
 def test_waitblockheight(node_factory, executor, bitcoind):
