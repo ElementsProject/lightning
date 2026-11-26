@@ -2340,8 +2340,7 @@ def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
                'disable-plugin': unneeded_plugins},
               {'gossip_store_file': gsfile.name,
                'disable-plugin': unneeded_plugins,
-               'dev-throttle-gossip': None,
-               'broken_log': 'Throttling (incoming|outgoing) peer'}])
+               'dev-gossip-cpu-budget': 10}])
 
     # A range far beyond any scid we generated: the reply matches
     # nothing, so it's tiny either way.
@@ -2352,9 +2351,7 @@ def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
                            check=True, timeout=TIMEOUT,
                            stdout=subprocess.PIPE).stdout.strip()
 
-    # l1 (normal budget): answers promptly.  (Generous bound: this is
-    # about "doesn't get throttled", not a tight perf check.)
-    start = time.time()
+    # l1 (normal budget): answers without being throttled.
     subprocess.run(['devtools/gossipwith',
                     '--no-gossip',
                     '--network={}'.format(TEST_NETWORK),
@@ -2363,13 +2360,14 @@ def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
                     '{}@localhost:{}'.format(l1.info['id'], l1.port),
                     query],
                    check=True, timeout=TIMEOUT, stdout=subprocess.PIPE)
-    assert time.time() - start < 10
+    assert not l1.daemon.is_in_log('Throttling')
 
-    # l2 (--dev-throttle-gossip): the query itself is small to read, but
+    # l2 (--dev-gossip-cpu-budget=10): the query itself is small to read, but
     # *answering* it means walking the whole gossmap, which blows the
     # tiny CPU budget: throttled even though the reply is minuscule.
-    # Ten queries down one connection, so we blow the budget by a wide
-    # margin rather than by a hair.  The earlier version asserted on wall
+    # Ten queries down one connection, not one: on a slow run the first
+    # walk can end after the one-second usage window, and the reset then
+    # drops it before the throttle check.  The earlier version asserted on wall
     # clock after a single query, which only held while the budget stayed
     # at its original value -- it was later tripled, leaving ~10% of margin
     # and a test that passed or failed on how fast the machine was.  The
