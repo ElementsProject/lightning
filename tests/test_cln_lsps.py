@@ -537,9 +537,8 @@ def test_lsps2_mock_jit_channel_var_invoice(node_factory):
 LIST_PROTOCOLS_RESULT = {"jsonrpc": "2.0", "result": {"protocols": [2]}, "id": "1"}
 
 
-@pytest.mark.parametrize(
-    "transport,expected",
-    [
+def test_lsps2_mock_transport_behaviors(node_factory):
+    cases = [
         ({"behavior": "honest"}, [LIST_PROTOCOLS_RESULT]),
         ({"behavior": "drop"}, []),
         ({"behavior": "wrong_id"}, [{**LIST_PROTOCOLS_RESULT, "id": "mock-wrong-id"}]),
@@ -570,15 +569,13 @@ LIST_PROTOCOLS_RESULT = {"jsonrpc": "2.0", "result": {"protocols": [2]}, "id": "
             {"behavior": "drop", "methods": ["lsps2.buy"]},
             [LIST_PROTOCOLS_RESULT],
         ),
-    ],
-)
-def test_lsps2_mock_transport_behaviors(node_factory, transport, expected):
+    ]
     l1, l2 = node_factory.line_graph(
         2, fundchannel=False, opts=[{}, {"plugin": LSPS2_MOCK}]
     )
-    l2.rpc.call("lsps2-mock-configure", {"config": {"transport": transport}})
-
-    assert lsps2_mock_request(l1, l2, "lsps0.list_protocols", {}) == expected
+    for transport, expected in cases:
+        l2.rpc.call("lsps2-mock-configure", {"config": {"transport": transport}})
+        assert lsps2_mock_request(l1, l2, "lsps0.list_protocols", {}) == expected
 
 
 def test_lsps2_mock_rejects_missing_parameters(node_factory):
