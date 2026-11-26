@@ -342,8 +342,9 @@ def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     l3.wait_for_channel_updates([chan12])
     after_12 = int(time.time())
 
-    # Make another one, different timestamp.
-    time.sleep(10)
+    # Make another one, strictly after the first filter's upper bound (after_12 + 1).
+    while int(time.time()) <= after_12 + 1:
+        time.sleep(0.2)
     before_23 = int(time.time())
     chan23, _ = l2.fundchannel(l3, 10**5)
     bitcoind.generate_block(5)
