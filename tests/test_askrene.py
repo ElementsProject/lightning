@@ -947,8 +947,7 @@ def test_getroutes_single_path(node_factory):
 
     # To be able to route this amount two parts are needed, therefore a single
     # pay search will fail.
-    # FIXME: the explanation for the failure is wrong
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r"isn't big enough to carry 10000001msat"):
         l1.rpc.getroutes(
             source=nodemap[1],
             destination=nodemap[2],
@@ -980,8 +979,7 @@ def test_getroutes_single_path(node_factory):
 
     # To be able to route this amount two parts are needed, therefore a single
     # pay search will fail.
-    # FIXME: the explanation for the failure is wrong
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r"isn't big enough to carry 10000001msat"):
         l1.rpc.getroutes(
             source=nodemap[0],
             destination=nodemap[2],
@@ -1016,6 +1014,22 @@ def test_getroutes_single_path(node_factory):
         ],
         maxparts=1,
     )
+
+    # Even if an observation in the opposite direction attempts to inflate the
+    # liquidity bound, the channel cannot exceed its raw on-chain capacity.
+    l1.rpc.askrene_create_layer("imp_layer")
+    # Add an observation in the reverse direction 2->1 on channel 3x2x2
+    l1.rpc.askrene_channel_observation("imp_layer", "3x2x2/0", 10000000, "accepted")
+    with pytest.raises(RpcError, match=r"maximum capacity \d+msat"):
+        l1.rpc.getroutes(
+            source=nodemap[1],
+            destination=nodemap[2],
+            amount_msat=10000001,
+            layers=["imp_layer"],
+            maxparts=1,
+            maxfee_msat=1000,
+            final_cltv=99,
+        )
 
 
 def test_getroutes_fee_fallback(node_factory):

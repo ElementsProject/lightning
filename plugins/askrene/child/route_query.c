@@ -469,7 +469,8 @@ void get_constraints(const struct route_query *rq,
 	bounds = channel_bounds_htable_get(rq->bounds_htable, scidd.scid);
 	if (bounds) {
 		*min = bounds->half[dir].min;
-		*max = bounds->half[dir].max;
+		/* Liquidity can never exceed the channel's actual capacity. */
+		*max = amount_msat_min(bounds->half[dir].max, bounds->capacity);
 	} else {
 		/* No layer information but maybe some reserves. */
 		*min = AMOUNT_MSAT(0);
