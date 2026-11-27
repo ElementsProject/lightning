@@ -75,14 +75,15 @@
 //! })
 //! ```
 //!
-use crate::codec::JsonCodec;
+use crate::codec::{RawJsonEncoder, RawMultiLineCodec};
 pub use anyhow::Error;
 use anyhow::Result;
 use core::fmt::Debug;
 use futures_util::StreamExt;
 use futures_util::sink::SinkExt;
 use log::{debug, trace};
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::value::RawValue;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -116,8 +117,173 @@ pub struct ClnRpc {
     dirty_write: bool,
 
     #[allow(dead_code)]
-    read: FramedRead<OwnedReadHalf, JsonCodec>,
-    write: FramedWrite<OwnedWriteHalf, JsonCodec>,
+    read: FramedRead<OwnedReadHalf, RawMultiLineCodec>,
+    write: FramedWrite<OwnedWriteHalf, RawJsonEncoder>,
+}
+
+#[derive(Serialize)]
+struct RpcRequest<'a, P: Serialize + ?Sized> {
+    jsonrpc: &'static str,
+    id: usize,
+    method: &'a str,
+    params: &'a P,
+}
+
+fn deserialize_present_raw<'de, D>(deserializer: D) -> Result<Option<&'de RawValue>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    <&'de RawValue>::deserialize(deserializer).map(Some)
+}
+
+#[derive(Deserialize)]
+struct RawRpcResponse<'a> {
+    #[serde(default, borrow, deserialize_with = "deserialize_present_raw")]
+    id: Option<&'a RawValue>,
+    #[serde(default, borrow, deserialize_with = "deserialize_present_raw")]
+    result: Option<&'a RawValue>,
+    #[serde(default, borrow, deserialize_with = "deserialize_present_raw")]
+    error: Option<&'a RawValue>,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum ExpectedId<'a> {
+    Usize(usize),
+    Value(&'a serde_json::Value),
+}
+
+enum IdMatch {
+    Match,
+    Stale,
+    Mismatch,
+}
+
+fn match_response_id(raw_id: &RawValue, expected: ExpectedId<'_>) -> IdMatch {
+    match expected {
+        ExpectedId::Usize(exp) => match raw_id.get().parse::<u64>() {
+            Ok(got) if got == exp as u64 => IdMatch::Match,
+            Ok(got) if got < exp as u64 => IdMatch::Stale,
+            _ => IdMatch::Mismatch,
+        },
+        ExpectedId::Value(exp) => match serde_json::from_str::<serde_json::Value>(raw_id.get()) {
+            Ok(ref got) if got == exp => IdMatch::Match,
+            Ok(ref got)
+                if matches!(
+                    (got.as_u64(), exp.as_u64()),
+                    (Some(g), Some(e)) if g < e
+                ) =>
+            {
+                IdMatch::Stale
+            }
+            _ => IdMatch::Mismatch,
+        },
+    }
+}
+
+/// Deserializes a `#[serde(tag = "method", content = "result")]` enum (such as
+/// `Response`) directly from a method name and a raw JSON slice without building
+/// an intermediate `serde_json::Value` DOM tree.
+struct TaggedRawDeserializer<'a> {
+    method: &'a str,
+    raw: &'a str,
+}
+
+impl<'de> serde::de::Deserializer<'de> for TaggedRawDeserializer<'de> {
+    type Error = serde_json::Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: serde::de::Visitor<'de>,
+    {
+        self.deserialize_map(visitor)
+    }
+
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: serde::de::Visitor<'de>,
+    {
+        struct TaggedMapAccess<'de> {
+            method: &'de str,
+            raw: &'de str,
+            step: u8,
+        }
+
+        impl<'de> serde::de::MapAccess<'de> for TaggedMapAccess<'de> {
+            type Error = serde_json::Error;
+
+            fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+            where
+                K: serde::de::DeserializeSeed<'de>,
+            {
+                match self.step {
+                    0 => {
+                        self.step = 1;
+                        seed.deserialize(serde::de::value::BorrowedStrDeserializer::new("method"))
+                            .map(Some)
+                    }
+                    1 => {
+                        self.step = 2;
+                        seed.deserialize(serde::de::value::BorrowedStrDeserializer::new("result"))
+                            .map(Some)
+                    }
+                    _ => Ok(None),
+                }
+            }
+
+            fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+            where
+                V: serde::de::DeserializeSeed<'de>,
+            {
+                match self.step {
+                    1 => seed
+                        .deserialize(serde::de::value::BorrowedStrDeserializer::new(self.method)),
+                    2 => {
+                        let mut de = serde_json::Deserializer::from_str(self.raw);
+                        let val = seed.deserialize(&mut de)?;
+                        de.end()?;
+                        Ok(val)
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
+
+        visitor.visit_map(TaggedMapAccess {
+            method: self.method,
+            raw: self.raw,
+            step: 0,
+        })
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct struct enum identifier ignored_any
+    }
+}
+
+fn extract_raw_result<'a>(envelope: RawRpcResponse<'a>) -> Result<&'a RawValue, RpcError> {
+    if let Some(result) = envelope.result {
+        Ok(result)
+    } else if let Some(error) = envelope.error {
+        let rpc_error: RpcError = serde_json::from_str(error.get()).map_err(|e| RpcError {
+            code: None,
+            message: format!(
+                "Invalid response from lightningd. Failed to parse `error`. {:?}",
+                e
+            ),
+            data: None,
+        })?;
+        Err(rpc_error)
+    } else {
+        Err(RpcError {
+            code: None,
+            message:
+                "Invalid response from lightningd. Neither `result` or `error` field is present"
+                    .to_string(),
+            data: None,
+        })
+    }
 }
 
 impl ClnRpc {
@@ -138,9 +304,94 @@ impl ClnRpc {
         Ok(ClnRpc {
             next_id: AtomicUsize::new(1),
             dirty_write: false,
-            read: FramedRead::new(read, JsonCodec::default()),
-            write: FramedWrite::new(write, JsonCodec::default()),
+            read: FramedRead::new(read, RawMultiLineCodec::default()),
+            write: FramedWrite::new(write, RawJsonEncoder),
         })
+    }
+
+    async fn send_and_read_response<T, R, F>(
+        &mut self,
+        request: &T,
+        expected_id: ExpectedId<'_>,
+        parse_result: F,
+    ) -> Result<R, RpcError>
+    where
+        T: Serialize,
+        F: FnOnce(&RawValue) -> Result<R, RpcError>,
+    {
+        if self.dirty_write {
+            SinkExt::<&()>::flush(&mut self.write)
+                .await
+                .map_err(|e| RpcError {
+                    code: None,
+                    message: format!("Error flushing previous request to lightningd: {}", e),
+                    data: None,
+                })?;
+            self.dirty_write = false;
+        }
+
+        self.dirty_write = true;
+        self.write.send(request).await.map_err(|e| RpcError {
+            code: None,
+            message: format!("Error passing request to lightningd: {}", e),
+            data: None,
+        })?;
+        self.dirty_write = false;
+
+        loop {
+            let frame = self
+                .read
+                .next()
+                .await
+                .ok_or_else(|| RpcError {
+                    code: None,
+                    message: "no response from lightningd".to_string(),
+                    data: None,
+                })?
+                .map_err(|e| RpcError {
+                    code: None,
+                    message: format!("Error reading response from socket: {}", e),
+                    data: None,
+                })?;
+
+            let envelope: RawRpcResponse<'_> =
+                serde_json::from_slice(&frame).map_err(|e| RpcError {
+                    code: None,
+                    message: format!("Error reading response from socket: {}", e),
+                    data: None,
+                })?;
+
+            match envelope.id {
+                Some(raw_id) => match match_response_id(raw_id, expected_id) {
+                    IdMatch::Match => return extract_raw_result(envelope).and_then(parse_result),
+                    IdMatch::Stale => {
+                        debug!(
+                            "Discarding stale response for cancelled request id {} (expected {:?})",
+                            raw_id.get(),
+                            expected_id
+                        );
+                    }
+                    IdMatch::Mismatch => {
+                        let data = serde_json::from_slice(&frame).ok();
+                        return Err(RpcError {
+                            code: None,
+                            message: format!(
+                                "Unexpected response id {} from lightningd (expected {:?})",
+                                raw_id.get(),
+                                expected_id
+                            ),
+                            data,
+                        });
+                    }
+                },
+                None => {
+                    debug!(
+                        "Ignoring notification without `id` while awaiting {:?}",
+                        expected_id
+                    );
+                }
+            }
+        }
     }
 
     /// Low-level API to call the rpc.
@@ -178,22 +429,21 @@ impl ClnRpc {
         trace!("Sending request {} with params {:?}", method, &params);
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
 
-        // TODO: Can we make this nicer
-        // I don't want to have this json_rpc : 2.0 floating everywhere
-        let req = serde_json::json!({
-            "jsonrpc" : "2.0",
-            "id" : id,
-            "method" : method,
-            "params" : params,
-        });
+        let req = RpcRequest {
+            jsonrpc: "2.0",
+            id,
+            method,
+            params,
+        };
 
-        let response: serde_json::Value = self.call_raw_request(req).await?;
-
-        serde_json::from_value(response).map_err(|e| RpcError {
-            code: None,
-            message: format!("Failed to parse response {:?}", e),
-            data: None,
+        self.send_and_read_response(&req, ExpectedId::Usize(id), |raw_result| {
+            serde_json::from_str(raw_result.get()).map_err(|e| RpcError {
+                code: None,
+                message: format!("Failed to parse response {:?}", e),
+                data: None,
+            })
         })
+        .await
     }
 
     /// A low level method to call raw requests
@@ -223,105 +473,26 @@ impl ClnRpc {
     /// })
     /// ```
     ///
+    #[allow(dead_code)]
     async fn call_raw_request(
         &mut self,
         request: serde_json::Value,
     ) -> Result<serde_json::Value, RpcError> {
-        let expected_id = request.get("id").cloned().ok_or_else(|| RpcError {
+        let expected_id = request.get("id").ok_or_else(|| RpcError {
             code: None,
             message: "Request is missing an `id` field".to_string(),
             data: None,
         })?;
 
-        if self.dirty_write {
-            SinkExt::<serde_json::Value>::flush(&mut self.write)
-                .await
-                .map_err(|e| RpcError {
-                    code: None,
-                    message: format!("Error flushing previous request to lightningd: {}", e),
-                    data: None,
-                })?;
-            self.dirty_write = false;
-        }
-
         trace!("Sending request {:?}", request);
-        self.dirty_write = true;
-        self.write.send(request).await.map_err(|e| RpcError {
-            code: None,
-            message: format!("Error passing request to lightningd: {}", e),
-            data: None,
-        })?;
-        self.dirty_write = false;
-
-        let mut response: serde_json::Value = loop {
-            let msg = self
-                .read
-                .next()
-                .await
-                .ok_or_else(|| RpcError {
-                    code: None,
-                    message: "no response from lightningd".to_string(),
-                    data: None,
-                })?
-                .map_err(|e| RpcError {
-                    code: None,
-                    message: format!("Error reading response from socket: {}", e),
-                    data: None,
-                })?;
-
-            match msg.get("id") {
-                Some(id) if id == &expected_id => break msg,
-                Some(id)
-                    if matches!(
-                        (id.as_u64(), expected_id.as_u64()),
-                        (Some(got), Some(exp)) if got < exp
-                    ) =>
-                {
-                    debug!(
-                        "Discarding stale response for cancelled request id {} (expected {})",
-                        id, expected_id
-                    );
-                }
-                Some(id) => {
-                    return Err(RpcError {
-                        code: None,
-                        message: format!(
-                            "Unexpected response id {:?} from lightningd (expected {:?})",
-                            id, expected_id
-                        ),
-                        data: Some(msg),
-                    });
-                }
-                None => {
-                    debug!(
-                        "Ignoring notification without `id` while awaiting {:?}",
-                        expected_id
-                    );
-                }
-            }
-        };
-
-        match response.get("result") {
-            Some(_) => Ok(response["result"].take()),
-            None => {
-                let _ = response.get("error").ok_or(
-                    RpcError {
-                        code : None,
-                        message : "Invalid response from lightningd. Neither `result` or `error` field is present".to_string(),
-                        data : None
-                    })?;
-                let rpc_error: RpcError = serde_json::from_value(response["error"].take())
-                    .map_err(|e| RpcError {
-                        code: None,
-                        message: format!(
-                            "Invalid response from lightningd. Failed to parse `error`. {:?}",
-                            e
-                        ),
-                        data: None,
-                    })?;
-                Err(rpc_error)
-            }
-        }
+        self.send_and_read_response(&request, ExpectedId::Value(expected_id), |raw_result| {
+            serde_json::from_str(raw_result.get()).map_err(|e| RpcError {
+                code: None,
+                message: format!("Failed to parse response {:?}", e),
+                data: None,
+            })
+        })
+        .await
     }
 
     pub async fn call(&mut self, req: Request) -> Result<Response, RpcError> {
@@ -331,28 +502,44 @@ impl ClnRpc {
     /// Performs an rpc-call
     pub async fn call_enum(&mut self, req: Request) -> Result<Response, RpcError> {
         trace!("call : Serialize and deserialize request {:?}", req);
-        // A little bit hacky. But serialize the request to get the method name
-        let mut ser = serde_json::to_value(&req).unwrap();
-        let method: String = if let serde_json::Value::String(method) = ser["method"].take() {
-            method
-        } else {
-            panic!("Method should be string")
-        };
-        let params: serde_json::Value = ser["params"].take();
+        #[derive(Deserialize)]
+        struct RequestParts<'a> {
+            method: &'a str,
+            #[serde(borrow)]
+            params: &'a RawValue,
+        }
 
-        let response: serde_json::Value = self.call_raw(&method, &params).await?;
-        let response = serde_json::json!({
-            "method" : method,
-            "result" : response
-        });
-
-        // Parse the response
-        // We add the `method` here because the Response-enum uses it to determine the type
-        serde_json::from_value(response).map_err(|e| RpcError {
+        let req_bytes = serde_json::to_vec(&req).map_err(|e| RpcError {
             code: None,
-            message: format!("Failed to deserialize response : {}", e),
+            message: format!("Failed to serialize request: {}", e),
             data: None,
+        })?;
+        let parts: RequestParts<'_> = serde_json::from_slice(&req_bytes).map_err(|e| RpcError {
+            code: None,
+            message: format!("Failed to inspect serialized request: {}", e),
+            data: None,
+        })?;
+
+        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
+        let rpc_req = RpcRequest {
+            jsonrpc: "2.0",
+            id,
+            method: parts.method,
+            params: parts.params,
+        };
+
+        self.send_and_read_response(&rpc_req, ExpectedId::Usize(id), |raw_result| {
+            Response::deserialize(TaggedRawDeserializer {
+                method: parts.method,
+                raw: raw_result.get(),
+            })
+            .map_err(|e| RpcError {
+                code: None,
+                message: format!("Failed to deserialize response : {}", e),
+                data: None,
+            })
         })
+        .await
     }
 
     /// Performs an rpc-call and performs type-checking.

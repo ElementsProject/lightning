@@ -1,18 +1,29 @@
-use crate::codec::JsonCodec;
 use anyhow::Context;
-use futures::SinkExt;
 use serde::Serialize;
-use std::sync::Arc;
-use tokio::io::AsyncWrite;
-use tokio::sync::Mutex;
 use tokio::sync::mpsc;
-use tokio_util::codec::FramedWrite;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
-struct LogEntry {
+pub(crate) struct LogEntry {
     level: LogLevel,
     message: String,
+}
+
+#[derive(Serialize)]
+pub(crate) struct LogNotification<'a> {
+    jsonrpc: &'static str,
+    method: &'static str,
+    params: &'a LogEntry,
+}
+
+impl<'a> LogNotification<'a> {
+    pub(crate) fn new(params: &'a LogEntry) -> Self {
+        Self {
+            jsonrpc: "2.0",
+            method: "log",
+            params,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -37,38 +48,9 @@ impl From<log::Level> for LogLevel {
     }
 }
 
-/// Start a listener that receives incoming log events, and then
-/// writes them out to `stdout`, after wrapping them in a valid
-/// JSON-RPC notification object.
-fn start_writer<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> mpsc::UnboundedSender<LogEntry>
-where
-    O: AsyncWrite + Send + Unpin + 'static,
-{
-    let (sender, mut receiver) = mpsc::unbounded_channel::<LogEntry>();
-    tokio::spawn(async move {
-        while let Some(i) = receiver.recv().await {
-            // We continue draining the queue, even if we get some
-            // errors when forwarding. Forwarding could break due to
-            // an interrupted connection or stdout being closed, but
-            // keeping the messages in the queue is a memory leak.
-            let payload = json!({
-                "jsonrpc": "2.0",
-                "method": "log",
-                "params": i
-            });
-
-            let _ = out.lock().await.send(payload).await;
-        }
-    });
-    sender
-}
-
-/// Initialize the logger starting a flusher to the passed in sink.
-pub async fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), anyhow::Error>
-where
-    O: AsyncWrite + Send + Unpin + 'static,
-{
-    return trace::init(out).context("initializing tracing logger");
+/// Initialize the logger forwarding log events to the plugin's writer task.
+pub async fn init(sender: mpsc::UnboundedSender<LogEntry>) -> Result<(), anyhow::Error> {
+    trace::init(sender).context("initializing tracing logger")
 }
 
 mod trace {
@@ -77,16 +59,12 @@ mod trace {
     use tracing_subscriber::Layer;
     use tracing_subscriber::prelude::*;
 
-    /// Initialize the logger starting a flusher to the passed in sink.
-    pub fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), log::SetLoggerError>
-    where
-        O: AsyncWrite + Send + Unpin + 'static,
-    {
+    /// Initialize the logger forwarding log events to the passed-in channel.
+    pub fn init(sender: mpsc::UnboundedSender<LogEntry>) -> Result<(), log::SetLoggerError> {
         let filter = tracing_subscriber::filter::EnvFilter::builder()
             .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
             .with_env_var("CLN_PLUGIN_LOG")
             .from_env_lossy();
-        let sender = start_writer(out);
 
         tracing_subscriber::registry()
             .with(filter)

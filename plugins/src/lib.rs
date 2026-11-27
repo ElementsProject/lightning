@@ -20,24 +20,25 @@
 //! `lightningd` applies its own `log-level` setting on top of this filter, so
 //! a record must pass both to be written to the node's log.
 
-use crate::codec::{JsonCodec, JsonRpcCodec};
+use crate::codec::{JsonRpcCodec, RawJsonEncoder};
 pub use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures::FutureExt;
 use futures::sink::SinkExt;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 extern crate log;
 use log::trace;
 use messages::{Configuration, FeatureBits, NotificationTopic};
 use options::{OptionType, UntypedConfigOption};
 use std::collections::HashMap;
 use std::future::Future;
+use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, oneshot};
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
@@ -83,6 +84,8 @@ where
     logging: bool,
 }
 
+type HandshakeMessage = (serde_json::Value, oneshot::Sender<Result<(), Error>>);
+
 /// A plugin that has registered with the lightning daemon, and gotten
 /// its options filled, however has not yet acknowledged the `init`
 /// message. This is a mid-state allowing a plugin to disable itself,
@@ -93,7 +96,9 @@ where
 {
     init_id: serde_json::Value,
     input: FramedRead<I, JsonRpcCodec>,
-    output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
+    handshake_tx: mpsc::Sender<HandshakeMessage>,
+    sender: mpsc::Sender<serde_json::Value>,
+    _output: PhantomData<O>,
     options: HashMap<String, UntypedConfigOption>,
     option_values: HashMap<String, Option<options::Value>>,
     configuration: Configuration,
@@ -104,6 +109,111 @@ where
     wildcard_subscription: Option<AsyncNotificationCallback<S>>,
     #[allow(dead_code)] // unsure why rust thinks this field isn't used
     notifications: Vec<NotificationTopic>,
+}
+
+fn spawn_output_writer<O>(
+    output: O,
+    mut handshake_rx: mpsc::Receiver<HandshakeMessage>,
+    mut rpc_rx: mpsc::Receiver<serde_json::Value>,
+    mut log_rx: mpsc::UnboundedReceiver<logging::LogEntry>,
+) where
+    O: AsyncWrite + Send + Unpin + 'static,
+{
+    const MAX_BATCH: usize = 64;
+
+    tokio::spawn(async move {
+        let mut out = FramedWrite::new(output, RawJsonEncoder);
+        let mut handshake_open = true;
+        let mut rpc_open = true;
+        let mut log_open = true;
+
+        loop {
+            let mut flush_ack = None;
+            tokio::select! {
+                res = handshake_rx.recv(), if handshake_open => match res {
+                    Some((msg, ack)) => {
+                        if let Err(e) = out.feed(&msg).await {
+                            let _ = ack.send(Err(e));
+                            break;
+                        }
+                        flush_ack = Some(ack);
+                    }
+                    None => {
+                        handshake_open = false;
+                        continue;
+                    }
+                },
+                res = rpc_rx.recv(), if rpc_open => match res {
+                    Some(msg) => {
+                        if out.feed(&msg).await.is_err() {
+                            break;
+                        }
+                    }
+                    None => {
+                        rpc_open = false;
+                        continue;
+                    }
+                },
+                res = log_rx.recv(), if log_open => match res {
+                    Some(entry) => {
+                        let notif = logging::LogNotification::new(&entry);
+                        if out.feed(&notif).await.is_err() {
+                            break;
+                        }
+                    }
+                    None => {
+                        log_open = false;
+                        continue;
+                    }
+                },
+                else => break,
+            }
+
+            // Batch any immediately queued messages before a single flush.
+            let mut count = 1;
+            while count < MAX_BATCH {
+                if let Ok(msg) = rpc_rx.try_recv() {
+                    if let Err(e) = out.feed(&msg).await {
+                        if let Some(ack) = flush_ack.take() {
+                            let _ = ack.send(Err(e));
+                        }
+                        return;
+                    }
+                    count += 1;
+                } else if let Ok(entry) = log_rx.try_recv() {
+                    let notif = logging::LogNotification::new(&entry);
+                    if let Err(e) = out.feed(&notif).await {
+                        if let Some(ack) = flush_ack.take() {
+                            let _ = ack.send(Err(e));
+                        }
+                        return;
+                    }
+                    count += 1;
+                } else {
+                    break;
+                }
+            }
+
+            let flush_res = SinkExt::<&serde_json::Value>::flush(&mut out).await;
+            if let Some(ack) = flush_ack {
+                let _ = ack.send(flush_res);
+            } else if flush_res.is_err() {
+                break;
+            }
+        }
+    });
+}
+
+async fn send_handshake(
+    handshake_tx: &mpsc::Sender<HandshakeMessage>,
+    msg: serde_json::Value,
+) -> Result<(), Error> {
+    let (ack_tx, ack_rx) = oneshot::channel();
+    handshake_tx
+        .send((msg, ack_tx))
+        .await
+        .map_err(|_| anyhow!("output writer closed"))?;
+    ack_rx.await.map_err(|_| anyhow!("output writer closed"))?
 }
 
 /// The [PluginDriver] is used to run the IO loop, reading messages
@@ -133,10 +243,10 @@ where
     /// The state gets cloned for each request
     state: S,
     /// "options" field of "init" message sent by cln
-    options: HashMap<String, UntypedConfigOption>,
+    options: Arc<HashMap<String, UntypedConfigOption>>,
     option_values: Arc<std::sync::Mutex<HashMap<String, Option<options::Value>>>>,
     /// "configuration" field of "init" message sent by cln
-    configuration: Configuration,
+    configuration: Arc<Configuration>,
     /// A signal that allows us to wait on the plugin's shutdown.
     wait_handle: tokio::sync::broadcast::Sender<()>,
 
@@ -375,37 +485,33 @@ where
     /// should exit after this handshake
     pub async fn configure(mut self) -> Result<Option<ConfiguredPlugin<S, I, O>>, anyhow::Error> {
         let mut input = FramedRead::new(self.input.take().unwrap(), JsonRpcCodec::default());
+        let (handshake_tx, handshake_rx) = mpsc::channel(2);
+        let (sender, rpc_rx) = mpsc::channel(64);
+        let (log_tx, log_rx) = mpsc::unbounded_channel();
 
-        // Sadly we need to wrap the output in a mutex in order to
-        // enable early logging, i.e., logging that is done before the
-        // PluginDriver is processing events during the
-        // handshake. Otherwise we could just write the log events to
-        // the event queue and have the PluginDriver be the sole owner
-        // of `Stdout`.
-        let output = Arc::new(Mutex::new(FramedWrite::new(
-            self.output.take().unwrap(),
-            JsonCodec::default(),
-        )));
+        spawn_output_writer(self.output.take().unwrap(), handshake_rx, rpc_rx, log_rx);
 
         // Now configure the logging, so any `log` call is wrapped
         // in a JSON-RPC notification and sent to Core Lightning
         if self.logging {
-            crate::logging::init(output.clone()).await?;
+            crate::logging::init(log_tx).await?;
             trace!("Plugin logging initialized");
+        } else {
+            drop(log_tx);
         }
 
         // Read the `getmanifest` message:
         match input.next().await {
             Some(Ok(messages::JsonRpc::Request(id, messages::Request::Getmanifest(m)))) => {
-                output
-                    .lock()
-                    .await
-                    .send(json!({
+                send_handshake(
+                    &handshake_tx,
+                    json!({
                         "jsonrpc": "2.0",
                         "result": self.handle_get_manifest(m),
                         "id": id,
-                    }))
-                    .await?
+                    }),
+                )
+                .await?
             }
             Some(o) => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
             None => {
@@ -443,7 +549,9 @@ where
             // The JSON-RPC `id` field so we can reply correctly.
             init_id,
             input,
-            output,
+            handshake_tx,
+            sender,
+            _output: PhantomData,
             rpcmethods,
             setconfig_callback: self.setconfig_callback,
             notifications: self.notifications,
@@ -797,21 +905,16 @@ where
 {
     #[allow(unused_mut)]
     pub async fn start(mut self, state: S) -> Result<Plugin<S>, anyhow::Error> {
-        let output = self.output;
         let input = self.input;
         let (wait_handle, _) = tokio::sync::broadcast::channel(1);
 
-        // An MPSC pair used by anything that needs to send messages
-        // to the main daemon.
-        let (sender, receiver) = tokio::sync::mpsc::channel(4);
-
         let plugin = Plugin {
             state,
-            options: self.options,
+            options: Arc::new(self.options),
             option_values: Arc::new(std::sync::Mutex::new(self.option_values)),
-            configuration: self.configuration,
+            configuration: Arc::new(self.configuration),
             wait_handle,
-            sender,
+            sender: self.sender,
         };
 
         let driver = PluginDriver {
@@ -823,23 +926,22 @@ where
             wildcard_subscription: self.wildcard_subscription,
         };
 
-        output
-            .lock()
-            .await
-            .send(json!(
-                {
-                    "jsonrpc": "2.0",
-                    "id": self.init_id,
-            "result": crate::messages::InitResponse{disable: None}
-                }
-            ))
-            .await
-            .context("sending init response")?;
+        send_handshake(
+            &self.handshake_tx,
+            json!({
+                "jsonrpc": "2.0",
+                "id": self.init_id,
+                "result": crate::messages::InitResponse { disable: None }
+            }),
+        )
+        .await
+        .context("sending init response")?;
+        drop(self.handshake_tx);
 
         let joiner = plugin.wait_handle.clone();
         // Start the PluginDriver to handle plugin IO
         tokio::spawn(async move {
-            if let Err(e) = driver.run(receiver, input, output).await {
+            if let Err(e) = driver.run(input).await {
                 log::warn!("Plugin loop returned error {:?}", e);
             }
 
@@ -855,20 +957,18 @@ where
     /// voluntarily, and this is not an error.
     #[allow(unused_mut)]
     pub async fn disable(mut self, reason: &str) -> Result<(), anyhow::Error> {
-        self.output
-            .lock()
-            .await
-            .send(json!(
-                {
-                    "jsonrpc": "2.0",
-                    "id": self.init_id,
-            "result": crate::messages::InitResponse{
-            disable: Some(reason.to_string())
-            }
+        send_handshake(
+            &self.handshake_tx,
+            json!({
+                "jsonrpc": "2.0",
+                "id": self.init_id,
+                "result": crate::messages::InitResponse {
+                    disable: Some(reason.to_string())
                 }
-            ))
-            .await
-            .context("sending init response")?;
+            }),
+        )
+        .await
+        .context("sending init response")?;
         Ok(())
     }
 
@@ -922,15 +1022,9 @@ where
     S: Send + Clone,
 {
     /// Run the plugin until we get a shutdown command.
-    async fn run<I, O>(
-        self,
-        mut receiver: tokio::sync::mpsc::Receiver<serde_json::Value>,
-        mut input: FramedRead<I, JsonRpcCodec>,
-        output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
-    ) -> Result<(), Error>
+    async fn run<I>(self, mut input: FramedRead<I, JsonRpcCodec>) -> Result<(), Error>
     where
         I: Send + AsyncReadExt + Unpin,
-        O: Send + AsyncWriteExt + Unpin,
     {
         loop {
             // If we encounter any error reading or writing from/to
@@ -940,13 +1034,15 @@ where
             tokio::select! {
                 msg = input.next() => {
                     if let Some(reply) = self.dispatch_message(msg, &self.plugin)? {
-                        output.lock().await.send(reply).await?;
+                        self.plugin
+                            .sender
+                            .send(reply)
+                            .await
+                            .map_err(|_| anyhow!("Error writing to master"))?;
                     }
                 },
-                v = receiver.recv() => {
-                    output.lock().await.send(
-                        v.context("internal communication error")?
-                    ).await?;
+                _ = self.plugin.sender.closed() => {
+                    return Err(anyhow!("Error writing to master"));
                 },
             }
         }
@@ -974,22 +1070,25 @@ where
                             "As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used."
                         )
                     }
-                    messages::JsonRpc::CustomRequest(id, request) => {
+                    messages::JsonRpc::CustomRequest(id, mut request) => {
                         trace!("Dispatching custom method {:?}", request);
-                        let method = request
-                            .get("method")
+                        let obj = request
+                            .as_object_mut()
+                            .context("Request is not a JSON object")?;
+                        let method_str = match obj
+                            .remove("method")
                             .context("Missing 'method' in request")?
-                            .as_str()
-                            .context("'method' is not a string")?;
-                        let params = request
-                            .get("params")
-                            .context("Missing 'params' field in request")?
-                            .clone();
+                        {
+                            serde_json::Value::String(s) => s,
+                            _ => return Err(anyhow!("'method' is not a string")),
+                        };
+                        let params = obj
+                            .remove("params")
+                            .context("Missing 'params' field in request")?;
 
-                        let plugin = plugin.clone();
-                        let method_str = method.to_string();
+                        let sender = plugin.sender.clone();
 
-                        if let Some(callback) = self.hooks.get(method) {
+                        if let Some(callback) = self.hooks.get(method_str.as_str()) {
                             let call =
                                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                                     callback(plugin.clone(), params)
@@ -1003,8 +1102,7 @@ where
                                 };
                                 match res {
                                     Ok(Ok(v)) => {
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1020,8 +1118,7 @@ where
                                                 error: {e}. Returning safe fallback response to \
                                                 avoid crashing the main daemon."
                                             );
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1030,8 +1127,7 @@ where
                                                 .await
                                                 .context("returning hook fallback response");
                                         } else {
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1048,8 +1144,7 @@ where
                                                 Returning safe fallback response to avoid hanging \
                                                 the main daemon."
                                             );
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1063,8 +1158,7 @@ where
                                             );
                                             let err =
                                                 anyhow!("Hook handler for '{method_str}' panicked");
-                                            let _ = plugin
-                                                .sender
+                                            let _ = sender
                                                 .send(json!({
                                                     "jsonrpc": "2.0",
                                                     "id": id,
@@ -1077,13 +1171,13 @@ where
                                 }
                             });
                         } else {
-                            let callback = match method {
-                                name if name.eq("setconfig") => {
+                            let callback = match method_str.as_str() {
+                                "setconfig" => {
                                     self.setconfig_callback.as_ref().ok_or_else(|| {
-                                        anyhow!("No handler for method '{method}' registered")
+                                        anyhow!("No handler for method '{method_str}' registered")
                                     })?
                                 }
-                                _ => self.rpcmethods.get(method).with_context(|| {
+                                method => self.rpcmethods.get(method).with_context(|| {
                                     anyhow!("No handler for method '{method}' registered")
                                 })?,
                             };
@@ -1101,8 +1195,7 @@ where
                                 };
                                 match res {
                                     Ok(Ok(v)) => {
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1112,8 +1205,7 @@ where
                                             .context("returning custom response");
                                     }
                                     Ok(Err(e)) => {
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1125,8 +1217,7 @@ where
                                     Err(_) => {
                                         log::error!("RPC handler for '{method_str}' panicked.");
                                         let err = anyhow!("RPC method '{method_str}' panicked");
-                                        let _ = plugin
-                                            .sender
+                                        let _ = sender
                                             .send(json!({
                                                 "jsonrpc": "2.0",
                                                 "id": id,
@@ -1140,57 +1231,40 @@ where
                         }
                         Ok(None)
                     }
-                    messages::JsonRpc::CustomNotification(request) => {
+                    messages::JsonRpc::CustomNotification(mut request) => {
                         // This code handles notifications
                         trace!("Dispatching custom notification {:?}", request);
-                        let method = request
-                            .get("method")
+                        let obj = request
+                            .as_object_mut()
+                            .context("Notification is not a JSON object")?;
+                        let method = match obj
+                            .remove("method")
                             .context("Missing 'method' in request")?
-                            .as_str()
-                            .context("'method' is not a string")?;
-
-                        let params = request
-                            .get("params")
+                        {
+                            serde_json::Value::String(s) => s,
+                            _ => return Err(anyhow!("'method' is not a string")),
+                        };
+                        let params = obj
+                            .remove("params")
                             .context("Missing 'params' field in request")?;
 
-                        // Send to notification to the wildcard
-                        // subscription "*" it it exists
-                        if let Some(cb) = &self.wildcard_subscription {
-                            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                cb(plugin.clone(), params.clone())
-                            })) {
-                                Ok(call) => {
-                                    tokio::spawn(async move {
-                                        match std::panic::AssertUnwindSafe(call)
-                                            .catch_unwind()
-                                            .await
-                                        {
-                                            Ok(Err(e)) => {
-                                                log::warn!(
-                                                    "Wildcard notification handler error: '{e}'"
-                                                );
-                                            }
-                                            Err(_) => {
-                                                log::error!(
-                                                    "Wildcard notification handler panicked"
-                                                );
-                                            }
-                                            Ok(Ok(())) => {}
-                                        }
-                                    });
-                                }
-                                Err(_) => {
-                                    log::error!("Wildcard notification handler panicked");
-                                }
-                            }
-                        }
-
-                        // Find the appropriate callback and process it
-                        // We'll log a warning if no handler is defined
-                        match self.subscriptions.get(method) {
-                            Some(cb) => {
+                        let spawn_notification =
+                            |cb: &AsyncNotificationCallback<S>,
+                             plugin: Plugin<S>,
+                             params: serde_json::Value,
+                             is_wildcard: bool| {
+                                let err_prefix = if is_wildcard {
+                                    "Wildcard notification handler error"
+                                } else {
+                                    "Notification handler error"
+                                };
+                                let panic_msg = if is_wildcard {
+                                    "Wildcard notification handler panicked"
+                                } else {
+                                    "Notification handler error: handler panicked"
+                                };
                                 match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                    cb(plugin.clone(), params.clone())
+                                    cb(plugin, params)
                                 })) {
                                     Ok(call) => {
                                         tokio::spawn(async move {
@@ -1198,32 +1272,33 @@ where
                                                 .catch_unwind()
                                                 .await
                                             {
-                                                Ok(Err(e)) => {
-                                                    log::warn!("Notification handler error: '{e}'");
-                                                }
-                                                Err(_) => {
-                                                    log::error!(
-                                                        "Notification handler error: handler panicked"
-                                                    );
-                                                }
+                                                Ok(Err(e)) => log::warn!("{err_prefix}: '{e}'"),
+                                                Err(_) => log::error!("{panic_msg}"),
                                                 Ok(Ok(())) => {}
                                             }
                                         });
                                     }
-                                    Err(_) => {
-                                        log::error!("Notification handler error: handler panicked");
-                                    }
+                                    Err(_) => log::error!("{panic_msg}"),
                                 }
+                            };
+
+                        let sub = self.subscriptions.get(method.as_str());
+
+                        match (&self.wildcard_subscription, sub) {
+                            (Some(wild_cb), Some(sub_cb)) => {
+                                spawn_notification(wild_cb, plugin.clone(), params.clone(), true);
+                                spawn_notification(sub_cb, plugin.clone(), params, false);
                             }
-                            None => {
-                                if self.wildcard_subscription.is_none() {
-                                    log::warn!(
-                                        "No handler for notification '{}' registered",
-                                        method
-                                    );
-                                }
+                            (Some(wild_cb), None) => {
+                                spawn_notification(wild_cb, plugin.clone(), params, true);
                             }
-                        };
+                            (None, Some(sub_cb)) => {
+                                spawn_notification(sub_cb, plugin.clone(), params, false);
+                            }
+                            (None, None) => {
+                                log::warn!("No handler for notification '{}' registered", method);
+                            }
+                        }
                         Ok(None)
                     }
                     messages::JsonRpc::Error(rpc_error) => {
@@ -1246,7 +1321,7 @@ where
         self.options.values().cloned().collect()
     }
     pub fn configuration(&self) -> Configuration {
-        self.configuration.clone()
+        (*self.configuration).clone()
     }
     pub fn state(&self) -> &S {
         &self.state
@@ -1341,6 +1416,8 @@ fn parse_error(error: &anyhow::Error) -> RpcError {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::codec::JsonCodec;
+    use tokio::io::AsyncWriteExt;
 
     #[tokio::test]
     async fn init() {
@@ -1414,9 +1491,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1459,9 +1536,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1531,9 +1608,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1574,9 +1651,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1619,9 +1696,9 @@ mod test {
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender,
         };
@@ -1783,20 +1860,20 @@ mod test {
         let (mut master_write, plugin_read) = tokio::io::duplex(65536);
         let (plugin_write, master_read) = tokio::io::duplex(65536);
         let framed_in = FramedRead::new(plugin_read, JsonRpcCodec::default());
-        let output = Arc::new(Mutex::new(FramedWrite::new(
-            plugin_write,
-            JsonCodec::default(),
-        )));
         let mut master_read = FramedRead::new(master_read, JsonCodec::default());
 
+        let (handshake_tx, handshake_rx) = mpsc::channel(1);
         let (sender, receiver) = tokio::sync::mpsc::channel(4);
+        let (log_tx, log_rx) = mpsc::unbounded_channel();
+        drop(handshake_tx);
+        drop(log_tx);
         let (wait_handle, _) = tokio::sync::broadcast::channel(1);
 
         let plugin = Plugin {
             state: (),
-            options: HashMap::new(),
+            options: Arc::new(HashMap::new()),
             option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            configuration: dummy_configuration(),
+            configuration: Arc::new(dummy_configuration()),
             wait_handle,
             sender: sender.clone(),
         };
@@ -1816,15 +1893,15 @@ mod test {
             wildcard_subscription: None,
         };
 
-        // Pre-fill the bounded mpsc channel so receiver.recv() is immediately ready.
+        // Pre-fill the bounded mpsc channel so backpressure is active immediately.
         for id in 1..=4_i64 {
             sender
                 .try_send(json!({"jsonrpc": "2.0", "id": id, "result": {}}))
                 .unwrap();
         }
 
-        let driver_handle =
-            tokio::spawn(async move { driver.run(receiver, framed_in, output).await });
+        spawn_output_writer(plugin_write, handshake_rx, receiver, log_rx);
+        let driver_handle = tokio::spawn(async move { driver.run(framed_in).await });
 
         // Keep the channel saturated while malformed frames are processed.
         let producer = tokio::spawn(async move {

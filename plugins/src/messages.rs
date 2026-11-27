@@ -102,6 +102,31 @@ pub(crate) enum JsonRpc<N, R> {
     Error(serde_json::Value),
 }
 
+impl JsonRpc<Notification, Request> {
+    /// Classify an already-parsed `Value` directly without re-running
+    /// `Value::deserialize` or deep-cloning `v` on every RPC/hook/notification.
+    pub(crate) fn from_value(v: Value) -> Result<Self, serde_json::Error> {
+        let obj = v
+            .as_object()
+            .ok_or_else(|| de::Error::custom("expected a JSON-RPC object"))?;
+        let id = obj.get("id").filter(|v| !v.is_null()).cloned();
+        match id {
+            Some(id) => {
+                if matches!(
+                    obj.get("method").and_then(Value::as_str),
+                    Some("getmanifest" | "init")
+                ) {
+                    if let Ok(r) = Request::deserialize(&v) {
+                        return Ok(JsonRpc::Request(id, r));
+                    }
+                }
+                Ok(JsonRpc::CustomRequest(id, v))
+            }
+            None => Ok(JsonRpc::CustomNotification(v)),
+        }
+    }
+}
+
 /// This function disentangles the various cases:
 ///
 ///   1) If we have an `id` then it is a request

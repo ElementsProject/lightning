@@ -332,30 +332,38 @@ macro_rules! amount_or_all {
             where
                 D: Deserializer<'de>,
             {
-                use serde::de::Error;
+                struct AmountOrAllVisitor;
 
-                let value = serde_json::Value::deserialize(deserializer)?;
+                impl<'de> serde::de::Visitor<'de> for AmountOrAllVisitor {
+                    type Value = $name;
 
-                match value {
-                    serde_json::Value::String(s) => {
+                    fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                        f.write_str("an unsigned integer amount or \"all\"")
+                    }
+
+                    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        Ok($name::$amt_name($amt_name::$from_fn(v)))
+                    }
+
+                    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+                    where
+                        E: serde::de::Error,
+                    {
                         if s.eq_ignore_ascii_case("all") {
                             Ok($name::All)
                         } else {
-                            Ok($name::$amt_name(
-                                s.try_into()
-                                    .map_err(|_| Error::custom("could not parse amount"))?,
-                            ))
+                            let v = s
+                                .parse::<u64>()
+                                .map_err(|_| E::custom("could not parse amount"))?;
+                            Ok($name::$amt_name($amt_name::$from_fn(v)))
                         }
                     }
-                    serde_json::Value::Number(n) => {
-                        let msat = n
-                            .as_u64()
-                            .ok_or_else(|| Error::custom("could not parse amount"))?;
-
-                        Ok($name::$amt_name($amt_name::$from_fn(msat)))
-                    }
-                    _ => Err(Error::custom("could not parse amount")),
                 }
+
+                deserializer.deserialize_any(AmountOrAllVisitor)
             }
         }
     };
@@ -397,7 +405,7 @@ impl Serialize for ShortChannelId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        serializer.collect_str(self)
     }
 }
 
@@ -406,34 +414,62 @@ impl<'de> Deserialize<'de> for ShortChannelId {
     where
         D: Deserializer<'de>,
     {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(Self::from_str(&s).map_err(|e| Error::custom(e.to_string()))?)
+        struct ScidVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for ScidVisitor {
+            type Value = ShortChannelId;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a short_channel_id string in BLOCKxTXxOUT format")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                ShortChannelId::from_str(s).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_str(ScidVisitor)
     }
 }
 
 impl FromStr for ShortChannelId {
     type Err = crate::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Result<Vec<u64>, _> = s.split('x').map(|p| p.parse()).collect();
-        let parts = parts.with_context(|| format!("Malformed short_channel_id: {}", s))?;
-        if parts.len() != 3 {
+        let (block_s, rest) = s
+            .split_once('x')
+            .ok_or_else(|| anyhow!("Malformed short_channel_id: element count mismatch"))?;
+        let (txindex_s, outnum_s) = rest
+            .split_once('x')
+            .ok_or_else(|| anyhow!("Malformed short_channel_id: element count mismatch"))?;
+        if outnum_s.contains('x') {
             return Err(anyhow!(
                 "Malformed short_channel_id: element count mismatch"
             ));
         }
+
+        let block: u64 = block_s
+            .parse()
+            .with_context(|| format!("Malformed short_channel_id: {}", s))?;
+        let txindex: u64 = txindex_s
+            .parse()
+            .with_context(|| format!("Malformed short_channel_id: {}", s))?;
+        let outnum: u64 = outnum_s
+            .parse()
+            .with_context(|| format!("Malformed short_channel_id: {}", s))?;
+
         // block and txindex are 3 bytes, outnum is 2 bytes: anything
         // larger would spill into the neighbouring field.
-        if parts[0] > 0xFFFFFF || parts[1] > 0xFFFFFF || parts[2] > 0xFFFF {
+        if block > 0xFFFFFF || txindex > 0xFFFFFF || outnum > 0xFFFF {
             return Err(anyhow!(
                 "Malformed short_channel_id: {} has an element out of range",
                 s
             ));
         }
 
-        Ok(ShortChannelId(
-            (parts[0] << 40) | (parts[1] << 16) | (parts[2] << 0),
-        ))
+        Ok(ShortChannelId((block << 40) | (txindex << 16) | outnum))
     }
 }
 impl From<u64> for ShortChannelId {
@@ -471,7 +507,7 @@ impl Serialize for ShortChannelIdDir {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        serializer.collect_str(self)
     }
 }
 
@@ -480,25 +516,41 @@ impl<'de> Deserialize<'de> for ShortChannelIdDir {
     where
         D: Deserializer<'de>,
     {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(Self::from_str(&s).map_err(|e| Error::custom(e.to_string()))?)
+        struct ScidDirVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for ScidDirVisitor {
+            type Value = ShortChannelIdDir;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a short_channel_id_dir string in BLOCKxTXxOUT/DIR format")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                ShortChannelIdDir::from_str(s).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_str(ScidDirVisitor)
     }
 }
 impl FromStr for ShortChannelIdDir {
     type Err = crate::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Result<Vec<String>, _> = s.split('/').map(|p| p.parse()).collect();
-        let parts = parts.with_context(|| format!("Malformed short_channel_id_dir: {}", s))?;
-        if parts.len() != 2 {
+        let (scid_s, dir_s) = s
+            .split_once('/')
+            .ok_or_else(|| anyhow!("Malformed short_channel_id_dir: element count mismatch"))?;
+        if dir_s.contains('/') {
             return Err(anyhow!(
                 "Malformed short_channel_id_dir: element count mismatch"
             ));
         }
 
         Ok(ShortChannelIdDir {
-            short_channel_id: ShortChannelId::from_str(&parts[0])?,
-            direction: parts[1].parse::<u32>()?,
+            short_channel_id: ShortChannelId::from_str(scid_s)?,
+            direction: dir_s.parse::<u32>()?,
         })
     }
 }
@@ -534,7 +586,10 @@ impl Serialize for Secret {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&hex::encode(&self.0))
+        let mut buf = [0u8; 64];
+        hex::encode_to_slice(self.0, &mut buf).expect("32 bytes encode to 64 hex bytes");
+        let s = std::str::from_utf8(&buf).expect("hex is valid UTF-8");
+        serializer.serialize_str(s)
     }
 }
 
@@ -543,12 +598,31 @@ impl<'de> Deserialize<'de> for Secret {
     where
         D: Deserializer<'de>,
     {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        let h = hex::decode(s).map_err(|_| Error::custom("not a valid hex string"))?;
-        Ok(Secret(h.try_into().map_err(|_| {
-            Error::custom("not a valid hex-encoded hash")
-        })?))
+        struct SecretVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for SecretVisitor {
+            type Value = Secret;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a 64-character hex-encoded secret")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let mut bytes = [0u8; 32];
+                hex::decode_to_slice(s, &mut bytes).map_err(|e| match e {
+                    hex::FromHexError::InvalidStringLength => {
+                        E::custom("not a valid hex-encoded hash")
+                    }
+                    _ => E::custom("not a valid hex string"),
+                })?;
+                Ok(Secret(bytes))
+            }
+        }
+
+        deserializer.deserialize_str(SecretVisitor)
     }
 }
 
@@ -575,7 +649,10 @@ impl Serialize for Outpoint {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&format!("{}:{}", hex::encode(&self.txid), self.outnum))
+        let mut buf = [0u8; 64];
+        hex::encode_to_slice(&self.txid, &mut buf).expect("32 bytes encode to 64 hex bytes");
+        let txid_hex = std::str::from_utf8(&buf).expect("hex is valid UTF-8");
+        serializer.collect_str(&format_args!("{}:{}", txid_hex, self.outnum))
     }
 }
 
@@ -584,25 +661,46 @@ impl<'de> Deserialize<'de> for Outpoint {
     where
         D: Deserializer<'de>,
     {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
+        struct OutpointVisitor;
 
-        let splits: Vec<&str> = s.split(':').collect();
-        if splits.len() != 2 {
-            return Err(Error::custom("not a valid txid:output tuple"));
+        impl<'de> serde::de::Visitor<'de> for OutpointVisitor {
+            type Value = Outpoint;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a txid:outnum string")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let (txid_s, outnum_s) = s
+                    .split_once(':')
+                    .ok_or_else(|| E::custom("not a valid txid:output tuple"))?;
+                if outnum_s.contains(':') {
+                    return Err(E::custom("not a valid txid:output tuple"));
+                }
+
+                let mut txid_bytes = [0u8; 32];
+                hex::decode_to_slice(txid_s, &mut txid_bytes).map_err(|e| match e {
+                    hex::FromHexError::InvalidStringLength => {
+                        E::custom(format!("Invalid TxId: {}", e))
+                    }
+                    _ => E::custom("not a valid hex encoded txid"),
+                })?;
+
+                let txid = Sha256::from_slice(&txid_bytes)
+                    .map_err(|e| E::custom(format!("Invalid TxId: {}", e)))?;
+
+                let outnum: u32 = outnum_s
+                    .parse()
+                    .map_err(|e| E::custom(format!("{} is not a valid number: {}", s, e)))?;
+
+                Ok(Outpoint { txid, outnum })
+            }
         }
 
-        let txid_bytes =
-            hex::decode(splits[0]).map_err(|_| Error::custom("not a valid hex encoded txid"))?;
-
-        let txid = Sha256::from_slice(&txid_bytes)
-            .map_err(|e| Error::custom(format!("Invalid TxId: {}", e)))?;
-
-        let outnum: u32 = splits[1]
-            .parse()
-            .map_err(|e| Error::custom(format!("{} is not a valid number: {}", s, e)))?;
-
-        Ok(Outpoint { txid, outnum })
+        deserializer.deserialize_str(OutpointVisitor)
     }
 }
 
@@ -798,30 +896,38 @@ impl<'de> Deserialize<'de> for AmountOrAny {
     where
         D: Deserializer<'de>,
     {
-        use serde::de::Error;
+        struct AmountOrAnyVisitor;
 
-        let value = serde_json::Value::deserialize(deserializer)?;
+        impl<'de> serde::de::Visitor<'de> for AmountOrAnyVisitor {
+            type Value = AmountOrAny;
 
-        match value {
-            serde_json::Value::String(s) => {
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("an unsigned integer amount or \"any\"")
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(AmountOrAny::Amount(Amount::from_msat(v)))
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
                 if s.eq_ignore_ascii_case("any") {
                     Ok(AmountOrAny::Any)
                 } else {
-                    Ok(AmountOrAny::Amount(
-                        s.try_into()
-                            .map_err(|_| Error::custom("could not parse amount"))?,
-                    ))
+                    let v = s
+                        .parse::<u64>()
+                        .map_err(|_| E::custom("could not parse amount"))?;
+                    Ok(AmountOrAny::Amount(Amount::from_msat(v)))
                 }
             }
-            serde_json::Value::Number(n) => {
-                let msat = n
-                    .as_u64()
-                    .ok_or_else(|| Error::custom("could not parse amount"))?;
-
-                Ok(AmountOrAny::Amount(Amount::from_msat(msat)))
-            }
-            _ => Err(Error::custom("could not parse amount")),
         }
+
+        deserializer.deserialize_any(AmountOrAnyVisitor)
     }
 }
 
@@ -877,12 +983,24 @@ impl<'de> Deserialize<'de> for Feerate {
     where
         D: Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        let res: Feerate = s
-            .as_str()
-            .try_into()
-            .map_err(|e| serde::de::Error::custom(format!("{}", e)))?;
-        Ok(res)
+        struct FeerateVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for FeerateVisitor {
+            type Value = Feerate;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a feerate string")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Feerate::try_from(s).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_str(FeerateVisitor)
     }
 }
 
@@ -891,8 +1009,13 @@ impl Serialize for Feerate {
     where
         S: Serializer,
     {
-        let s: String = self.into();
-        serializer.serialize_str(&s)
+        match self {
+            Feerate::Slow => serializer.serialize_str("slow"),
+            Feerate::Normal => serializer.serialize_str("normal"),
+            Feerate::Urgent => serializer.serialize_str("urgent"),
+            Feerate::PerKb(v) => serializer.collect_str(&format_args!("{}perkb", v)),
+            Feerate::PerKw(v) => serializer.collect_str(&format_args!("{}perkw", v)),
+        }
     }
 }
 
