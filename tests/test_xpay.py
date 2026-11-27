@@ -1156,20 +1156,86 @@ def test_xpay_shadow_cltv(node_factory, bitcoind):
     assert l2.daemon.is_in_log(f"Adding HTLC .* amount=10000msat cltv={expected_cltv} gave CHANNEL_ERR_ADD_OK")
 
 
+def open_channels(connections, fundamount=FUNDAMOUNT, wait_for_announce=False, announce_channels=True):
+    """Connect peers and open all channels in a single batched funding/confirm cycle."""
+    assert not (wait_for_announce and not announce_channels)
+    nodes = list(dict.fromkeys(n for pair in connections for n in pair))
+    bitcoind = nodes[0].bitcoin
+
+    seen_pairs = set()
+    for src, dst in connections:
+        pair_key = (min(src.info['id'], dst.info['id']), max(src.info['id'], dst.info['id']))
+        if pair_key not in seen_pairs:
+            src.rpc.connect(dst.info['id'], 'localhost', dst.port)
+            seen_pairs.add(pair_key)
+
+    # Give each funder one confirmed UTXO per outgoing channel in a single tx.
+    outputs = {}
+    amount_btc = round((fundamount + 1000000) / 10**8, 8)
+    for src, _ in connections:
+        addr = src.rpc.newaddr('bech32')['bech32']
+        outputs[addr] = amount_btc
+    bitcoind.rpc.sendmany("", outputs)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, nodes)
+
+    txids = []
+    channel_ids = []
+    for src, dst in connections:
+        fc = src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)
+        txids.append(fc['txid'])
+        channel_ids.append(fc['channel_id'])
+
+    bitcoind.generate_block(1, wait_for_mempool=txids)
+    scids = []
+    for (src, dst), cid in zip(connections, channel_ids):
+        wait_for(lambda: only_one([c for c in src.rpc.listpeerchannels(dst.info['id'])['channels']
+                                   if c['channel_id'] == cid])['state'] == 'CHANNELD_NORMAL')
+        scid = only_one([c for c in src.rpc.listpeerchannels(dst.info['id'])['channels']
+                         if c['channel_id'] == cid])['short_channel_id']
+        scids.append((src, dst, scid))
+
+    for src, dst, scid in scids:
+        src.wait_local_channel_active(scid)
+        dst.wait_local_channel_active(scid)
+
+    if not wait_for_announce:
+        return
+
+    bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, nodes)
+
+    scid_set = {scid for _, _, scid in scids}
+    for n in nodes:
+        wait_for(lambda: sum(
+            1 for c in n.rpc.listchannels()['channels']
+            if c['short_channel_id'] in scid_set and c['active']
+        ) == len(scid_set) * 2)
+
+    node_ids = {n.info['id'] for n in nodes}
+    for n in nodes:
+        wait_for(lambda: sum(
+            1 for x in n.rpc.listnodes()['nodes']
+            if x['nodeid'] in node_ids and 'alias' in x
+        ) == len(node_ids))
+
+
 @pytest.mark.xdist_group("heavy")
 def test_xpay_limited_max_accepted_htlcs(node_factory):
     """xpay should try to reduce flows to 6 if there is an unannounced channel, and only try more if that fails"""
     CHANNEL_SIZE_SATS = 10**6
-    l1, l2 = node_factory.line_graph(2,
-                                     fundamount=CHANNEL_SIZE_SATS * 20,
-                                     opts=[{}, {'max-concurrent-htlcs': 6}],
-                                     announce_channels=False)
+    l1, l2, l3, *nodes = node_factory.get_nodes(
+        10, opts=[{}, {'max-concurrent-htlcs': 6}] + [{}] * 8
+    )
+    node_factory.join_nodes([l1, l2],
+                            fundamount=CHANNEL_SIZE_SATS * 20,
+                            announce_channels=False)
 
-    # We want 10 paths between l3 and l1.
-    l3 = node_factory.get_node()
-    nodes = node_factory.get_nodes(10)
-    for n in nodes:
-        node_factory.join_nodes([l3, n, l1], fundamount=CHANNEL_SIZE_SATS)
+    # We want 7 announced paths between l3 and l1 (exceeding l2's 6 HTLC limit).
+    open_channels([(l3, n) for n in nodes] + [(n, l1) for n in nodes],
+                  fundamount=CHANNEL_SIZE_SATS,
+                  wait_for_announce=True)
 
     # We don't want to use up capacity, so we make payment fail.
     inv1 = l1.rpc.invoice(f"{CHANNEL_SIZE_SATS * 5}sat",
@@ -1236,7 +1302,7 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
 
     # This will wait, then fail.
     with pytest.raises(RpcError, match=f'Timed out waiting for blockheight {l3_height}'):
-        l1.rpc.xpay(invstring=inv, retry_for=10, dev_use_shadow=False)
+        l1.rpc.xpay(invstring=inv, retry_for=2, dev_use_shadow=False)
 
     # This will succeed, because we wait for the blocks.
     fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=60, dev_use_shadow=False)
@@ -1861,9 +1927,13 @@ def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
                  {},
                  {},
                  {}])
-    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
-    for spoke in (a, b, c, d):
-        node_factory.join_nodes([hub, spoke, dest], fundamount=10**6, wait_for_announce=True)
+    open_channels(
+        [(payer, hub)]
+        + [(hub, spoke) for spoke in (a, b, c, d)]
+        + [(spoke, dest) for spoke in (a, b, c, d)],
+        fundamount=10**6,
+        wait_for_announce=True,
+    )
 
     wait_for(lambda: len(payer.rpc.listchannels()['channels']) >= 9 * 2)
 
@@ -1900,16 +1970,14 @@ def setup_failing_hub(node_factory, num_spokes, alt_ppm,
                 return {"result": "continue"}
             return {"result": "fail", "failure_message": failure_message}
 
-    payer = node_factory.get_node()
     hub = node_factory.get_node(inline_plugin=setup)
-    alt, altspoke, dest, *spokes = node_factory.get_nodes(3 + num_spokes)
-    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
-    for spoke in spokes:
-        node_factory.join_nodes(
-            [hub, spoke, dest], fundamount=10**6, wait_for_announce=True
-        )
-    node_factory.join_nodes(
-        [payer, alt, altspoke, dest], fundamount=10**6, wait_for_announce=True
+    payer, alt, altspoke, dest, *spokes = node_factory.get_nodes(4 + num_spokes)
+    open_channels(
+        [(payer, hub), (payer, alt), (alt, altspoke), (altspoke, dest)]
+        + [(hub, spoke) for spoke in spokes]
+        + [(spoke, dest) for spoke in spokes],
+        fundamount=10**6,
+        wait_for_announce=True,
     )
 
     alt.rpc.setchannel(altspoke.info["id"], feebase=1, feeppm=alt_ppm)
@@ -2052,15 +2120,17 @@ def test_xpay_failing_node_nonfinal(node_factory, bitcoind):
 def test_xpay_maxparts(node_factory):
     """xpay's maxparts option limits the number of parts"""
     CHANNEL_SIZE_SATS = 10**6
-    l1, l2 = node_factory.line_graph(
-        2, fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
+    l1, l2, l3, *nodes = node_factory.get_nodes(13)
+    node_factory.join_nodes(
+        [l1, l2], fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
     )
 
     # We want 10 paths between l3 and l1.
-    l3 = node_factory.get_node()
-    nodes = node_factory.get_nodes(10)
-    for n in nodes:
-        node_factory.join_nodes([l3, n, l1], fundamount=CHANNEL_SIZE_SATS)
+    open_channels(
+        [(l3, n) for n in nodes] + [(n, l1) for n in nodes],
+        fundamount=CHANNEL_SIZE_SATS,
+        wait_for_announce=True,
+    )
 
     def failing_invoice(node, amount_sat, label):
         """Invoice which fails at the destination, so we don't use up capacity"""
@@ -2289,14 +2359,22 @@ def test_xpay_maxparts_unannounced_retry(node_factory):
     retries with the user's larger maxparts."""
     NUM_PATHS = 12
     CHANNEL_SIZE_SATS = 10**6
-    l1, l2 = node_factory.line_graph(
-        2, fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
+    l1, l2, l3, *nodes = node_factory.get_nodes(3 + NUM_PATHS)
+    node_factory.join_nodes(
+        [l1, l2], fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
     )
-    l3 = node_factory.get_node()
-    for n in node_factory.get_nodes(NUM_PATHS):
-        node_factory.join_nodes(
-            [l3, n, l1], fundamount=CHANNEL_SIZE_SATS, wait_for_announce=True
-        )
+    open_channels(
+        [(l3, n) for n in nodes] + [(n, l1) for n in nodes],
+        fundamount=CHANNEL_SIZE_SATS,
+        wait_for_announce=True,
+    )
+
+    # Wait for l2 to learn l1's public channels via gossip so listincoming
+    # reports incoming capacity and invoice() includes the l1->l2 routehint.
+    wait_for(
+        lambda: len(l2.rpc.listchannels(source=l1.info["id"])["channels"])
+        == NUM_PATHS
+    )
 
     # 7M sat needs more than 6 of the one-million-sat paths, but fits in the
     # 10 parts the user allows.
