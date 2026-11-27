@@ -4761,10 +4761,10 @@ def test_offline(node_factory):
 
 
 def test_last_stable_connection(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+    STABLE_TIME = 25 if VALGRIND else (10 if SLOW_MACHINE else 5)
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'dev-stable-connection-secs': STABLE_TIME})
 
-    # We wait a minute to be stable.
-    STABLE_TIME = 60
     assert 'last_stable_connection' not in only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'last_stable_connection' not in only_one(l2.rpc.listpeerchannels()['channels'])
 

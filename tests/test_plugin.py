@@ -245,8 +245,9 @@ def test_plugin_dir(node_factory):
 
 def test_plugin_slowinit(node_factory):
     """Tests that the 'plugin' RPC command times out if plugin doesnt respond"""
-    os.environ['SLOWINIT_TIME'] = '121'
-    l1 = node_factory.get_node()
+    timeout_secs = 30 if VALGRIND else 10
+    os.environ['SLOWINIT_TIME'] = str(timeout_secs + 5)
+    l1 = node_factory.get_node(options={'dev-plugin-startup-timeout-secs': timeout_secs})
 
     with pytest.raises(RpcError, match=': timed out before replying to init'):
         l1.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
@@ -302,7 +303,8 @@ def test_plugin_command(node_factory):
     # Test that we cannot stop a started plugin with 'dynamic' flag set to
     # False
     l2 = node_factory.get_node(options={
-        "plugin": os.path.join(os.getcwd(), "tests/plugins/static.py")
+        "plugin": os.path.join(os.getcwd(), "tests/plugins/static.py"),
+        "dev-plugin-startup-timeout-secs": 30 if VALGRIND else 10,
     })
     with pytest.raises(RpcError, match=r"static.py cannot be managed when lightningd is up"):
         l2.rpc.plugin_stop(plugin="static.py")
@@ -444,6 +446,8 @@ def test_failing_plugins(directory):
         with pytest.raises(subprocess.CalledProcessError):
             subprocess.check_output([
                 'lightningd/lightningd',
+                '--developer',
+                '--dev-plugin-startup-timeout-secs=10',
                 '--lightning-dir={}'.format(directory),
                 '--plugin={}'.format(p),
                 '--help',
@@ -5084,7 +5088,10 @@ def test_plugin_nostart(node_factory):
 
 def test_plugin_startdir_lol(node_factory):
     """Though we fail to start many of them, we don't crash!"""
-    l1 = node_factory.get_node(broken_log='.*')
+    l1 = node_factory.get_node(
+        broken_log='.*',
+        options={'dev-plugin-startup-timeout-secs': 30 if VALGRIND else 10},
+    )
     l1.rpc.plugin_startdir(os.path.join(os.getcwd(), 'tests/plugins'))
 
 
