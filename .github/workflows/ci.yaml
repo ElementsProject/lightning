@@ -775,6 +775,11 @@ jobs:
       - name: Test
         env:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
+          # Cap per-process ASan quarantine (default 256MB) to cut daemon RSS by
+          # ~25-45% while keeping all sanitizer checks enabled, and throttle new
+          # xdist worker starts if runner MemAvailable dips below 4 GB.
+          ASAN_OPTIONS: "quarantine_size_mb=32"
+          PYTEST_MIN_AVAIL_MB: "4096"
         run: |
           .github/scripts/mem-monitor.sh &
           mem_pid=$!
