@@ -1270,6 +1270,10 @@ static const struct db_migration dbmigrations[] = {
 	 " WHERE remote_funding IS NOT NULL;"), NULL,
      /* The revert drops the column */
      NULL, NULL},
+    /* Speed up keyidx lookups and range scans on addresses (e.g. startup
+     * our_addresses population and listaddresses). */
+    {SQL("CREATE INDEX addresses_keyidx_idx ON addresses (keyidx)"), NULL,
+     SQL("DROP INDEX addresses_keyidx_idx"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
