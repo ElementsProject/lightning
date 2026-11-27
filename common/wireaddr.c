@@ -344,9 +344,13 @@ bool separate_address_and_port(const tal_t *ctx, const char *arg,
 	}
 
 	if (portcolon) {
-		char *endp;
-		*port = strtol(portcolon + 1, &endp, 10);
-		return *port != 0 && *endp == '\0';
+		u64 p;
+		if (!str_to_u64(portcolon + 1, strlen(portcolon + 1), &p))
+			return false;
+		if (p == 0 || p > UINT16_MAX)
+			return false;
+		*port = p;
+		return true;
 	}
 
 	return true;
@@ -671,11 +675,12 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 
 		for (size_t i = 1; i < tal_count(parts)-1; i++) {
 			if (strstarts(parts[i], "torport=")) {
-				char *endp = NULL;
-				addr->u.torservice.port = strtol(parts[i]+strlen("torport="), &endp, 10);
-				if (addr->u.torservice.port <= 0 || *endp != '\0') {
+				const char *val = parts[i] + strlen("torport=");
+				u64 p;
+				if (!str_to_u64(val, strlen(val), &p) || p == 0 || p > UINT16_MAX) {
 					return "Bad :torport: number";
 				}
+				addr->u.torservice.port = p;
 			} else {
 				return tal_fmt(ctx, "unknown tor arg %s", parts[i]);
 			}
@@ -699,11 +704,12 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 		char **parts = tal_strsplit(tmpctx, arg, "/", STR_EMPTY_OK);
 		for (size_t i = 1; i < tal_count(parts)-1; i++) {
 			if (strstarts(parts[i], "torport=")) {
-				char *endp = NULL;
-				addr->u.torservice.port = strtol(parts[i]+strlen("torport="), &endp, 10);
-				if (addr->u.torservice.port <= 0 || *endp != '\0') {
-					return  "Bad :torport: number";
+				const char *val = parts[i] + strlen("torport=");
+				u64 p;
+				if (!str_to_u64(val, strlen(val), &p) || p == 0 || p > UINT16_MAX) {
+					return "Bad :torport: number";
 				}
+				addr->u.torservice.port = p;
 			} else if (strstarts(parts[i], "torblob=")) {
 				const char *blobdata = parts[i] + strlen("torblob=");
 				if (strlen(blobdata) > TOR_V3_BLOBLEN) {
