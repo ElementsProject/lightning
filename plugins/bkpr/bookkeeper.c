@@ -1322,7 +1322,7 @@ static struct command_result *currency_done(struct command *cmd,
 			 * (Recent check avoid glossing over failures, if we
 			 * couldn't get reliable data). */
 			if (raw_rate == crate->raw_rate
-			    && crate_end + CURRENCYRATE_TOLERANCE_SECONDS > ctime->timestamp) {
+			    && crate_end + bkpr->currencyrate_tolerance > ctime->timestamp) {
 				uintmap_del(bkpr->currency_rates, ts);
 				crate->duration = ctime->timestamp - ts + 1;
 			} else {
@@ -1391,7 +1391,7 @@ static void lookup_currency(struct command *cmd,
 	 * conversion.  This can definitely happen when we first turn on
 	 * currency conversion though, so don't print in that case. */
 	now = clock_time().ts.tv_sec;
-	if (now > timestamp + CURRENCYRATE_TOLERANCE_SECONDS) {
+	if (now > timestamp + bkpr->currencyrate_tolerance) {
 		if (!uintmap_empty(bkpr->currency_rates)
 		    && !bkpr->warned_currency_fail) {
 			plugin_log(cmd->plugin, LOG_BROKEN,
@@ -2101,6 +2101,7 @@ int main(int argc, char *argv[])
 	/* No datadir is default */
 	bkpr = tal(NULL, struct bkpr);
 	bkpr->currency = NULL;
+	bkpr->currencyrate_tolerance = CURRENCYRATE_TOLERANCE_SECONDS;
 	bkpr->currency_rates = tal(bkpr, currencymap_t);
 	bkpr->accounts = NULL;
 	uintmap_init(bkpr->currency_rates);
@@ -2114,6 +2115,11 @@ int main(int argc, char *argv[])
 					  "string",
 					  "Look up and record this currency on each event",
 					  option_currency, currency_jsonfmt, bkpr),
+		    plugin_option_dev("dev-bkpr-currencyrate-tolerance",
+				      "int",
+				      "Max age (seconds) for applying current currencyrate to an event",
+				      u32_option, u32_jsonfmt,
+				      &bkpr->currencyrate_tolerance),
 		    NULL);
 
 	return 0;

@@ -37,6 +37,8 @@ struct bkpr {
 	currencymap_t *currency_rates;
 	/* True if we've warned about currency failures */
 	bool warned_currency_fail;
+	/* Max age (seconds) for applying current currencyrate to an event */
+	u32 currencyrate_tolerance;
 	/* aux_command and parent of currency queries */
 	struct command *currency_cmds;
 };

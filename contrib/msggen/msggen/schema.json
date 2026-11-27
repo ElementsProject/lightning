@@ -23429,6 +23429,11 @@
                 "source": "cmdline",
                 "plugin": "/usr/local/libexec/plugins/bcli"
               },
+              "dev-bkpr-currencyrate-tolerance": {
+                "value_int": 60,
+                "source": "default",
+                "plugin": "/usr/local/libexec/plugins/bookkeeper"
+              },
               "askrene-max-threads": {
                 "value_int": 4,
                 "source": "default",
