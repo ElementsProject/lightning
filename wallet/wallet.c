@@ -111,10 +111,10 @@ static void our_addresses_add(struct wallet_address_htable *our_addresses,
 	wallet_address_htable_add(our_addresses, waddr);
 }
 
-static void our_addresses_add_for_index(struct wallet *w, u32 i)
+static void our_addresses_add_for_index(struct wallet *w, u32 i,
+					enum addrtype addrtype)
 {
 	struct pubkey pubkey;
-	enum addrtype addrtype;
 	const u8 *scriptpubkey;
 	bool legacy = (w->ld->bip86_base == NULL);
 
@@ -123,13 +123,6 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 		bip86_pubkey(w->ld, &pubkey, i);
 	} else {
 		bip32_pubkey(w->ld, &pubkey, i);
-	}
-
-	/* Determine which address types to generate */
-	if (!wallet_get_addrtype(w, i, &addrtype)) {
-		/* Unknown (prior to 24.11): add all possibilities */
-		//assert(legacy);
-		addrtype = ADDR_ALL;
 	}
 
 	/* Generate scripts based on address type */
@@ -160,6 +153,55 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 	}
 }
 
+static void our_addresses_add_range(struct wallet *w, u32 start, u32 end)
+{
+	struct db_stmt *stmt;
+	struct issued_address_type *rows;
+	size_t row_idx = 0;
+
+	if (start > end)
+		return;
+
+	rows = tal_arr(tmpctx, struct issued_address_type, 0);
+	stmt = db_prepare_v2(w->db,
+			     SQL("SELECT keyidx, addrtype"
+				 " FROM addresses"
+				 " WHERE keyidx >= ? AND keyidx <= ?"
+				 " ORDER BY keyidx"));
+	db_bind_u64(stmt, start);
+	db_bind_u64(stmt, end);
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct issued_address_type a;
+		a.keyidx = db_col_u64(stmt, "keyidx");
+		a.addrtype = wallet_addrtype_in_db(db_col_int(stmt, "addrtype"));
+		tal_arr_expand(&rows, a);
+	}
+	tal_free(stmt);
+
+	for (u64 i = start; i <= end; i++) {
+		enum addrtype addrtype;
+
+		while (row_idx < tal_count(rows) && rows[row_idx].keyidx < i)
+			row_idx++;
+
+		if (row_idx < tal_count(rows) && rows[row_idx].keyidx == i) {
+			addrtype = rows[row_idx].addrtype;
+			/* Match wallet_get_addrtype()'s first-row semantics if
+			 * duplicate keyidx rows exist. */
+			while (row_idx < tal_count(rows)
+			       && rows[row_idx].keyidx == i)
+				row_idx++;
+		} else {
+			/* Unknown (prior to 24.11): add all possibilities */
+			addrtype = ADDR_ALL;
+		}
+
+		our_addresses_add_for_index(w, i, addrtype);
+	}
+	tal_free(rows);
+}
+
 static void our_addresses_init(struct wallet *w)
 {
 	w->our_addresses_maxindex = 0;
@@ -167,9 +209,7 @@ static void our_addresses_init(struct wallet *w)
 
 	/* Prefill the address table up to keyscan_gap so rescans immediately
 	 * include scripts without needing prior address allocations. */
-	for (u32 i = 0; i <= w->keyscan_gap; i++) {
-		our_addresses_add_for_index(w, i);
-	}
+	our_addresses_add_range(w, 0, w->keyscan_gap);
 	w->our_addresses_maxindex = w->keyscan_gap;
 }
 
@@ -1007,8 +1047,11 @@ bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 	/* Scan both BIP32 and BIP86 addresses */
 	u64 max_index = (w->bip32_max_index > w->bip86_max_index)
 		? w->bip32_max_index : w->bip86_max_index;
-	while (w->our_addresses_maxindex < max_index + w->keyscan_gap)
-		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
+	if (w->our_addresses_maxindex < max_index + w->keyscan_gap) {
+		our_addresses_add_range(w, w->our_addresses_maxindex + 1,
+					max_index + w->keyscan_gap);
+		w->our_addresses_maxindex = max_index + w->keyscan_gap;
+	}
 
 	waddr = wallet_address_htable_get(w->our_addresses, &scriptwl);
 	if (!waddr)
@@ -8199,8 +8242,11 @@ void init_wallet_scriptpubkey_watches(struct wallet *w)
 
 	/* Extend the table to cover every key we've derived plus lookahead;
 	 * same rule wallet_can_spend applies. */
-	while (w->our_addresses_maxindex < max_index + w->keyscan_gap)
-		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
+	if (w->our_addresses_maxindex < max_index + w->keyscan_gap) {
+		our_addresses_add_range(w, w->our_addresses_maxindex + 1,
+					max_index + w->keyscan_gap);
+		w->our_addresses_maxindex = max_index + w->keyscan_gap;
+	}
 
 	for (struct wallet_address *waddr
 		     = wallet_address_htable_first(w->our_addresses, &it);

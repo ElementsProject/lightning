@@ -2147,6 +2147,108 @@ static bool test_utxo_csv_locked(void)
 	return true;
 }
 
+static bool test_our_addresses_range(struct lightningd *ld, const tal_t *ctx, bool bip86)
+{
+	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct db_stmt *stmt;
+	struct pubkey pk;
+	const u8 *p2wpkh, *p2tr;
+	u32 idx;
+	enum addrtype at;
+	enum addrtype index_type = bip86 ? ADDR_P2TR : ADDR_BECH32;
+
+	w->keyscan_gap = 50;
+	w->bip32_max_index = 0;
+	w->bip86_max_index = 0;
+	db_begin_transaction(w->db);
+
+	/* Populate addresses beyond keyscan_gap (50) with mixed types, a gap,
+	 * and a duplicate keyidx row, then initialize our_addresses as on
+	 * startup. */
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO addresses (keyidx, addrtype)"
+				 " VALUES (?, ?);"));
+	db_bind_u64(stmt, 55);
+	db_bind_int(stmt, wallet_addrtype_in_db(ADDR_P2TR));
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO addresses (keyidx, addrtype)"
+				 " VALUES (?, ?);"));
+	db_bind_u64(stmt, 60);
+	db_bind_int(stmt, wallet_addrtype_in_db(ADDR_BECH32));
+	db_exec_prepared_v2(take(stmt));
+
+	/* Duplicate keyidx row with a different addrtype: must keep first-row
+	 * semantics matching wallet_get_addrtype(). */
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO addresses (keyidx, addrtype)"
+				 " VALUES (?, ?);"));
+	db_bind_u64(stmt, 60);
+	db_bind_int(stmt, wallet_addrtype_in_db(ADDR_P2TR));
+	db_exec_prepared_v2(take(stmt));
+
+	wallet_set_max_addr_index(w, index_type, 65);
+
+	our_addresses_init(w);
+	CHECK(w->our_addresses_maxindex == w->keyscan_gap);
+
+	/* Index 55: ADDR_P2TR only */
+	if (bip86)
+		bip86_pubkey(ld, &pk, 55);
+	else
+		bip32_pubkey(ld, &pk, 55);
+	p2tr = scriptpubkey_p2tr(tmpctx, &pk);
+	p2wpkh = scriptpubkey_p2wpkh(tmpctx, &pk);
+	CHECK(wallet_can_spend(w, p2tr, tal_bytelen(p2tr), &idx, &at));
+	CHECK(idx == 55);
+	CHECK(at == ADDR_P2TR);
+	CHECK(!wallet_can_spend(w, p2wpkh, tal_bytelen(p2wpkh), &idx, &at));
+	CHECK(w->our_addresses_maxindex == 65 + w->keyscan_gap);
+
+	/* Index 58 (gap with no row in addresses): defaults to ADDR_ALL */
+	if (bip86)
+		bip86_pubkey(ld, &pk, 58);
+	else
+		bip32_pubkey(ld, &pk, 58);
+	p2tr = scriptpubkey_p2tr(tmpctx, &pk);
+	p2wpkh = scriptpubkey_p2wpkh(tmpctx, &pk);
+	CHECK(wallet_can_spend(w, p2tr, tal_bytelen(p2tr), &idx, &at));
+	CHECK(idx == 58);
+	CHECK(at == ADDR_P2TR);
+	CHECK(wallet_can_spend(w, p2wpkh, tal_bytelen(p2wpkh), &idx, &at));
+	CHECK(idx == 58);
+	CHECK(at == ADDR_BECH32);
+
+	/* Index 60 (duplicate row): first row (ADDR_BECH32) wins */
+	if (bip86)
+		bip86_pubkey(ld, &pk, 60);
+	else
+		bip32_pubkey(ld, &pk, 60);
+	p2tr = scriptpubkey_p2tr(tmpctx, &pk);
+	p2wpkh = scriptpubkey_p2wpkh(tmpctx, &pk);
+	CHECK(wallet_can_spend(w, p2wpkh, tal_bytelen(p2wpkh), &idx, &at));
+	CHECK(idx == 60);
+	CHECK(at == ADDR_BECH32);
+	CHECK(!wallet_can_spend(w, p2tr, tal_bytelen(p2tr), &idx, &at));
+
+	/* Lookahead index 70 (between max_index and max_index + keyscan_gap):
+	 * defaults to ADDR_ALL and updates max_index when matched. */
+	if (bip86)
+		bip86_pubkey(ld, &pk, 70);
+	else
+		bip32_pubkey(ld, &pk, 70);
+	p2tr = scriptpubkey_p2tr(tmpctx, &pk);
+	CHECK(wallet_can_spend(w, p2tr, tal_bytelen(p2tr), &idx, &at));
+	CHECK(idx == 70);
+	CHECK(at == ADDR_P2TR);
+	CHECK(wallet_max_addr_index(w, index_type) == 70);
+
+	db_commit_transaction(w->db);
+	tal_free(w);
+	return true;
+}
+
 int main(int argc, const char *argv[])
 {
 	common_setup(argv[0]);
@@ -2193,6 +2295,7 @@ int main(int argc, const char *argv[])
 			ok &= test_wallet_outputs(ld, tmpctx, bip86);
 			ok &= test_htlc_crud(ld, tmpctx, bip86);
 			ok &= test_payment_crud(ld, tmpctx, bip86);
+			ok &= test_our_addresses_range(ld, tmpctx, bip86);
 			ok &= test_wallet_payment_status_enum();
 		}
 	}
