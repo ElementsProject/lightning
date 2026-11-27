@@ -791,6 +791,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->plugins->dev_builtin_plugins_unimportant,
 		     "Make builtin plugins unimportant so you can plugin stop them.");
+	clnopt_witharg("--dev-plugin-startup-timeout-secs", OPT_EARLY|OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_plugin_startup_timeout_secs,
+		       "Seconds a plugin has to respond to getmanifest/init");
 	clnopt_noarg("--dev-no-reconnect", OPT_DEV,
 		     opt_set_invbool,
 		     &ld->reconnect,
@@ -860,6 +864,14 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_no_htlc_timeout,
 		     "Don't kill channeld if HTLCs not confirmed within 30 seconds");
+	clnopt_witharg("--dev-htlc-offer-timeout-secs", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_htlc_offer_timeout_secs,
+		       "Seconds to wait for channeld to commit an offered HTLC");
+	clnopt_witharg("--dev-stable-connection-secs", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_stable_connection_secs,
+		       "Seconds a reestablished channel must stay connected to be marked stable");
 	clnopt_noarg("--dev-fail-process-onionpacket", OPT_DEV,
 		     opt_set_bool,
 		     &dev_fail_process_onionpacket,
