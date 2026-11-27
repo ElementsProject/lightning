@@ -1,0 +1,126 @@
+---
+name: Per-commit checks
+# Builds and tests every commit of a PR except the last, which the main CI
+# workflow already covers.
+#
+# Off by default.  A maintainer turns it on for all PRs by setting the
+# repository variable PER_COMMIT_CHECKS to "true", for one PR by adding the
+# "per-commit-checks" label, or runs it by hand on a branch.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Branch the commits are compared against
+        default: master
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Reduce size, as in the main CI workflow
+  RUST_PROFILE: small
+  SLOW_MACHINE: 1
+  SCCACHE_GHA_ENABLED: "true"
+  BASE_REF: ${{ github.base_ref || inputs.base }}
+  PASSED_KEY: check-commits-${{ github.event.pull_request.number || github.ref_name }}
+
+jobs:
+  per-commit:
+    name: Build and test each commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' &&
+       github.event.label.name == 'per-commit-checks') ||
+      (github.event.action != 'labeled' &&
+       (vars.PER_COMMIT_CHECKS == 'true' ||
+        contains(github.event.pull_request.labels.*.name, 'per-commit-checks')))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.2
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          # check-source checks BOLT quotes
+          git clone https://github.com/lightning/bolts.git ../bolts
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      # Commits that passed on an earlier push of this PR are not rechecked.
+      - name: Restore list of commits that passed
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/check-commits
+          key: ${{ env.PASSED_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ env.PASSED_KEY }}-
+
+      # The Rust build is the slow part, and the main CI workflow builds the
+      # last commit with it anyway.
+      - name: Configure
+        run: |
+          git fetch origin "$BASE_REF"
+          rust=--disable-rust
+          if ! git diff --quiet "origin/$BASE_REF...HEAD" -- '*.rs' '*Cargo.toml' Cargo.lock cln-grpc/ cln-rpc/ contrib/msggen/ doc/schemas/; then
+            rust=--enable-rust
+          fi
+          ./configure --enable-debugbuild --disable-valgrind "$rust" CC="sccache gcc"
+
+      - name: Check each commit
+        env:
+          COMPAT: 1
+          RUSTC_WRAPPER: sccache
+          PYTEST_OPTS: --timeout=1800
+          CHECK_COMMITS_SKIP_TIP: 1
+          CHECK_COMMITS_LOGDIR: ${{ runner.temp }}/check-commits-logs
+        run: |
+          mkdir -p ~/check-commits
+          touch ~/check-commits/passed
+          export CHECK_COMMITS_CACHE=~/check-commits/passed
+          export GRPC_BREAKING_BASE_REF="origin/$BASE_REF"
+          # Use the base branch's script, so a PR branched before a change
+          # to it is checked the same way as every other PR.
+          script="$RUNNER_TEMP/check-commits.sh"
+          git show "origin/$BASE_REF:tools/check-commits.sh" > "$script" 2>/dev/null || cp tools/check-commits.sh "$script"
+          chmod +x "$script"
+          sg wireshark "uv run eatmydata $script origin/$BASE_REF"
+
+      - name: Save list of commits that passed
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: ~/check-commits
+          key: ${{ env.PASSED_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload step logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: check-commits-logs
+          path: ${{ runner.temp }}/check-commits-logs
+          if-no-files-found: ignore

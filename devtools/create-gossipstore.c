@@ -166,6 +166,7 @@ int main(int argc, char *argv[])
 		u8 *inmsg = tal_arr(NULL, u8, msglen);
 		u32 timestamp;
 		struct short_channel_id scid;
+		bool handled = false;
 
 		if (!read_all(infd, inmsg, msglen))
 			err(1, "Only read partial message");
@@ -174,7 +175,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "%s\n",
 				peer_wire_name(fromwire_peektype(inmsg)));
 
-		switch (fromwire_peektype(inmsg)) {
+		switch ((enum peer_wire)fromwire_peektype(inmsg)) {
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 			if (scidsats) {
 				/* We ignore these; we just want scid */
@@ -205,8 +206,8 @@ int main(int argc, char *argv[])
 				last_announce = inmsg;
 				inmsg = NULL;
 			}
+			handled = true;
 			break;
-
 		case WIRE_CHANNEL_UPDATE:
 			/* We assume update immediately follows announcement */
 			timestamp = get_update_timestamp(inmsg, &scid);
@@ -229,15 +230,66 @@ int main(int argc, char *argv[])
 			}
 			write_outmsg(outfd, inmsg, timestamp);
 			updates += 1;
+			handled = true;
 			break;
-
 		case WIRE_NODE_ANNOUNCEMENT:
 			timestamp = get_node_announce_timestamp(inmsg);
 			write_outmsg(outfd, inmsg, timestamp);
 			nodes += 1;
+			handled = true;
 			break;
-
-		default:
+		case WIRE_WARNING:
+		case WIRE_INIT:
+		case WIRE_ERROR:
+		case WIRE_OPEN_CHANNEL:
+		case WIRE_ACCEPT_CHANNEL:
+		case WIRE_FUNDING_CREATED:
+		case WIRE_FUNDING_SIGNED:
+		case WIRE_CHANNEL_READY:
+		case WIRE_SHUTDOWN:
+		case WIRE_CLOSING_SIGNED:
+		case WIRE_CLOSING_COMPLETE:
+		case WIRE_CLOSING_SIG:
+		case WIRE_UPDATE_ADD_HTLC:
+		case WIRE_UPDATE_FULFILL_HTLC:
+		case WIRE_UPDATE_FAIL_HTLC:
+		case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		case WIRE_PROTOCOL_BATCH_ELEMENT:
+		case WIRE_START_BATCH:
+		case WIRE_COMMITMENT_SIGNED:
+		case WIRE_REVOKE_AND_ACK:
+		case WIRE_UPDATE_FEE:
+		case WIRE_UPDATE_BLOCKHEIGHT:
+		case WIRE_CHANNEL_REESTABLISH:
+		case WIRE_ANNOUNCEMENT_SIGNATURES:
+		case WIRE_PING:
+		case WIRE_PONG:
+		case WIRE_QUERY_SHORT_CHANNEL_IDS:
+		case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+		case WIRE_QUERY_CHANNEL_RANGE:
+		case WIRE_REPLY_CHANNEL_RANGE:
+		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_ONION_MESSAGE:
+		case WIRE_TX_ADD_INPUT:
+		case WIRE_TX_REMOVE_INPUT:
+		case WIRE_TX_ADD_OUTPUT:
+		case WIRE_TX_REMOVE_OUTPUT:
+		case WIRE_TX_COMPLETE:
+		case WIRE_TX_SIGNATURES:
+		case WIRE_TX_INIT_RBF:
+		case WIRE_TX_ACK_RBF:
+		case WIRE_TX_ABORT:
+		case WIRE_PEER_STORAGE:
+		case WIRE_PEER_STORAGE_RETRIEVAL:
+		case WIRE_OPEN_CHANNEL2:
+		case WIRE_ACCEPT_CHANNEL2:
+		case WIRE_STFU:
+		case WIRE_SPLICE_INIT:
+		case WIRE_SPLICE_ACK:
+		case WIRE_SPLICE_LOCKED:
+			break;
+		}
+		if (!handled) {
 			warnx("Unknown message %u (%s)", fromwire_peektype(inmsg),
 			      peer_wire_name(fromwire_peektype(inmsg)));
 			tal_free(inmsg);

@@ -68,8 +68,6 @@ static struct test_case *new_test_case(const tal_t *ctx, const u8 **cursor, size
 	case FIXED:
 		tcase->policy.mod %= MAX_SATS + 1;
 		break;
-	default:
-		assert(false && "invalid policy");
 	}
 	tcase->policy.min_their_funding = fromwire_amount_sat_bounded(cursor, max);
 	tcase->policy.max_their_funding = fromwire_amount_sat_bounded(cursor, max);

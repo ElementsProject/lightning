@@ -231,7 +231,7 @@ void run(const uint8_t *data, size_t size) {
 			}
 			break;
 		}
-		default:
+		case OP_COUNT:
 			assert(false && "Unknown operation!");
 	}
 }

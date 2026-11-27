@@ -713,10 +713,40 @@ check-grpc-breaking:
 	echo "Checking gRPC protos against $$tag"; \
 	$(BUF) breaking cln-grpc/proto --against ".git#tag=$$tag,subdir=cln-grpc/proto"
 
+# Only lines added since BASE_REF are checked (doc/Makefile sets the
+# default): see tools/added-lines.sh.
+check-switch-default:
+	@tools/check-switch-default.py $(BASE_REF)
+
+check-comments:
+	@tools/check-comments.py $(BASE_REF)
+
+check-unused-functions:
+	@tools/check-unused-functions.py $(BASE_REF)
+
+check-take-parent:
+	@tools/check-take-parent.py $(BASE_REF)
+
+check-tab-indent:
+	@tools/check-tab-indent.py $(BASE_REF)
+
+# The message of each commit since BASE_REF.
+check-commit-msgs:
+	@tools/check-commit-msgs.py $(BASE_REF)
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking check-switch-default check-comments check-unused-functions check-take-parent check-tab-indent check-commit-msgs
 
 full-check: check check-source
+
+# Build, check-source, unit tests and touched integration tests on each
+# commit since BASE_REF: see tools/check-commits.sh.
+check-commits:
+	@uv run tools/check-commits.sh $(BASE_REF)
+
+# The same, with the whole integration suite on every commit.
+check-commits-full:
+	@CHECK_COMMITS_PYTEST=all uv run tools/check-commits.sh $(BASE_REF)
 
 # Simple target to be used on CI systems to check that all the derived
 # files were checked in and updated. It depends on the generated

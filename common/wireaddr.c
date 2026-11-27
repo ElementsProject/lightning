@@ -27,32 +27,11 @@ bool wireaddr_eq_without_port(const struct wireaddr *a, const struct wireaddr *b
 	return memeq(a->addr, a->addrlen, b->addr, b->addrlen);
 }
 
-enum fromwireaddr_ret fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
+/* Reads the address and port once addr->type and addr->addrlen are set. */
+static enum fromwireaddr_ret fromwire_wireaddr_rest(const u8 **cursor,
+						    size_t *max,
+						    struct wireaddr *addr)
 {
-	addr->type = fromwire_u8(cursor, max);
-	if (*cursor == NULL)
-		return FROMWIREADDR_MALFORMED;
-
-	switch (addr->type) {
-	case ADDR_TYPE_IPV4:
-		addr->addrlen = 4;
-		break;
-	case ADDR_TYPE_IPV6:
-		addr->addrlen = 16;
-		break;
-	case ADDR_TYPE_TOR_V2_REMOVED:
-		addr->addrlen = TOR_V2_ADDRLEN;
-		break;
-	case ADDR_TYPE_TOR_V3:
-		addr->addrlen = TOR_V3_ADDRLEN;
-		break;
-	case ADDR_TYPE_DNS:
-		addr->addrlen = fromwire_u8(cursor, max);
-		memset(&addr->addr, 0, sizeof(addr->addr));
-		break;
-	default:
-		return FROMWIREADDR_UNKNOWN;
-	}
 	fromwire(cursor, max, addr->addr, addr->addrlen);
 	addr->port = fromwire_u16(cursor, max);
 
@@ -82,6 +61,33 @@ enum fromwireaddr_ret fromwire_wireaddr(const u8 **cursor, size_t *max, struct w
 			return FROMWIREADDR_IGNORE;
 	}
 	return FROMWIREADDR_OK;
+}
+
+enum fromwireaddr_ret fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
+{
+	addr->type = fromwire_u8(cursor, max);
+	if (*cursor == NULL)
+		return FROMWIREADDR_MALFORMED;
+
+	switch (addr->type) {
+	case ADDR_TYPE_IPV4:
+		addr->addrlen = 4;
+		return fromwire_wireaddr_rest(cursor, max, addr);
+	case ADDR_TYPE_IPV6:
+		addr->addrlen = 16;
+		return fromwire_wireaddr_rest(cursor, max, addr);
+	case ADDR_TYPE_TOR_V2_REMOVED:
+		addr->addrlen = TOR_V2_ADDRLEN;
+		return fromwire_wireaddr_rest(cursor, max, addr);
+	case ADDR_TYPE_TOR_V3:
+		addr->addrlen = TOR_V3_ADDRLEN;
+		return fromwire_wireaddr_rest(cursor, max, addr);
+	case ADDR_TYPE_DNS:
+		addr->addrlen = fromwire_u8(cursor, max);
+		memset(&addr->addr, 0, sizeof(addr->addr));
+		return fromwire_wireaddr_rest(cursor, max, addr);
+	}
+	return FROMWIREADDR_UNKNOWN;
 }
 
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr)

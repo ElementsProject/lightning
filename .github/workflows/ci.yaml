@@ -58,17 +58,48 @@ jobs:
           echo "Base Ref: $BASE_REF"
           echo "PR DESCRIPTION: $PR_DESCRIPTION"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            if [[ "$PR_DESCRIPTION" != *"Changelog-None"* && \
-                  -z "$(git log origin/$BASE_REF..HEAD --oneline --grep='Changelog-')" && \
-                  "$(git rev-parse --abbrev-ref HEAD)" != "$BASE_REF" ]]; then
+            on_base=0
+            if [ "$(git rev-parse --abbrev-ref HEAD)" = "$BASE_REF" ]; then
+              on_base=1
+            fi
+            found=0
+            invalid=0
+            if ! commits=$(git rev-list "origin/${BASE_REF}..HEAD"); then
+              echo "::error::Cannot list commits origin/${BASE_REF}..HEAD"
+              exit 1
+            fi
+            # Same shape devtools/changelog.py keeps: class, colon, one space,
+            # then a nonempty entry.  Changelog-None is the opt-out, in a
+            # commit or in the PR body.  Any other Changelog- line is a typo
+            # which changelog.py would silently drop from the release notes.
+            valid='^[[:space:]]*Changelog-(Added|Changed|Deprecated|Fixed|Removed|Experimental): [^[:space:]]'
+            none='^[[:space:]]*Changelog-None([.[:space:]]*$|:)'
+            while IFS= read -r sha; do
+              [ -n "$sha" ] || continue
+              msg=$(git show -s --format=%B "$sha")
+              shopt -s nocasematch
+              while IFS= read -r line; do
+                if [[ "$line" =~ $valid ]] || [[ "$line" =~ $none ]]; then
+                  found=1
+                elif [[ "$line" =~ ^[[:space:]]*Changelog- ]]; then
+                  echo "::error::Malformed Changelog line in ${sha}: ${line}"
+                  invalid=1
+                fi
+              done <<< "$msg"
+              shopt -u nocasematch
+            done <<< "$commits"
+            if [ "$invalid" -eq 1 ]; then
+              exit 1
+            fi
+            if [[ "$PR_DESCRIPTION" == *"Changelog-None"* ]]; then
+              echo "Changelog found in PR description"
+            elif [ "$found" -eq 1 ]; then
+              echo "Changelog found in commit range origin/${BASE_REF}..HEAD"
+            elif [ "$on_base" -eq 1 ]; then
+              echo "HEAD is ${BASE_REF}; changelog check skipped"
+            else
               echo "::error::'Changelog' entry is missing in all commits, and 'Changelog-None' not specified in the PR description"
               exit 1
-            else
-              if [[ "$PR_DESCRIPTION" == *"Changelog-None"* ]]; then
-                echo "Changelog found in PR description"
-              else
-                echo "Changelog found in Commit \"$(git log origin/$BASE_REF..HEAD --oneline --grep='Changelog-')\""
-              fi
             fi
           else
             echo "Not a PR event."
@@ -101,7 +132,7 @@ jobs:
           VALGRIND: 0
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
-          uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref }}" GRPC_BREAKING_BASE_REF="origin/${{ github.base_ref || 'master' }}" CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
+          uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref || 'master' }}" GRPC_BREAKING_BASE_REF="origin/${{ github.base_ref || 'master' }}" CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
