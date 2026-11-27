@@ -1227,7 +1227,8 @@ void channel_gossip_channel_reestablished(struct channel *channel,
 	channel->reestablished = true;
 	tal_free(channel->stable_conn_timer);
 	channel->stable_conn_timer = new_reltimer(channel->peer->ld->timers,
-						  channel, time_from_sec(60),
+						  channel,
+						  time_from_sec(channel->peer->ld->dev_stable_connection_secs),
 						  channel_reestablished_stable,
 						  channel);
 

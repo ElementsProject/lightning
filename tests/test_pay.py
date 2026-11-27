@@ -1734,8 +1734,8 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l2])
 
-    # give time to let l2 store the local_failed stats
-    time.sleep(5)
+    # Wait for l2 to store all 5 local_failed stats
+    wait_for(lambda: len(l2.rpc.listforwards()['forwards']) == 5)
 
     # Select all forwardings, and check the status
     stats = l2.rpc.listforwards()
@@ -1862,8 +1862,8 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     r = l3.single_route(l4.info['id'], 10**8)
     l3.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
-    # Give them time to go through.
-    time.sleep(5)
+    # Wait for all three HTLCs to reach l4.
+    l4.daemon.wait_for_logs(['their htlc [0-9]+ dev_ignore_htlcs'] * 3)
 
     # Will all be connected OK.
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
@@ -5148,7 +5148,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     # Test timeout.
     l3.stop()
     with pytest.raises(RpcError, match='Timeout waiting for response'):
-        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 10})
+        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 2})
 
 
 def test_fetchinvoice_invoice_expiry(node_factory, bitcoind):
@@ -5158,7 +5158,8 @@ def test_fetchinvoice_invoice_expiry(node_factory, bitcoind):
     # l2 is the offer node; dev-currency-expiry=2 makes the currency window short.
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{},
-                                           {'plugin': plugin,
+                                           {'disable-plugin': 'cln-currencyrate',
+                                            'plugin': plugin,
                                             'dev-currency-expiry': 10}])
 
     # Plain msat offer: no currency, no absolute expiry → default expiry (7200).
@@ -5184,10 +5185,11 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts=[{}, {'dev-allow-localhost': None}, {}])
 
-    # Recurring offer.
+    # Recurring offer with a short period so we can test crossing period boundaries quickly.
+    period_secs = 45 if VALGRIND else (35 if SLOW_MACHINE else 8)
     offer3 = l2.rpc.call('offer', {'amount': '1msat',
                                    'description': 'recurring test',
-                                   'recurrence': '1minutes'})
+                                   'recurrence': f'{period_secs}seconds'})
     assert only_one(l2.rpc.call('listoffers', [offer3['offer_id']])['offers'])['used'] is False
 
     ret = l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
@@ -5195,8 +5197,8 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
                                        'recurrence_label': 'test recurrence'})
     period1 = ret['next_period']
     assert period1['counter'] == 1
-    assert period1['endtime'] == period1['starttime'] + 59
-    assert period1['paywindow_start'] == period1['starttime'] - 60
+    assert period1['endtime'] == period1['starttime'] + period_secs - 1
+    assert period1['paywindow_start'] == period1['starttime'] - period_secs
     assert period1['paywindow_end'] == period1['endtime']
     assert only_one(l2.rpc.call('listoffers', [offer3['offer_id']])['offers'])['used'] is False
 
@@ -5209,8 +5211,8 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     period2 = ret['next_period']
     assert period2['counter'] == 2
     assert period2['starttime'] == period1['endtime'] + 1
-    assert period2['endtime'] == period2['starttime'] + 59
-    assert period2['paywindow_start'] == period2['starttime'] - 60
+    assert period2['endtime'] == period2['starttime'] + period_secs - 1
+    assert period2['paywindow_start'] == period2['starttime'] - period_secs
     assert period2['paywindow_end'] == period2['endtime']
 
     # Can't request 2 before paying 1.
@@ -5229,32 +5231,34 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
 
     # Wait until the correct moment.
     while time.time() < period1['starttime']:
-        time.sleep(1)
+        time.sleep(0.2)
 
     l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                  'recurrence_counter': 2,
                                  'recurrence_label': 'test recurrence'})
 
-    # Now try an offer with a more complex paywindow (only 10 seconds before)
+    # Now try an offer with a more complex paywindow (half a period before)
+    pw_period = 20 if VALGRIND or SLOW_MACHINE else 8
+    pw_before = pw_period // 2
     offer = l2.rpc.call('offer', {'amount': '1msat',
                                   'description': 'paywindow test',
-                                  'recurrence': '20seconds',
-                                  'recurrence_paywindow': '-10+0'})['bolt12']
+                                  'recurrence': f'{pw_period}seconds',
+                                  'recurrence_paywindow': f'-{pw_before}+0'})['bolt12']
 
     ret = l1.rpc.call('fetchinvoice', {'offer': offer,
                                        'recurrence_counter': 0,
                                        'recurrence_label': 'test paywindow'})
     period3 = ret['next_period']
     assert period3['counter'] == 1
-    assert period3['endtime'] == period3['starttime'] + 19
-    assert period3['paywindow_start'] == period3['starttime'] - 10
+    assert period3['endtime'] == period3['starttime'] + pw_period - 1
+    assert period3['paywindow_start'] == period3['starttime'] - pw_before
     assert period3['paywindow_end'] == period3['starttime']
     l1.rpc.xpay(ret['invoice'], label='test paywindow')
 
     # We can get another invoice, as many times as we want.
     # (It may return the same one!).
     while int(time.time()) <= period3['paywindow_start']:
-        time.sleep(1)
+        time.sleep(0.2)
 
     l1.rpc.call('fetchinvoice', {'offer': offer,
                                  'recurrence_counter': 1,
@@ -5265,28 +5269,44 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
 
     # Wait until too late!
     while int(time.time()) <= period3['paywindow_end']:
-        time.sleep(1)
+        time.sleep(0.2)
 
     with pytest.raises(RpcError, match=fr"Remote node sent failure message.*period_index 1 too late \(ended {period3['paywindow_end']}\)"):
         l1.rpc.call('fetchinvoice', {'offer': offer,
                                      'recurrence_counter': 1,
                                      'recurrence_label': 'test paywindow'})
 
+    # Also check minute-unit recurrence parsing and next_period calculation
+    # without waiting a full minute.
+    offer_min = l2.rpc.call('offer', {'amount': '1msat',
+                                      'description': 'recurring minutes test',
+                                      'recurrence': '1minutes'})
+    ret_min = l1.rpc.call('fetchinvoice', {'offer': offer_min['bolt12'],
+                                           'recurrence_counter': 0,
+                                           'recurrence_label': 'test recurrence min'})
+    period_min = ret_min['next_period']
+    assert period_min['counter'] == 1
+    assert period_min['endtime'] == period_min['starttime'] + 59
+    assert period_min['paywindow_start'] == period_min['starttime'] - 60
+    assert period_min['paywindow_end'] == period_min['endtime']
+
 
 def test_recurrence_expired_offer(node_factory, bitcoind):
     """We *can* use an expired offer for successive recurrences"""
     l1, l2 = node_factory.line_graph(2)
 
+    expiry = 15 if VALGRIND or SLOW_MACHINE else 4
+    abs_expiry = int(time.time()) + expiry
     offer = l2.rpc.offer(amount='1msat',
                          description='paywindow test',
-                         recurrence='20seconds',
-                         absolute_expiry=int(time.time()) + 15)
+                         recurrence=f'{expiry + 5}seconds',
+                         absolute_expiry=abs_expiry)
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=0,
                               recurrence_label='test_recurrence_expired_offer')
     l1.rpc.xpay(ret['invoice'], label='test_recurrence_expired_offer')
 
-    time.sleep(16)
+    time.sleep(max(0, abs_expiry + 1 - time.time()))
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=1,
                               recurrence_label='test_recurrence_expired_offer')
@@ -5300,11 +5320,12 @@ def test_recurring_currency_invoice_refresh(node_factory):
 
     """
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
-    # l2 hosts the offer with a 10-second currency expiry (normally 600s)
+    currency_expiry = 10 if VALGRIND or SLOW_MACHINE else 3
+    # l2 hosts the offer with a short currency expiry (normally 600s)
     l1, l2 = node_factory.line_graph(2,
                                      opts={'disable-plugin': 'cln-currencyrate',
                                            'plugin': plugin,
-                                           'dev-currency-expiry': 10})
+                                           'dev-currency-expiry': currency_expiry})
 
     # Period is much longer than the currency expiry so we stay in period 0.
     offer = l2.rpc.call('offer', {'amount': '1USD',
@@ -5316,7 +5337,7 @@ def test_recurring_currency_invoice_refresh(node_factory):
                                         'recurrence_counter': 0,
                                         'recurrence_label': 'refresh'})['invoice']
 
-    # Second fetch within the 10-second window: server returns the same invoice.
+    # Second fetch within the currency-expiry window: server returns the same invoice.
     inv2 = l1.rpc.call('fetchinvoice', {'offer': offer,
                                         'recurrence_counter': 0,
                                         'recurrence_label': 'refresh'})['invoice']
@@ -5325,8 +5346,8 @@ def test_recurring_currency_invoice_refresh(node_factory):
     # Change the rate on l2 before the window expires (1 USD = 2500 msat now).
     l2.rpc.call('setcurrencyrate', {'msat_per_unit': 2500})
 
-    # Wait for the 10-second currency expiry to lapse.
-    time.sleep(11)
+    # Wait for the currency expiry to lapse.
+    time.sleep(currency_expiry + 1)
 
     # Third fetch after expiry: server issues a fresh invoice at the new rate.
     inv3 = l1.rpc.call('fetchinvoice', {'offer': offer,
@@ -5724,8 +5745,9 @@ def test_setchannel_enforcement_delay(node_factory, bitcoind):
                    payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
 
-    # Now, give us 30 seconds please.
-    l2.rpc.setchannel("all", 3, 10000, enforcedelay=30)
+    # Now, give us a short grace period before enforcing the new fee.
+    delay = 15 if VALGRIND or SLOW_MACHINE else 3
+    l2.rpc.setchannel("all", 3, 10000, enforcedelay=delay)
     inv = l3.rpc.invoice(1000, "test4", "test4")
     l1.rpc.sendpay(route,
                    payment_hash=inv['payment_hash'],
@@ -5733,7 +5755,7 @@ def test_setchannel_enforcement_delay(node_factory, bitcoind):
     l1.rpc.waitsendpay(inv['payment_hash'])
     l2.daemon.wait_for_log("Allowing payment using older feerate")
 
-    time.sleep(30)
+    time.sleep(delay + 1)
     inv = l3.rpc.invoice(1000, "test5", "test5")
     l1.rpc.sendpay(route,
                    payment_hash=inv['payment_hash'],
@@ -5947,6 +5969,7 @@ def test_pay_middle_fail(node_factory, bitcoind, executor):
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 @pytest.mark.parametrize("old_hsmsecret", [True, False])
 @pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
 def test_payerkey(node_factory, old_hsmsecret):
     """payerkey calculation should not change across releases!"""
     nodes = node_factory.get_nodes(7, opts={'old_hsmsecret': old_hsmsecret})

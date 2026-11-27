@@ -2939,6 +2939,7 @@ def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db
     # Let's just call it again to make sure it really works.
     l1.rpc.listconfigs()
     l1.stop()
+    db.stop()
 
 
 def test_waitblockheight(node_factory, executor, bitcoind):
@@ -3904,6 +3905,7 @@ def test_version_reexec(node_factory, bitcoind):
     # We use a file to tell our openingd wrapper where the real one is
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-real"), 'w') as f:
         f.write(os.path.abspath('lightningd/lightning_openingd'))
+    l1.daemon.opts.pop('dev-no-version-checks', None)
     l1.start()
     # This is a "version" message
     verfile = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-version")

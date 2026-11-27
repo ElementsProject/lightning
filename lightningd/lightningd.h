@@ -341,6 +341,9 @@ struct lightningd {
 	/* For slow tests (eg protocol tests) don't die if HTLC not
 	 * committed in 30 secs */
 	bool dev_no_htlc_timeout;
+	u32 dev_htlc_offer_timeout_secs;
+	u32 dev_plugin_startup_timeout_secs;
+	u32 dev_stable_connection_secs;
 
 	bool dev_no_version_checks;
 

@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND
 from utils import only_one, wait_for, wait_channel_quiescent, mine_funding_to_announce, TIMEOUT
 
 
@@ -407,28 +408,26 @@ def test_invoice_expiry(node_factory, executor):
 
     # Test expiration waiting.
     # The second invoice created expires first.
-    # Times should be long enough even for our terrible CI runners!
-    l2.rpc.invoice('any', 'inv1', 'description', 16)
-    l2.rpc.invoice('any', 'inv2', 'description', 10)
-    l2.rpc.invoice('any', 'inv3', 'description', 22)
+    unit = 5 if VALGRIND or SLOW_MACHINE else 2
+    l2.rpc.invoice('any', 'inv1', 'description', unit * 3)
+    l2.rpc.invoice('any', 'inv2', 'description', unit * 2)
+    l2.rpc.invoice('any', 'inv3', 'description', unit * 4)
 
     # Check waitinvoice correctly waits
     w1 = executor.submit(l2.rpc.waitinvoice, 'inv1')
     w2 = executor.submit(l2.rpc.waitinvoice, 'inv2')
     w3 = executor.submit(l2.rpc.waitinvoice, 'inv3')
-    time.sleep(2)  # total 2
+    time.sleep(unit)
     assert not w1.done()
     assert not w2.done()
     assert not w3.done()
-    time.sleep(7)  # total 9
-    assert not w1.done()
 
-    with pytest.raises(RpcError):  # total 10
+    with pytest.raises(RpcError):
         w2.result()
+    assert not w1.done()
     assert not w3.done()
 
-    time.sleep(5)  # total 15
-    with pytest.raises(RpcError):  # total 16
+    with pytest.raises(RpcError):
         w1.result()
     assert not w3.done()
 
@@ -996,10 +995,11 @@ def test_expiry_startup_crash(node_factory, bitcoind):
     """We crash trying to expire invoice on startup"""
     l1 = node_factory.get_node()
 
-    l1.rpc.invoice(42, 'invlabel', 'invdesc', expiry=10)
+    expiry = 10 if VALGRIND or SLOW_MACHINE else 2
+    inv = l1.rpc.invoice(42, 'invlabel', 'invdesc', expiry=expiry)
     l1.stop()
 
-    time.sleep(12)
+    time.sleep(max(0, inv['expires_at'] + 1 - time.time()))
     # Boom!:
     # 0x55eddb820d30 wait_index_increment
     # 	lightningd/wait.c:112
@@ -1016,6 +1016,7 @@ def test_expiry_startup_crash(node_factory, bitcoind):
     # 0x55eddb7dca6f main
     # 	lightningd/lightningd.c:1082
     l1.start()
+    assert only_one(l1.rpc.listinvoices('invlabel')['invoices'])['status'] == 'expired'
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")

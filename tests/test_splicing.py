@@ -4,7 +4,6 @@ import os
 import pytest
 import threading
 import unittest
-import time
 from utils import (
     sync_blockheight, wait_for, TEST_NETWORK, first_scid, only_one
 )
@@ -49,7 +48,7 @@ def test_splice(node_factory, bitcoind):
     l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -295,7 +294,7 @@ def test_splice_rbf(node_factory, bitcoind):
     l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -436,7 +435,7 @@ def test_splice_gossip(node_factory, bitcoind):
     assert len(l3.rpc.listchannels(short_channel_id=post_splice_scid)['channels']) == 2
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
     # Still looks normal from both sides
@@ -521,7 +520,7 @@ def test_splice_out(node_factory, bitcoind):
     l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -578,7 +577,7 @@ def test_invalid_splice(node_factory, bitcoind):
     l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -621,15 +620,13 @@ def test_commit_crash_splice(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
-    time.sleep(5)
-
-    assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0
+    wait_for(lambda: l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0)
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
     l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -676,7 +673,7 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 

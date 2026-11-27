@@ -1105,7 +1105,8 @@ def test_xpay_currency_offer(node_factory):
     """Test that xpay and sendamount correctly report the currency name when rejecting non-msat offers."""
     plugin = Path(__file__).parent / "plugins" / "currencyUSDAUD5000.py"
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts=[{}, {'plugin': str(plugin)}])
+                                     opts=[{}, {'disable-plugin': 'cln-currencyrate',
+                                                'plugin': str(plugin)}])
 
     offerusd = l2.rpc.offer('10USD', 'USD test')['bolt12']
 
@@ -1156,20 +1157,86 @@ def test_xpay_shadow_cltv(node_factory, bitcoind):
     assert l2.daemon.is_in_log(f"Adding HTLC .* amount=10000msat cltv={expected_cltv} gave CHANNEL_ERR_ADD_OK")
 
 
+def open_channels(connections, fundamount=FUNDAMOUNT, wait_for_announce=False, announce_channels=True):
+    """Connect peers and open all channels in a single batched funding/confirm cycle."""
+    assert not (wait_for_announce and not announce_channels)
+    nodes = list(dict.fromkeys(n for pair in connections for n in pair))
+    bitcoind = nodes[0].bitcoin
+
+    seen_pairs = set()
+    for src, dst in connections:
+        pair_key = (min(src.info['id'], dst.info['id']), max(src.info['id'], dst.info['id']))
+        if pair_key not in seen_pairs:
+            src.rpc.connect(dst.info['id'], 'localhost', dst.port)
+            seen_pairs.add(pair_key)
+
+    # Give each funder one confirmed UTXO per outgoing channel in a single tx.
+    outputs = {}
+    amount_btc = round((fundamount + 1000000) / 10**8, 8)
+    for src, _ in connections:
+        addr = src.rpc.newaddr('bech32')['bech32']
+        outputs[addr] = amount_btc
+    bitcoind.rpc.sendmany("", outputs)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, nodes)
+
+    txids = []
+    channel_ids = []
+    for src, dst in connections:
+        fc = src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)
+        txids.append(fc['txid'])
+        channel_ids.append(fc['channel_id'])
+
+    bitcoind.generate_block(1, wait_for_mempool=txids)
+    scids = []
+    for (src, dst), cid in zip(connections, channel_ids):
+        wait_for(lambda: only_one([c for c in src.rpc.listpeerchannels(dst.info['id'])['channels']
+                                   if c['channel_id'] == cid])['state'] == 'CHANNELD_NORMAL')
+        scid = only_one([c for c in src.rpc.listpeerchannels(dst.info['id'])['channels']
+                         if c['channel_id'] == cid])['short_channel_id']
+        scids.append((src, dst, scid))
+
+    for src, dst, scid in scids:
+        src.wait_local_channel_active(scid)
+        dst.wait_local_channel_active(scid)
+
+    if not wait_for_announce:
+        return
+
+    bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, nodes)
+
+    scid_set = {scid for _, _, scid in scids}
+    for n in nodes:
+        wait_for(lambda: sum(
+            1 for c in n.rpc.listchannels()['channels']
+            if c['short_channel_id'] in scid_set and c['active']
+        ) == len(scid_set) * 2)
+
+    node_ids = {n.info['id'] for n in nodes}
+    for n in nodes:
+        wait_for(lambda: sum(
+            1 for x in n.rpc.listnodes()['nodes']
+            if x['nodeid'] in node_ids and 'alias' in x
+        ) == len(node_ids))
+
+
 @pytest.mark.xdist_group("heavy")
 def test_xpay_limited_max_accepted_htlcs(node_factory):
     """xpay should try to reduce flows to 6 if there is an unannounced channel, and only try more if that fails"""
     CHANNEL_SIZE_SATS = 10**6
-    l1, l2 = node_factory.line_graph(2,
-                                     fundamount=CHANNEL_SIZE_SATS * 20,
-                                     opts=[{}, {'max-concurrent-htlcs': 6}],
-                                     announce_channels=False)
+    l1, l2, l3, *nodes = node_factory.get_nodes(
+        10, opts=[{}, {'max-concurrent-htlcs': 6}] + [{}] * 8
+    )
+    node_factory.join_nodes([l1, l2],
+                            fundamount=CHANNEL_SIZE_SATS * 20,
+                            announce_channels=False)
 
-    # We want 10 paths between l3 and l1.
-    l3 = node_factory.get_node()
-    nodes = node_factory.get_nodes(10)
-    for n in nodes:
-        node_factory.join_nodes([l3, n, l1], fundamount=CHANNEL_SIZE_SATS)
+    # We want 7 announced paths between l3 and l1 (exceeding l2's 6 HTLC limit).
+    open_channels([(l3, n) for n in nodes] + [(n, l1) for n in nodes],
+                  fundamount=CHANNEL_SIZE_SATS,
+                  wait_for_announce=True)
 
     # We don't want to use up capacity, so we make payment fail.
     inv1 = l1.rpc.invoice(f"{CHANNEL_SIZE_SATS * 5}sat",
@@ -1236,7 +1303,7 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
 
     # This will wait, then fail.
     with pytest.raises(RpcError, match=f'Timed out waiting for blockheight {l3_height}'):
-        l1.rpc.xpay(invstring=inv, retry_for=10, dev_use_shadow=False)
+        l1.rpc.xpay(invstring=inv, retry_for=2, dev_use_shadow=False)
 
     # This will succeed, because we wait for the blocks.
     fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=60, dev_use_shadow=False)
@@ -1746,6 +1813,7 @@ def test_xpay_maxhops(node_factory, bitcoind):
 
 @pytest.mark.slow_test
 @unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+@pytest.mark.xdist_group("heavy")
 def test_xpay_maxhops_bolt11(node_factory, chainparams):
     """A bolt11 final payload that no longer fits the cheap route forces the short one.
 
@@ -1841,6 +1909,7 @@ def test_xpay_maxhops_bolt11(node_factory, chainparams):
     assert ret["amount_sent_msat"] - amount > 1000
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     """Issue 9590: repeated unknown_next_peer must exclude the next node.
 
@@ -1861,9 +1930,13 @@ def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
                  {},
                  {},
                  {}])
-    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
-    for spoke in (a, b, c, d):
-        node_factory.join_nodes([hub, spoke, dest], fundamount=10**6, wait_for_announce=True)
+    open_channels(
+        [(payer, hub)]
+        + [(hub, spoke) for spoke in (a, b, c, d)]
+        + [(spoke, dest) for spoke in (a, b, c, d)],
+        fundamount=10**6,
+        wait_for_announce=True,
+    )
 
     wait_for(lambda: len(payer.rpc.listchannels()['channels']) >= 9 * 2)
 
@@ -1900,16 +1973,14 @@ def setup_failing_hub(node_factory, num_spokes, alt_ppm,
                 return {"result": "continue"}
             return {"result": "fail", "failure_message": failure_message}
 
-    payer = node_factory.get_node()
     hub = node_factory.get_node(inline_plugin=setup)
-    alt, altspoke, dest, *spokes = node_factory.get_nodes(3 + num_spokes)
-    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
-    for spoke in spokes:
-        node_factory.join_nodes(
-            [hub, spoke, dest], fundamount=10**6, wait_for_announce=True
-        )
-    node_factory.join_nodes(
-        [payer, alt, altspoke, dest], fundamount=10**6, wait_for_announce=True
+    payer, alt, altspoke, dest, *spokes = node_factory.get_nodes(4 + num_spokes)
+    open_channels(
+        [(payer, hub), (payer, alt), (alt, altspoke), (altspoke, dest)]
+        + [(hub, spoke) for spoke in spokes]
+        + [(spoke, dest) for spoke in spokes],
+        fundamount=10**6,
+        wait_for_announce=True,
     )
 
     alt.rpc.setchannel(altspoke.info["id"], feebase=1, feeppm=alt_ppm)
@@ -1928,6 +1999,7 @@ def setup_failing_hub(node_factory, num_spokes, alt_ppm,
     return payer, hub, alt, dest
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
     """A hub repeatedly returning fee_insufficient gets a node bias.
 
@@ -1954,6 +2026,7 @@ def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
     assert "fee_insufficient" in node_bias["description"]
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_fee_insufficient_disable(node_factory, bitcoind):
     """A hub repeatedly returning fee_insufficient gets disabled.
 
@@ -1981,6 +2054,7 @@ def test_xpay_fee_insufficient_disable(node_factory, bitcoind):
     assert line.count("fee_insufficient on") == 4, line
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_failing_node_tolerance(node_factory, bitcoind):
     """xpay-failing-node-tolerance controls when a failing node is disabled."""
     payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=5000)
@@ -2018,6 +2092,7 @@ def test_xpay_failing_node_tolerance(node_factory, bitcoind):
     assert not payer.daemon.is_in_log(disabled, start=start)
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_failing_node_nonfinal(node_factory, bitcoind):
     """If an intermediate node returns an error that is meant for the final,
     then we disable that node right away regardless of the value of
@@ -2052,15 +2127,17 @@ def test_xpay_failing_node_nonfinal(node_factory, bitcoind):
 def test_xpay_maxparts(node_factory):
     """xpay's maxparts option limits the number of parts"""
     CHANNEL_SIZE_SATS = 10**6
-    l1, l2 = node_factory.line_graph(
-        2, fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
+    l1, l2, l3, *nodes = node_factory.get_nodes(13)
+    node_factory.join_nodes(
+        [l1, l2], fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
     )
 
     # We want 10 paths between l3 and l1.
-    l3 = node_factory.get_node()
-    nodes = node_factory.get_nodes(10)
-    for n in nodes:
-        node_factory.join_nodes([l3, n, l1], fundamount=CHANNEL_SIZE_SATS)
+    open_channels(
+        [(l3, n) for n in nodes] + [(n, l1) for n in nodes],
+        fundamount=CHANNEL_SIZE_SATS,
+        wait_for_announce=True,
+    )
 
     def failing_invoice(node, amount_sat, label):
         """Invoice which fails at the destination, so we don't use up capacity"""
@@ -2212,7 +2289,7 @@ def receive_maxparts_plugin(plugin):
 
         parts = held.setdefault(phash, [])
         parts.append((htlc, request))
-        maxparts = plugin.get_option("receive_maxparts")
+        maxparts = int(plugin.get_option("receive_maxparts"))
         if maxparts and len(parts) > maxparts:
             plugin.log(
                 f"Rejecting {phash}: {len(parts)} parts exceeds receive_maxparts={maxparts}"
@@ -2231,9 +2308,12 @@ def receive_maxparts_plugin(plugin):
 
 @pytest.mark.slow_test
 @pytest.mark.xdist_group("heavy")
-@pytest.mark.parametrize(
-    "receive_maxparts,amount_sat",
-    [
+def test_xpay_maxparts_receiver_limit(node_factory):
+    """Destination refuses payments in more than receive_maxparts parts:
+    without maxparts xpay fails, with maxparts it succeeds"""
+    NUM_PATHS = 12
+    CHANNEL_SIZE_SATS = 10**6
+    cases = [
         (7, 5_000_000),
         (6, 5_000_000),
         (5, 4_000_000),
@@ -2241,45 +2321,76 @@ def receive_maxparts_plugin(plugin):
         (3, 2_000_000),
         (2, 1_500_000),
         (1, 900_000),
-    ],
-)
-def test_xpay_maxparts_receiver_limit(node_factory, receive_maxparts, amount_sat):
-    """Destination refuses payments in more than receive_maxparts parts:
-    without maxparts xpay fails, with maxparts it succeeds"""
-    NUM_PATHS = 12
-    CHANNEL_SIZE_SATS = 10**6
-    l1 = node_factory.get_node()
+    ]
     l2 = node_factory.get_node(
         inline_plugin=receive_maxparts_plugin,
-        options={"receive_maxparts": receive_maxparts},
+        options={"receive_maxparts": cases[0][0]},
     )
+    l1, *nodes = node_factory.get_nodes(1 + NUM_PATHS)
     # NUM_PATHS disjoint paths between l1 and l2.
-    for n in node_factory.get_nodes(NUM_PATHS):
-        node_factory.join_nodes(
-            [l1, n, l2], fundamount=CHANNEL_SIZE_SATS, wait_for_announce=True
-        )
+    open_channels(
+        [(l1, n) for n in nodes] + [(n, l2) for n in nodes],
+        fundamount=CHANNEL_SIZE_SATS,
+        wait_for_announce=True,
+    )
 
     def num_flows():
         line = l1.daemon.wait_for_log(r"Final answer has [0-9]+ flows")
         return int(re.search(r"Final answer has ([0-9]+) flows", line).group(1))
 
-    # Unconstrained, xpay splits into more parts than the destination accepts.
-    inv = l2.rpc.invoice(f"{amount_sat}sat", "unconstrained", "unconstrained")["bolt11"]
-    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
-        l1.rpc.xpay(invstring=inv, maxparts=0)
-    assert num_flows() > receive_maxparts
-    l2.daemon.wait_for_log(f"exceeds receive_maxparts={receive_maxparts}")
-    wait_for(lambda: l1.rpc.askrene_listreservations() == {"reservations": []})
+    for receive_maxparts, amount_sat in cases:
+        l2.rpc.setconfig("receive_maxparts", receive_maxparts)
+        l1.rpc.askrene_age("xpay", int(time.time()))
 
-    # Respecting the destination's limit, it succeeds.
-    inv = l2.rpc.invoice(f"{amount_sat}sat", "constrained", "constrained")["bolt11"]
-    ret = l1.rpc.xpay(invstring=inv, maxparts=receive_maxparts)
-    assert ret["amount_msat"] == amount_sat * 1000
-    assert ret["failed_parts"] == 0
-    assert ret["successful_parts"] <= receive_maxparts
-    assert num_flows() <= receive_maxparts
-    l2.daemon.wait_for_log("Accepting .* in [0-9]+ parts")
-    assert only_one(l2.rpc.listinvoices("constrained")["invoices"])["status"] == "paid"
+        # Unconstrained, xpay splits into more parts than the destination accepts.
+        unconstrained_lbl = f"unconstrained-{receive_maxparts}"
+        inv = l2.rpc.invoice(f"{amount_sat}sat", unconstrained_lbl, unconstrained_lbl)["bolt11"]
+        with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+            l1.rpc.xpay(invstring=inv, maxparts=0)
+        assert num_flows() > receive_maxparts
+        l2.daemon.wait_for_log(f"exceeds receive_maxparts={receive_maxparts}")
+        wait_for(lambda: l1.rpc.askrene_listreservations() == {"reservations": []})
+
+        # Respecting the destination's limit, it succeeds.
+        constrained_lbl = f"constrained-{receive_maxparts}"
+        inv = l2.rpc.invoice(f"{amount_sat}sat", constrained_lbl, constrained_lbl)["bolt11"]
+        ret = l1.rpc.xpay(invstring=inv, maxparts=receive_maxparts)
+        assert ret["amount_msat"] == amount_sat * 1000
+        assert ret["failed_parts"] == 0
+        assert ret["successful_parts"] <= receive_maxparts
+        assert num_flows() <= receive_maxparts
+        l2.daemon.wait_for_log("Accepting .* in [0-9]+ parts")
+        assert only_one(l2.rpc.listinvoices(constrained_lbl)["invoices"])["status"] == "paid"
+
+        # Rebalance used paths back to l1 so the next case sees fresh capacity.
+        for i, n in enumerate(nodes):
+            chan_l2_n = only_one(l2.rpc.listpeerchannels(n.info["id"])["channels"])
+            send_back_msat = int(Millisatoshi(chan_l2_n["spendable_msat"])) - 10_000_000
+            if send_back_msat > 10_000_000:
+                chan_n_l1 = only_one(n.rpc.listpeerchannels(l1.info["id"])["channels"])
+                rebal_inv = l1.rpc.invoice(
+                    send_back_msat, f"rebal-{receive_maxparts}-{i}", "rebal"
+                )
+                route = [
+                    {
+                        "id": n.info["id"],
+                        "channel": chan_l2_n["short_channel_id"],
+                        "amount_msat": send_back_msat + 1_000_000,
+                        "delay": 30,
+                    },
+                    {
+                        "id": l1.info["id"],
+                        "channel": chan_n_l1["short_channel_id"],
+                        "amount_msat": send_back_msat,
+                        "delay": 15,
+                    },
+                ]
+                l2.rpc.sendpay(
+                    route,
+                    rebal_inv["payment_hash"],
+                    payment_secret=rebal_inv["payment_secret"],
+                )
+                l2.rpc.waitsendpay(rebal_inv["payment_hash"])
 
 
 @pytest.mark.slow_test
@@ -2289,14 +2400,22 @@ def test_xpay_maxparts_unannounced_retry(node_factory):
     retries with the user's larger maxparts."""
     NUM_PATHS = 12
     CHANNEL_SIZE_SATS = 10**6
-    l1, l2 = node_factory.line_graph(
-        2, fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
+    l1, l2, l3, *nodes = node_factory.get_nodes(3 + NUM_PATHS)
+    node_factory.join_nodes(
+        [l1, l2], fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
     )
-    l3 = node_factory.get_node()
-    for n in node_factory.get_nodes(NUM_PATHS):
-        node_factory.join_nodes(
-            [l3, n, l1], fundamount=CHANNEL_SIZE_SATS, wait_for_announce=True
-        )
+    open_channels(
+        [(l3, n) for n in nodes] + [(n, l1) for n in nodes],
+        fundamount=CHANNEL_SIZE_SATS,
+        wait_for_announce=True,
+    )
+
+    # Wait for l2 to learn l1's public channels via gossip so listincoming
+    # reports incoming capacity and invoice() includes the l1->l2 routehint.
+    wait_for(
+        lambda: len(l2.rpc.listchannels(source=l1.info["id"])["channels"])
+        == NUM_PATHS
+    )
 
     # 7M sat needs more than 6 of the one-million-sat paths, but fits in the
     # 10 parts the user allows.

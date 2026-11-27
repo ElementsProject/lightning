@@ -811,10 +811,11 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			      partid, groupid, in);
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
-	/* Give channel 30 seconds to commit this htlc. */
+	/* Give channel dev_htlc_offer_timeout_secs (default 30s) to commit this htlc. */
 	if (!out->peer->ld->dev_no_htlc_timeout) {
 		(*houtp)->timeout = new_reltimer(out->peer->ld->timers,
-						 *houtp, time_from_sec(30),
+						 *houtp,
+						 time_from_sec(out->peer->ld->dev_htlc_offer_timeout_secs),
 						 htlc_offer_timeout,
 						 *houtp);
 	}

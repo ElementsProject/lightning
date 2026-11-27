@@ -737,7 +737,7 @@ static struct command_result *getutxout(struct command *cmd,
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_sats(response, "amount", output.amount);
-	json_add_string(response, "script", tal_hex(response, output.script));
+	json_add_string(response, "script", tal_hex(tmpctx, output.script));
 
 	return command_finished(cmd, response);
 }

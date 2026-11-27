@@ -2,7 +2,7 @@ import logging
 import pytest
 import threading
 import time
-from utils import wait_for, only_one
+from utils import wait_for, only_one, VALGRIND
 from pyln.client import RpcError
 from fixtures import *  # noqa: F401,F403
 from flask import Flask, jsonify, request
@@ -131,7 +131,7 @@ def fake_rateserver():
     state = {
         "fast": 100_000_000,
         "slow": 50_000_000,
-        "slow_delay": 1,
+        "slow_delay": 0.2,
         "too_high": 50_000.0116,
         "too_low": 50_000.0114,
         "midpoint": 50_000.0115,
@@ -246,8 +246,9 @@ def test_bkpr_listaccountevents_realtime(node_factory, fake_rateserver):
     # We want this event in the list, so wait until it's totally closed.
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
-    # We could put a log msg inside bookkeeper, but that's spammy.
-    time.sleep(10)
+    # Wait until bookkeeper finishes looking up and persisting the rate
+    # asynchronously, without calling any bkpr RPC command first.
+    wait_for(lambda: l1.rpc.listdatastore(['bookkeeper', 'currencyrate', 'USD'])['datastore'] != [])
 
     # Change rates.  But old ones should be used!
     fake_rateserver["state"]["fast"] = 200_000_000
@@ -344,8 +345,8 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
     fake_rateserver["state"]["slow"] = 150_000_000
     new_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
 
-    # CLN caches rates for 60s
-    time.sleep(61)
+    # Restart cleared cln-currencyrate's cache; wait 1s so inv2 gets a new timestamp.
+    time.sleep(1)
 
     new_events = l1.rpc.bkpr_listaccountevents()["events"]
     assert new_events == events
@@ -379,12 +380,14 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
 
 
 def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
+    tolerance = 5 if VALGRIND else 2
     opts = {
         "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
         ],
+        "dev-bkpr-currencyrate-tolerance": tolerance,
         'may_reconnect': True,
         'broken_log': "too old for current USD currencyrate",
     }
@@ -397,7 +400,7 @@ def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
     events = l1.rpc.bkpr_listaccountevents()["events"]
     assert events
     assert all("currencyrate" not in e for e in events)
-    time.sleep(61)
+    time.sleep(tolerance + 1)
 
     # 2. Enable bkpr-currency. This historical backfill case should not warn (transient)
     l1.rpc.setconfig("bkpr-currency", "USD", True)
@@ -415,18 +418,24 @@ def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
 
     # 3. Stop bookkeeper so new events will not be processed yet (not a dynamic plugin!)
     l1.daemon.opts['disable-plugin'] = "bookkeeper"
+    del l1.daemon.opts['dev-bkpr-currencyrate-tolerance']
     l1.restart()
     l1.connect(l2)
 
     # 4. Create new events while bookkeeper is stopped, then let them go stale.
+    # Ensure inv3 lands in a strictly newer Unix second than inv2 so inv2's
+    # 1-second cached currencyrate entry doesn't cover it.
+    last_ts = new_events[-1]["timestamp"]
+    wait_for(lambda: int(time.time()) > last_ts)
     inv3 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_warns_old_3", "desc")
     l1.rpc.xpay(inv3["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
-    time.sleep(61)
+    time.sleep(tolerance + 1)
 
     # 5. Restart with bookkeeper (with currency)
     del l1.daemon.opts['disable-plugin']
     l1.daemon.opts['bkpr-currency'] = "USD"
+    l1.daemon.opts['dev-bkpr-currencyrate-tolerance'] = tolerance
     l1.restart()
 
     # 6. It should now complain about processing stale events with conversion enabled.
@@ -499,14 +508,16 @@ def test_currencyrate_rounding(node_factory, fake_rateserver):
         ("midpoint", f"{fake_rateserver['url']}/midpoint", 50_000.012),
     ]
 
-    for source_name, url, expected in cases:
-        opts = {
-            "currencyrate-disable-source": ALL_RESOURCES,
-            "currencyrate-add-source": [f"{source_name},{url},price"],
-        }
-        l1 = node_factory.get_node(options=opts)
+    opts = {
+        "currencyrate-disable-source": ALL_RESOURCES,
+        "currencyrate-add-source": [
+            f"{source_name},{url},price" for source_name, url, _ in cases
+        ],
+    }
+    l1 = node_factory.get_node(options=opts)
 
-        result = l1.rpc.currencyrate("USD")
+    for source_name, _, expected in cases:
+        result = l1.rpc.call("currencyrate", ["USD", source_name])
         LOGGER.info("currencyrate rounding [%s]: %s", source_name, result)
         rate = result["rate"]
 
@@ -518,8 +529,6 @@ def test_currencyrate_rounding(node_factory, fake_rateserver):
         assert abs(rate - expected) < 1e-9, (
             f"[{source_name}] Expected {expected} after rounding, got {rate!r}"
         )
-
-        l1.stop()
 
 
 def test_currencyrate_source(node_factory, fake_rateserver):

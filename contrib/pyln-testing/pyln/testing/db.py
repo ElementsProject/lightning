@@ -10,6 +10,7 @@ import signal
 import sqlite3
 import string
 import subprocess
+import threading
 import time
 from typing import Dict, List, Optional, Union
 
@@ -76,13 +77,15 @@ class PostgresDb(BaseDb):
         self.dbname = dbname
         self.port = port
         self.provider = None
+        self._conn = None
 
-        self.conn = psycopg2.connect("dbname={dbname} user=postgres host=localhost port={port}".format(
-            dbname=dbname, port=port
-        ))
-        cur = self.conn.cursor()
-        cur.execute('SELECT 1')
-        cur.close()
+    @property
+    def conn(self):
+        if self._conn is None or self._conn.closed:
+            self._conn = psycopg2.connect(
+                f"dbname={self.dbname} user=postgres host=localhost port={self.port}"
+            )
+        return self._conn
 
     def get_dsn(self):
         return "postgres://postgres:password@localhost:{port}/{dbname}".format(
@@ -117,11 +120,19 @@ class PostgresDb(BaseDb):
     def stop(self):
         """Clean up the database.
         """
-        self.conn.close()
-        conn = psycopg2.connect("dbname=postgres user=postgres host=localhost port={self.port}")
-        cur = conn.cursor()
-        cur.execute("DROP DATABASE {};".format(self.dbname))
-        cur.close()
+        if self._conn is not None and not self._conn.closed:
+            self._conn.close()
+        self._conn = None
+        if self.provider is not None:
+            self.provider.drop_db(self.dbname)
+            return
+        conn = psycopg2.connect(f"dbname=postgres user=postgres host=localhost port={self.port}")
+        try:
+            conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+            with conn.cursor() as cur:
+                cur.execute(f"DROP DATABASE IF EXISTS {self.dbname};")
+        finally:
+            conn.close()
 
     def wipe_db(self):
         cur = self.conn.cursor()
@@ -144,8 +155,40 @@ class SqliteDbProvider(object):
         )
         return Sqlite3Db(path)
 
+    def drop_db(self, dbname: str) -> None:
+        pass
+
     def stop(self) -> None:
         pass
+
+
+class ScopedDbProvider(object):
+    """Per-test wrapper around a session-scoped DbProvider that cleans up
+    databases created during a single test."""
+
+    def __init__(self, provider) -> None:
+        self._provider = provider
+        self._lock = threading.Lock()
+        self._dbs: List[BaseDb] = []
+
+    def get_db(self, node_directory: str, testname: str, node_id: int):
+        db = self._provider.get_db(node_directory, testname, node_id)
+        db.provider = self
+        with self._lock:
+            self._dbs.append(db)
+        return db
+
+    def drop_db(self, dbname: str) -> None:
+        self._provider.drop_db(dbname)
+
+    def cleanup(self) -> None:
+        with self._lock:
+            dbs, self._dbs = self._dbs, []
+        for db in dbs:
+            db.stop()
+
+    def __getattr__(self, name):
+        return getattr(self._provider, name)
 
 
 class PostgresDbProvider(object):
@@ -156,6 +199,8 @@ class PostgresDbProvider(object):
         self.directory = directory
         self.port = None
         self.proc = None
+        self.conn = None
+        self.lock = threading.Lock()
         print("Starting PostgresDbProvider")
 
     def locate_path(self):
@@ -203,7 +248,13 @@ class PostgresDbProvider(object):
         ])
         conffile = os.path.join(self.pgdir, 'postgresql.conf')
         with open(conffile, 'a') as f:
-            f.write('max_connections = 1000\nshared_buffers = 240MB\n')
+            f.write(
+                'max_connections = 1000\n'
+                'shared_buffers = 240MB\n'
+                'synchronous_commit = off\n'
+                'full_page_writes = off\n'
+                'checkpoint_timeout = 30min\n'
+            )
 
         self.port = reserve_unused_port()
         self.proc = subprocess.Popen([
@@ -216,12 +267,16 @@ class PostgresDbProvider(object):
         ])
         # Hacky but seems to work ok (might want to make the postgres proc a
         # TailableProc as well if too flaky).
-        for i in range(30):
+        last_err = None
+        for i in range(300):
             try:
                 self.conn = psycopg2.connect("dbname=template1 user=postgres host=localhost port={}".format(self.port))
                 break
-            except Exception:
-                time.sleep(0.5)
+            except Exception as e:
+                last_err = e
+                time.sleep(0.05)
+        if self.conn is None:
+            raise last_err
 
         # Required for CREATE DATABASE to work
         self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
@@ -242,11 +297,28 @@ class PostgresDbProvider(object):
         nonce = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
         dbname = self.db_name(testname, node_id, nonce)
 
-        cur = self.conn.cursor()
-        cur.execute("CREATE DATABASE {};".format(dbname))
-        cur.close()
+        with self.lock:
+            cur = self.conn.cursor()
+            cur.execute("CREATE DATABASE {};".format(dbname))
+            cur.close()
         db = PostgresDb(dbname, self.port)
         return db
+
+    def drop_db(self, dbname):
+        with self.lock:
+            cur = self.conn.cursor()
+            try:
+                cur.execute(f"DROP DATABASE IF EXISTS {dbname};")
+            except psycopg2.Error:
+                # Terminate any lingering connections (e.g. after a failed test) and retry.
+                cur.execute(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    "WHERE datname = %s AND pid <> pg_backend_pid();",
+                    (dbname,),
+                )
+                cur.execute(f"DROP DATABASE IF EXISTS {dbname};")
+            finally:
+                cur.close()
 
     def stop(self):
         # Send fast shutdown signal see [1] for details:
@@ -261,6 +333,8 @@ class PostgresDbProvider(object):
         # rendering the backup useless.
         #
         # [1] https://www.postgresql.org/docs/9.1/server-shutdown.html
+        if self.conn is not None and not self.conn.closed:
+            self.conn.close()
         self.proc.send_signal(signal.SIGINT)
         self.proc.wait()
         shutil.rmtree(self.pgdir)

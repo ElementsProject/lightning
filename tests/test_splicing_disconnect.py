@@ -5,7 +5,7 @@ import unittest
 import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from utils import (
-    TEST_NETWORK, wait_for, only_one
+    TEST_NETWORK, sync_blockheight, wait_for, only_one
 )
 
 # The DB version right before the funding_tx_index migrations in
@@ -73,7 +73,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'Retransmitting channel_ready')
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -175,7 +175,7 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(r'billboard: Channel ready for use.')
 
     # Check that the splice doesn't generate a unilateral close transaction
-    time.sleep(5)
+    sync_blockheight(bitcoind, [l1, l2])
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
@@ -307,6 +307,12 @@ def test_splice_upgrade_with_pending_splice(node_factory, bitcoind):
 
     assert [r['funding_tx_index'] for r in
             l1.db_query("SELECT funding_tx_index FROM channel_funding_inflights;")] == [1]
+
+    # Ensure l1 and l2 reconnect and reestablish before confirming the splice,
+    # otherwise l2 can process all 6 blocks while channeld is detached.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
 
     bitcoind.generate_block(6)
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')

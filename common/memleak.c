@@ -25,7 +25,6 @@
 #include <backtrace.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/list/list.h>
@@ -81,12 +80,29 @@ void *notleak_(void *ptr, bool plus_children)
 
 static size_t hash_ptr(const void *elem, void *unused UNNEEDED)
 {
-	static struct siphash_seed seed;
-	return siphash24(&seed, &elem, sizeof(elem));
+	uintptr_t h = (uintptr_t)elem;
+
+	/* Fast invertible pointer mix (memtable only holds local heap ptrs). */
+	h ^= h >> 16;
+#if UINTPTR_MAX > 0xffffffffU
+	h *= 0xbf58476d1ce4e5b9ULL;
+	h ^= h >> 30;
+	h *= 0x94d049bb133111ebULL;
+	h ^= h >> 31;
+#else
+	h *= 0x45d9f3bU;
+	h ^= h >> 16;
+#endif
+	return h;
 }
 
 bool memleak_ptr(struct htable *memtable, const void *p)
 {
+	/* Fast reject: any pointer in memtable matches common_mask/common_bits. */
+	if (memtable->elems == 0
+	    || ((uintptr_t)p & memtable->common_mask) != memtable->common_bits)
+		return false;
+
 	return htable_del(memtable, hash_ptr(p, NULL), p);
 }
 

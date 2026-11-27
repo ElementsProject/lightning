@@ -1578,6 +1578,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v2')
+@pytest.mark.xdist_group("heavy")
 def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
@@ -2932,11 +2933,13 @@ def test_fundee_node_unconfirmed(node_factory, bitcoind):
 
     start_amount = only_one(l1.rpc.listfunds()['outputs'])['amount_msat']
 
+    fundchannel_failed = threading.Event()
+
     def mock_sendrawtransaction(r):
         return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
 
     def mock_donothing(r):
-        time.sleep(10)
+        fundchannel_failed.wait(timeout=TIMEOUT)
         return bitcoind.rpc.sendrawtransaction(r['params'][0])
 
     # Prevent both from broadcasting funding tx (any tx really).
@@ -2948,6 +2951,7 @@ def test_fundee_node_unconfirmed(node_factory, bitcoind):
     # to broadcast and confirm funding tx.
     with pytest.raises(RpcError, match=r'sendrawtransaction disabled'):
         l1.rpc.fundchannel(l2.info['id'], 10**6)
+    fundchannel_failed.set()
 
     # Generate blocks until unconfirmed.
     bitcoind.generate_block(1, wait_for_mempool=1)
@@ -4217,7 +4221,8 @@ def test_quiescence(node_factory, executor):
 
 def test_htlc_failed_noclose(node_factory):
     """Test a bug where the htlc timeout would kick in even if the HTLC failed"""
-    l1, l2 = node_factory.line_graph(2)
+    timeout_secs = 5 if VALGRIND or SLOW_MACHINE else 2
+    l1, l2 = node_factory.line_graph(2, opts={'dev-htlc-offer-timeout-secs': timeout_secs})
 
     inv = l2.rpc.invoice(1000, "test", "test")
     routestep = {
@@ -4237,7 +4242,7 @@ def test_htlc_failed_noclose(node_factory):
     with pytest.raises(RpcError, match="Capacity exceeded"):
         l1.rpc.waitsendpay(inv['payment_hash'])
 
-    time.sleep(35)
+    time.sleep(timeout_secs + 1)
     assert l1.rpc.getpeer(l2.info['id'])['connected']
 
 
@@ -4756,10 +4761,10 @@ def test_offline(node_factory):
 
 
 def test_last_stable_connection(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+    STABLE_TIME = 25 if VALGRIND else (10 if SLOW_MACHINE else 5)
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'dev-stable-connection-secs': STABLE_TIME})
 
-    # We wait a minute to be stable.
-    STABLE_TIME = 60
     assert 'last_stable_connection' not in only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'last_stable_connection' not in only_one(l2.rpc.listpeerchannels()['channels'])
 

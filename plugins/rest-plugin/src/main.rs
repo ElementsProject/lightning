@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env,
     net::SocketAddr,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -165,12 +166,17 @@ async fn run_rest_server(
 
     match clnrest_options.protocol {
         ClnrestProtocol::Https => {
-            let max_retries = 10;
-            let mut retries = 0;
-            while retries < max_retries && !do_certificates_exist(&clnrest_options.certs) {
-                log::debug!("Certificates incomplete. Retrying...");
-                time::sleep(Duration::from_millis(500)).await;
-                retries += 1;
+            // Only wait for cln-grpc to finish creating certificates when using
+            // the default lightning directory; a custom clnrest-certs directory
+            // is never populated by cln-grpc.
+            if clnrest_options.certs == env::current_dir()? {
+                let max_retries = 50;
+                let mut retries = 0;
+                while retries < max_retries && !do_certificates_exist(&clnrest_options.certs) {
+                    log::debug!("Certificates incomplete. Retrying...");
+                    time::sleep(Duration::from_millis(100)).await;
+                    retries += 1;
+                }
             }
 
             if !do_certificates_exist(&clnrest_options.certs) {

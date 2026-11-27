@@ -1,7 +1,187 @@
-import pytest
+import fcntl
+import json
 import os
+import pytest
+import shutil
+import tempfile
+import time
 
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, VALGRIND, SLOW_MACHINE
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--balanced-group",
+        action="store",
+        default=None,
+        help="Run shard G of N using duration-balanced LPT bin-packing (format: G/N, 1-indexed)",
+    )
+
+
+def _will_be_skipped(item):
+    open_versions = [mark.args[0] for mark in item.iter_markers(name="openchannel")]
+    if open_versions:
+        if "v1" not in open_versions and not EXPERIMENTAL_DUAL_FUND:
+            return True
+        if "v2" not in open_versions and EXPERIMENTAL_DUAL_FUND:
+            return True
+    elif EXPERIMENTAL_DUAL_FUND:
+        return True
+    if "slow_test" in item.keywords and VALGRIND and SLOW_MACHINE:
+        return True
+    return False
+
+
+def pytest_collection_modifyitems(config, items):
+    spec = config.getoption("--balanced-group")
+    if not spec:
+        return
+    try:
+        group_s, count_s = spec.split("/", 1)
+        group = int(group_s)
+        count = int(count_s)
+        if not (1 <= group <= count):
+            raise ValueError
+    except ValueError:
+        raise pytest.UsageError(
+            f"--balanced-group expects G/N with 1 <= G <= N, got {spec!r}"
+        )
+
+    if count == 1:
+        return
+
+    dur_file = "test_durations_valgrind.json" if VALGRIND else "test_durations.json"
+    dur_path = os.path.join(os.path.dirname(__file__), dur_file)
+    try:
+        with open(dur_path, "r") as f:
+            durations = json.load(f)
+    except OSError:
+        durations = {}
+
+    default_dur = 20.0 if VALGRIND else 3.0
+
+    def weight(item):
+        if _will_be_skipped(item):
+            return 0.001
+        nid = item.nodeid
+        if nid.startswith("tests/"):
+            nid = nid[len("tests/"):]
+        return float(durations.get(nid, default_dur))
+
+    # Longest Processing Time first (LPT) greedy bin-packing across shards.
+    # Preserve original collection order within each shard so heavy/multi-node
+    # tests are spread naturally instead of all launching simultaneously at t=0.
+    orig_pos = {id(it): pos for pos, it in enumerate(items)}
+    weighted = sorted(
+        ((weight(it), it.nodeid, it) for it in items),
+        key=lambda t: (-t[0], t[1]),
+    )
+    loads = [0.0] * count
+    buckets = [[] for _ in range(count)]
+    for w, _, it in weighted:
+        idx = min(range(count), key=lambda i: (loads[i], i))
+        buckets[idx].append(it)
+        loads[idx] += w
+
+    selected = buckets[group - 1]
+    selected.sort(key=lambda it: orig_pos[id(it)])
+    items[:] = selected
+
+
+def _mem_available_mb():
+    try:
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) // 1024
+    except OSError:
+        return None
+    return None
+
+
+def _other_workers_active(gate_dir, my_name):
+    try:
+        entries = os.listdir(gate_dir)
+    except OSError:
+        return False
+    for name in entries:
+        if not name.startswith("active.") or name == my_name:
+            continue
+        path = os.path.join(gate_dir, name)
+        try:
+            fd = os.open(path, os.O_RDWR)
+        except OSError:
+            continue
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except BlockingIOError:
+            return True
+        finally:
+            os.close(fd)
+    return False
+
+
+def _acquire_mem_gate(worker_id, min_avail_mb, max_wait=120.0):
+    """Hold an active-worker lock while a test runs; pause admission under low RAM.
+
+    When MemAvailable drops below min_avail_mb and at least one other xdist worker
+    is already running a test, wait until memory recovers or no other worker is
+    active (preventing deadlock). When memory is between min_avail_mb and
+    min_avail_mb + 2048 MB, stagger admissions slightly so newly started nodes
+    allocate before the next worker checks MemAvailable.
+    """
+    gate_dir = os.path.join(tempfile.gettempdir(), f"cln-memgate-{os.getppid()}")
+    os.makedirs(gate_dir, exist_ok=True)
+    gate_path = os.path.join(gate_dir, "gate.lock")
+    my_name = f"active.{worker_id}"
+    my_path = os.path.join(gate_dir, my_name)
+
+    deadline = time.monotonic() + max_wait
+    while True:
+        with open(gate_path, "a+") as gate_f:
+            fcntl.flock(gate_f, fcntl.LOCK_EX)
+            avail = _mem_available_mb()
+            now = time.monotonic()
+            should_wait = False
+            if avail is not None and now < deadline:
+                if avail < min_avail_mb and _other_workers_active(gate_dir, my_name):
+                    should_wait = True
+                elif avail < min_avail_mb + 2048 and _other_workers_active(gate_dir, my_name):
+                    gate_f.seek(0)
+                    try:
+                        last_admit = float(gate_f.read().strip() or "0")
+                    except ValueError:
+                        last_admit = 0.0
+                    if now - last_admit < 2.0:
+                        should_wait = True
+
+            if not should_wait:
+                active_fd = os.open(my_path, os.O_CREAT | os.O_RDWR, 0o600)
+                fcntl.flock(active_fd, fcntl.LOCK_EX)
+                gate_f.seek(0)
+                gate_f.truncate()
+                gate_f.write(f"{now:.3f}\n")
+                gate_f.flush()
+                return active_fd
+        time.sleep(0.5)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    min_avail_mb = int(os.environ.get("PYTEST_MIN_AVAIL_MB", "0") or "0")
+    worker_id = getattr(item.config, "workerinput", {}).get("workerid")
+    active_fd = None
+    if min_avail_mb > 0 and worker_id and _mem_available_mb() is not None:
+        active_fd = _acquire_mem_gate(worker_id, min_avail_mb)
+    try:
+        yield
+    finally:
+        if active_fd is not None:
+            try:
+                fcntl.flock(active_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(active_fd)
 
 
 # This function is based upon the example of how to
@@ -58,6 +238,11 @@ def pytest_sessionfinish(session, exitstatus):
     # Workers have the workeroutput attribute
     if hasattr(session.config, "workeroutput"):
         return
+
+    shutil.rmtree(
+        os.path.join(tempfile.gettempdir(), f"cln-memgate-{os.getpid()}"),
+        ignore_errors=True,
+    )
 
     # Find the LogXML instance among registered plugins
     # We need to search through all plugins because it's not directly accessible

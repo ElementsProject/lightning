@@ -16,6 +16,7 @@ from pyln.client.plugin import PluginLogHandler
 
 import tempfile
 import errno
+import functools
 import json
 import logging
 import lzma
@@ -97,15 +98,14 @@ RUST = env("RUST", "0") == "1"
 
 def wait_for(success, timeout=TIMEOUT):
     start_time = time.time()
-    interval = 0.25
+    interval = 0.05
+    max_interval = 2 if SLOW_MACHINE else 1
     while not success():
         time_left = start_time + timeout - time.time()
         if time_left <= 0:
             raise ValueError("Timeout while waiting for {}".format(success))
         time.sleep(min(interval, time_left))
-        interval *= 2
-        if interval > 5:
-            interval = 5
+        interval = min(interval * 2, max_interval)
 
 
 def write_config(filename, opts, regtest_opts=None, section_name='regtest'):
@@ -521,10 +521,14 @@ class TailableProc(object):
         logging.debug("Waiting for {} in the logs".format(regexs))
         exs = [re.compile(r) for r in regexs]
         start_time = time.time()
+        poll_interval = 0.02
         while True:
             if self.logsearch_start >= len(self.logs):
                 if not self.logs_catchup():
-                    time.sleep(0.25)
+                    time.sleep(poll_interval)
+                    poll_interval = min(poll_interval * 2, 0.25)
+                else:
+                    poll_interval = 0.02
 
                 if timeout is not None and time.time() > start_time + timeout:
                     print("Time-out: can't find {} in logs".format(exs))
@@ -673,10 +677,14 @@ class BitcoinD(TailableProc):
                 self.rpc.loadwallet("lightningd-tests")
 
     def stop(self):
-        for p in self.proxies:
-            p.stop()
+        stop_threads = [threading.Thread(target=p.stop) for p in self.proxies]
+        for t in stop_threads:
+            t.start()
         self.rpc.stop()
-        return TailableProc.stop(self)
+        rc = TailableProc.stop(self)
+        for t in stop_threads:
+            t.join()
+        return rc
 
     def get_proxy(self):
         proxy = BitcoinRpcProxy(self, rpcport=reserve_unused_port())
@@ -863,6 +871,12 @@ def mnemonic_from_seed(seed):
     return mnem
 
 
+@functools.lru_cache(maxsize=None)
+def _cln_version(executable):
+    cln_version_proc = subprocess.check_output([executable, "--version"])
+    return NodeVersion(cln_version_proc.decode('ascii').strip())
+
+
 class LightningD(TailableProc):
     def __init__(
             self,
@@ -886,9 +900,8 @@ class LightningD(TailableProc):
 
         self.opts = LIGHTNINGD_CONFIG.copy()
 
-        # Query the version of the cln-binary
-        cln_version_proc = subprocess.check_output([self.executable, "--version"])
-        self.cln_version = NodeVersion(cln_version_proc.decode('ascii').strip())
+        # Query the version of the cln-binary (cached per executable path)
+        self.cln_version = _cln_version(self.executable)
 
         if self.cln_version <= "v24.02.2":
             self.opts['log-level'] = "debug"
@@ -1105,9 +1118,11 @@ class LightningNode(object):
 
         # Various developer options let us be more aggressive
         self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
-        # Don't run --version on every subdaemon if we're valgrinding and slow.
-        if SLOW_MACHINE and VALGRIND:
-            self.daemon.opts["dev-no-version-checks"] = None
+        # Skip per-startup subdaemon --version spawns and full-binary plugin
+        # checksumming (~1 GB of debug binaries per node).  Dedicated tests
+        # (test_version_reexec, test_restart_on_update) clear these options.
+        self.daemon.opts["dev-no-version-checks"] = None
+        self.daemon.opts["dev-no-plugin-checksum"] = None
         dbgvar = os.getenv("DEBUG_SUBD")
         if dbgvar and ':' in dbgvar:
             path = dbgvar.split(':')[0]
@@ -1122,7 +1137,6 @@ class LightningNode(object):
             self.daemon.opts["dev-debug-self"] = None
         if VALGRIND:
             self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
-            self.daemon.opts["dev-no-plugin-checksum"] = None
         else:
             # Under valgrind, scanning can access uninitialized mem.
             self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
@@ -1149,12 +1163,13 @@ class LightningNode(object):
         if dsn is not None:
             self.daemon.opts['wallet'] = dsn
         if VALGRIND:
-            trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*,*cln-grpc*,*clnrest*,*wss-proxy*,*cln-bip353*,*reckless,*cln-currencyrate*'
+            trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*,*cln-grpc*,*clnrest*,*wss-proxy*,*cln-bip353*,*cln-lsps-client*,*cln-lsps-service*,*reckless,*cln-currencyrate*'
             if not valgrind_plugins:
                 trace_skip_pattern += ',*plugins*'
             self.daemon.cmd_prefix = [
                 'valgrind',
                 '-q',
+                '--vgdb=no',
                 '--trace-children=yes',
                 '--trace-children-skip={}'.format(trace_skip_pattern),
                 '--error-exitcode=7',
@@ -1546,14 +1561,17 @@ class LightningNode(object):
     def wait_for_route(self, destination, timeout=TIMEOUT):
         """ Wait for a route to the destination to become available.
         """
-        start_time = time.time()
-        while time.time() < start_time + timeout:
+        def has_route():
             try:
                 self.single_route(destination.info['id'], 1)
                 return True
             except Exception:
-                time.sleep(1)
-        if time.time() > start_time + timeout:
+                return False
+
+        try:
+            wait_for(has_route, timeout=timeout)
+            return True
+        except ValueError:
             raise ValueError("Error waiting for a route to destination {}".format(destination))
 
     # This helper waits for all HTLCs to settle
@@ -1901,6 +1919,7 @@ class NodeFactory(object):
         self.bitcoind = bitcoind
         self.directory = directory
         self.lock = threading.Lock()
+        self._valgrind_plugins_traced = False
         self.db_provider = db_provider
         self.node_cls = node_cls
         self.jsonschemas = jsonschemas
@@ -1953,10 +1972,13 @@ class NodeFactory(object):
 
         assert len(opts) == num_nodes
 
-        # Only trace one random node's plugins, to avoid OOM.
+        # Only trace one random node's plugins per test on SLOW_MACHINE, to avoid OOM/CPU bloat.
         if SLOW_MACHINE:
             valgrind_plugins = [False] * num_nodes
-            valgrind_plugins[random.randint(0, num_nodes - 1)] = True
+            with self.lock:
+                if not self._valgrind_plugins_traced:
+                    valgrind_plugins[random.randint(0, num_nodes - 1)] = True
+                    self._valgrind_plugins_traced = True
         else:
             valgrind_plugins = [True] * num_nodes
 
@@ -1989,6 +2011,14 @@ class NodeFactory(object):
 
         if cleandir and os.path.exists(lightning_dir):
             shutil.rmtree(lightning_dir)
+
+        if SLOW_MACHINE and 'valgrind_plugins' not in kwargs:
+            with self.lock:
+                if self._valgrind_plugins_traced:
+                    kwargs['valgrind_plugins'] = False
+                else:
+                    kwargs['valgrind_plugins'] = True
+                    self._valgrind_plugins_traced = True
 
         # Get the DB backend DSN we should be using for this test and this
         # node.
@@ -2091,10 +2121,13 @@ class NodeFactory(object):
                 n.wait_channel_active(scid)
 
         # Make sure we have all node announcements, too
+        expected_aliases = {n2.info['id']: n2.rpc.getinfo()['alias'] for n2 in nodes}
         for n in nodes:
-            for n2 in nodes:
-                alias = n2.rpc.getinfo()['alias']
-                wait_for(lambda: [n.get('alias') for n in n.rpc.listnodes(n2.info['id'])['nodes']] == [alias])
+            wait_for(lambda: {
+                x['nodeid']: x.get('alias')
+                for x in n.rpc.listnodes()['nodes']
+                if x['nodeid'] in expected_aliases
+            } == expected_aliases)
 
     def line_graph(self, num_nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, opts=None, announce_channels=True):
         """ Create nodes, connect them and optionally fund channels.
@@ -2111,31 +2144,43 @@ class NodeFactory(object):
 
     def killall(self, expected_successes):
         """Returns true if every node we expected to succeed actually succeeded"""
-        unexpected_fail = False
-        err_msgs = []
-        for i in range(len(self.nodes)):
-            leaks = None
+        def _check_memleak(node):
             # leak detection upsets VALGRIND by reading uninitialized mem,
             # and valgrind adds extra fds.
             # If it's dead, we'll catch it below.
-            if not VALGRIND:
-                try:
-                    # This also puts leaks in log.
-                    leaks = self.nodes[i].rpc.dev_memleak()['leaks']
-                    self.nodes[i].rpc.dev_report_fds()
-                except Exception:
-                    pass
-
+            if VALGRIND:
+                return None
             try:
-                self.nodes[i].stop()
+                # This also puts leaks in log.
+                leaks = node.rpc.dev_memleak()['leaks']
+                node.rpc.dev_report_fds()
+                return leaks
             except Exception:
-                if expected_successes[i]:
-                    unexpected_fail = True
+                return None
 
+        def _stop_node(node, expected_success):
+            try:
+                node.stop()
+                return False
+            except Exception:
+                return expected_success
+
+        leak_futs = [self.executor.submit(_check_memleak, n) for n in self.nodes]
+        all_leaks = [f.result() for f in leak_futs]
+
+        stop_futs = [
+            self.executor.submit(_stop_node, n, exp)
+            for n, exp in zip(self.nodes, expected_successes)
+        ]
+        stop_fails = [f.result() for f in stop_futs]
+
+        unexpected_fail = any(stop_fails)
+        err_msgs = []
+        for node, leaks in zip(self.nodes, all_leaks):
             if leaks is not None and len(leaks) != 0:
                 unexpected_fail = True
                 err_msgs.append("Node {} has memory leaks: {}".format(
-                    self.nodes[i].daemon.lightning_dir,
+                    node.daemon.lightning_dir,
                     json.dumps(leaks, sort_keys=True, indent=4)
                 ))
 

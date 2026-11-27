@@ -245,8 +245,9 @@ def test_plugin_dir(node_factory):
 
 def test_plugin_slowinit(node_factory):
     """Tests that the 'plugin' RPC command times out if plugin doesnt respond"""
-    os.environ['SLOWINIT_TIME'] = '121'
-    l1 = node_factory.get_node()
+    timeout_secs = 30 if VALGRIND else 10
+    os.environ['SLOWINIT_TIME'] = str(timeout_secs + 5)
+    l1 = node_factory.get_node(options={'dev-plugin-startup-timeout-secs': timeout_secs})
 
     with pytest.raises(RpcError, match=': timed out before replying to init'):
         l1.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
@@ -302,7 +303,8 @@ def test_plugin_command(node_factory):
     # Test that we cannot stop a started plugin with 'dynamic' flag set to
     # False
     l2 = node_factory.get_node(options={
-        "plugin": os.path.join(os.getcwd(), "tests/plugins/static.py")
+        "plugin": os.path.join(os.getcwd(), "tests/plugins/static.py"),
+        "dev-plugin-startup-timeout-secs": 30 if VALGRIND else 10,
     })
     with pytest.raises(RpcError, match=r"static.py cannot be managed when lightningd is up"):
         l2.rpc.plugin_stop(plugin="static.py")
@@ -444,6 +446,8 @@ def test_failing_plugins(directory):
         with pytest.raises(subprocess.CalledProcessError):
             subprocess.check_output([
                 'lightningd/lightningd',
+                '--developer',
+                '--dev-plugin-startup-timeout-secs=10',
                 '--lightning-dir={}'.format(directory),
                 '--plugin={}'.format(p),
                 '--help',
@@ -3670,6 +3674,7 @@ def test_commando(node_factory, executor):
 
 
 @pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
     nodes = node_factory.get_nodes(5, opts=[{'broken_log': 'Throttling incoming peer'}, {}, {}, {}, {}])
@@ -3715,9 +3720,11 @@ def test_autoclean(node_factory):
     if VALGRIND:
         short_timeout = 10
         longer_timeout = 60
+        cycle = 10
     else:
-        short_timeout = 5
-        longer_timeout = 20
+        short_timeout = 3
+        longer_timeout = 12
+        cycle = 2
 
     assert l3.rpc.autoclean_status('expiredinvoices')['autoclean']['expiredinvoices']['enabled'] is False
     l3.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=short_timeout)
@@ -3748,7 +3755,7 @@ def test_autoclean(node_factory):
     assert len(l3.rpc.listinvoices('inv2')['invoices']) == 1
     assert l3.rpc.listinvoices('inv1')['invoices'][0]['description'] == 'description1'
 
-    l3.rpc.setconfig('autoclean-cycle', 10)
+    l3.rpc.setconfig('autoclean-cycle', cycle)
 
     # It will always go unpaid->expired->deleted, but we might miss it!
     was_expired = False
@@ -3764,7 +3771,7 @@ def test_autoclean(node_factory):
                 was_expired = True
             else:
                 assert only_one(invs)['status'] == 'unpaid'
-        time.sleep(1)
+        time.sleep(0.2)
 
     # We can actually race between the delete and this being updated!
     wait_for(lambda: l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1)
@@ -3785,8 +3792,8 @@ def test_autoclean(node_factory):
     wait_for(lambda: only_one(l3.rpc.listinvoices('inv2')['invoices'])['status'] == 'expired')
     wait_for(lambda: only_one(l3.rpc.listinvoices('inv3')['invoices'])['status'] == 'expired')
 
-    # Give it time to notice (runs every 10 seconds, give it 15)
-    time.sleep(15)
+    # Give it time to notice (wait more than two autoclean cycles)
+    time.sleep(cycle * 2 + 1)
 
     # They're still there!
     assert l3.rpc.listinvoices('inv2')['invoices'] != []
@@ -3823,7 +3830,7 @@ def test_autoclean(node_factory):
     assert only_one(l1.rpc.listpays(inv5['bolt11'])['pays'])['status'] == 'failed'
     assert only_one(l1.rpc.listpays(inv4['bolt11'])['pays'])['status'] == 'complete'
     l1.rpc.setconfig('autoclean-failedpays-age', 1)
-    l1.rpc.setconfig('autoclean-cycle', 5)
+    l1.rpc.setconfig('autoclean-cycle', cycle)
 
     wait_for(lambda: l1.rpc.listpays(inv5['bolt11'])['pays'] == [])
     wait_for(lambda: l1.rpc.autoclean_status()['autoclean']['failedpays']['cleaned'] == 1)
@@ -3839,7 +3846,7 @@ def test_autoclean(node_factory):
     assert len(l2.rpc.listforwards()['forwards']) == 2
 
     # Clean failed ones.
-    l2.rpc.setconfig('autoclean-cycle', 5)
+    l2.rpc.setconfig('autoclean-cycle', cycle)
     l2.rpc.setconfig('autoclean-failedforwards-age', 2)
     wait_for(lambda: l2.rpc.listforwards(status='failed')['forwards'] == [])
 
@@ -3871,10 +3878,11 @@ def test_autoclean(node_factory):
 
 def test_autoclean_timer_crash(node_factory):
     """Running two autocleans at once crashed timer code"""
-    node_factory.get_node(options={'autoclean-cycle': 1,
-                                   'autoclean-failedforwards-age': 31536000,
-                                   'autoclean-expiredinvoices-age': 31536000})
-    time.sleep(20)
+    l1 = node_factory.get_node(options={'autoclean-cycle': 1,
+                                        'autoclean-failedforwards-age': 31536000,
+                                        'autoclean-expiredinvoices-age': 31536000})
+    time.sleep(4)
+    l1.rpc.getinfo()
 
 
 def test_autoclean_once(node_factory):
@@ -5080,7 +5088,10 @@ def test_plugin_nostart(node_factory):
 
 def test_plugin_startdir_lol(node_factory):
     """Though we fail to start many of them, we don't crash!"""
-    l1 = node_factory.get_node(broken_log='.*')
+    l1 = node_factory.get_node(
+        broken_log='.*',
+        options={'dev-plugin-startup-timeout-secs': 30 if VALGRIND else 10},
+    )
     l1.rpc.plugin_startdir(os.path.join(os.getcwd(), 'tests/plugins'))
 
 
@@ -5111,7 +5122,7 @@ def test_autoclean_batch(node_factory):
     assert (l1.rpc.autoclean_status('expiredinvoices')
             == {'autoclean': {'expiredinvoices': {'enabled': True, 'cleaned': 100, 'age': 2}}})
 
-    l1.rpc.setconfig('autoclean-cycle', 5)
+    l1.rpc.setconfig('autoclean-cycle', 1)
     wait_for(lambda: l1.rpc.autoclean_status('expiredinvoices')
              == {'autoclean': {'expiredinvoices': {'enabled': True, 'cleaned': 200, 'age': 2}}})
 

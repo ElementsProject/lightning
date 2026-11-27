@@ -266,7 +266,7 @@ def test_large_response(node_factory):
 # to complain with the errors F811 like this "F811 redefinition of
 # unused 'message'".
 
-def notifications_received_via_websocket(l1, base_url, http_session, rpc_method='invoice', rpc_params=[100000, 'label', 'description'], expect_error=None):
+def notifications_received_via_websocket(l1, base_url, http_session, rpc_method='invoice', rpc_params=[100000, 'label', 'description'], expect_error=None, expect_notification='invoice_creation'):
     """Return the list of notifications received by the websocket client.
 
     We try to connect to the websocket server running at `base_url`
@@ -320,11 +320,10 @@ def notifications_received_via_websocket(l1, base_url, http_session, rpc_method=
     assert sio is not None
     if expect_error:
         raise Exception(f"did not raise expected error {expect_error}")
-    time.sleep(2)
     # trigger notification by calling method
     rpc_call = getattr(l1.rpc, rpc_method)
     rpc_call(*rpc_params)
-    time.sleep(2)
+    wait_for(lambda: any(isinstance(n, dict) and expect_notification in n for n in notifications))
     sio.disconnect()
     return notifications
 
@@ -440,8 +439,10 @@ def test_numeric_msat_notification(node_factory):
     # create rune authorizing listclnrest-notifications method
     rune_clnrest_notifications = l2.rpc.createrune(restrictions=[["method=listclnrest-notifications"]])['rune']
     http_session.headers.update({"rune": rune_clnrest_notifications})
-    notifications = notifications_received_via_websocket(l1, base_url,
-                                                         http_session, 'xpay', [inv['bolt11']])
+    notifications = notifications_received_via_websocket(
+        l1, base_url, http_session, 'xpay', [inv['bolt11']],
+        expect_notification='invoice_payment',
+    )
     filtered_notifications = [n for n in notifications if 'invoice_payment' in n]
 
     assert isinstance(filtered_notifications[0]['invoice_payment']['msat'], int)
@@ -544,13 +545,9 @@ def test_websocket_upgrade_header(node_factory):
         sio.disconnect()
         raise Exception("did not raise expected error Missing rune")
 
-    time.sleep(2)
+    assert not sio.connected
     # trigger notification by calling method
-    rpc_method = 'invoice'
-    rpc_params = [100000, 'label', 'description']
-    rpc_call = getattr(l1.rpc, rpc_method)
-    rpc_call(*rpc_params)
-    time.sleep(2)
+    l1.rpc.invoice(100000, 'label', 'description')
     sio.disconnect()
 
     assert len(notifications) == 0

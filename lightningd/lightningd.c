@@ -140,6 +140,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_force_channel_secrets_shaseed = NULL;
 	ld->dev_force_tmp_channel_id = NULL;
 	ld->dev_no_htlc_timeout = false;
+	ld->dev_htlc_offer_timeout_secs = 30;
+	ld->dev_plugin_startup_timeout_secs = 120;
+	ld->dev_stable_connection_secs = 60;
 	ld->dev_no_version_checks = false;
 	ld->dev_max_funding_unconfirmed = 2016;
 	ld->dev_max_dualopen_negotiation_secs = 600;

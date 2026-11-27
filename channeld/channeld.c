@@ -5361,15 +5361,19 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		}
 	}
 
-	/* For cleaner errors, we check message is valid during STFU mode */
-	if (peer->stfu_wait_single_msg)
-		if (!VALID_STFU_MESSAGE(type))
-			peer_failed_warn(peer->pps, &peer->channel_id,
-					 "Got invalid message during STFU "
-					 "mode: %s",
-					 peer_wire_name(type));
+	/* For cleaner errors, we check message is valid during STFU mode.
+	 * A belated announcement_signatures (sent asynchronously via connectd)
+	 * can arrive here too and must not consume stfu_wait_single_msg. */
+	if (type != WIRE_ANNOUNCEMENT_SIGNATURES) {
+		if (peer->stfu_wait_single_msg)
+			if (!VALID_STFU_MESSAGE(type))
+				peer_failed_warn(peer->pps, &peer->channel_id,
+						 "Got invalid message during STFU "
+						 "mode: %s",
+						 peer_wire_name(type));
 
-	peer->stfu_wait_single_msg = false;
+		peer->stfu_wait_single_msg = false;
+	}
 
 	switch (type) {
 	case WIRE_CHANNEL_READY:

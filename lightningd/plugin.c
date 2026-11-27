@@ -34,10 +34,6 @@
 /* Only this file can include this generated header! */
 # include <plugins/list_of_builtin_plugins_gen.h>
 
-/* How many seconds may the plugin take frome the `getmanifest`
- * call to replying to the init call? */
-#define PLUGIN_STARTUP_TIMEOUT 120
-
 static void memleak_help_pending_requests(struct htable *memtable,
 					  struct plugin *plugin)
 {
@@ -1979,7 +1975,7 @@ static void plugin_set_timeout(struct plugin *p)
 	else {
 		p->timeout_timer
 			= new_reltimer(p->plugins->ld->timers, p,
-				       time_from_sec(PLUGIN_STARTUP_TIMEOUT),
+				       time_from_sec(p->plugins->ld->dev_plugin_startup_timeout_secs),
 				       plugin_manifest_timeout, p);
 	}
 
