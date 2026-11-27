@@ -1163,12 +1163,13 @@ class LightningNode(object):
         if dsn is not None:
             self.daemon.opts['wallet'] = dsn
         if VALGRIND:
-            trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*,*cln-grpc*,*clnrest*,*wss-proxy*,*cln-bip353*,*reckless,*cln-currencyrate*'
+            trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*,*cln-grpc*,*clnrest*,*wss-proxy*,*cln-bip353*,*cln-lsps-client*,*cln-lsps-service*,*reckless,*cln-currencyrate*'
             if not valgrind_plugins:
                 trace_skip_pattern += ',*plugins*'
             self.daemon.cmd_prefix = [
                 'valgrind',
                 '-q',
+                '--vgdb=no',
                 '--trace-children=yes',
                 '--trace-children-skip={}'.format(trace_skip_pattern),
                 '--error-exitcode=7',
@@ -1918,6 +1919,7 @@ class NodeFactory(object):
         self.bitcoind = bitcoind
         self.directory = directory
         self.lock = threading.Lock()
+        self._valgrind_plugins_traced = False
         self.db_provider = db_provider
         self.node_cls = node_cls
         self.jsonschemas = jsonschemas
@@ -1970,10 +1972,13 @@ class NodeFactory(object):
 
         assert len(opts) == num_nodes
 
-        # Only trace one random node's plugins, to avoid OOM.
+        # Only trace one random node's plugins per test on SLOW_MACHINE, to avoid OOM/CPU bloat.
         if SLOW_MACHINE:
             valgrind_plugins = [False] * num_nodes
-            valgrind_plugins[random.randint(0, num_nodes - 1)] = True
+            with self.lock:
+                if not self._valgrind_plugins_traced:
+                    valgrind_plugins[random.randint(0, num_nodes - 1)] = True
+                    self._valgrind_plugins_traced = True
         else:
             valgrind_plugins = [True] * num_nodes
 
@@ -2006,6 +2011,14 @@ class NodeFactory(object):
 
         if cleandir and os.path.exists(lightning_dir):
             shutil.rmtree(lightning_dir)
+
+        if SLOW_MACHINE and 'valgrind_plugins' not in kwargs:
+            with self.lock:
+                if self._valgrind_plugins_traced:
+                    kwargs['valgrind_plugins'] = False
+                else:
+                    kwargs['valgrind_plugins'] = True
+                    self._valgrind_plugins_traced = True
 
         # Get the DB backend DSN we should be using for this test and this
         # node.
@@ -2108,10 +2121,13 @@ class NodeFactory(object):
                 n.wait_channel_active(scid)
 
         # Make sure we have all node announcements, too
+        expected_aliases = {n2.info['id']: n2.rpc.getinfo()['alias'] for n2 in nodes}
         for n in nodes:
-            for n2 in nodes:
-                alias = n2.rpc.getinfo()['alias']
-                wait_for(lambda: [n.get('alias') for n in n.rpc.listnodes(n2.info['id'])['nodes']] == [alias])
+            wait_for(lambda: {
+                x['nodeid']: x.get('alias')
+                for x in n.rpc.listnodes()['nodes']
+                if x['nodeid'] in expected_aliases
+            } == expected_aliases)
 
     def line_graph(self, num_nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, opts=None, announce_channels=True):
         """ Create nodes, connect them and optionally fund channels.
