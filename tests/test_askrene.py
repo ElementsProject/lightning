@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from hashlib import sha256
 from pyln.client import RpcError
-from pyln.testing.utils import SLOW_MACHINE
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND
 from utils import (
     only_one, first_scid, first_scidd, GenChannel, generate_gossip_store,
     sync_blockheight, wait_for, TEST_NETWORK, TIMEOUT, mine_funding_to_announce
@@ -2140,6 +2140,9 @@ def test_reservations_leak_under_load(node_factory, executor):
     # join_nodes([l1, l2, l4, l5]) creates channels: l1-l2, l2-l4, l4-l5
     # join_nodes([l1, l3, l4, l6]) creates channels: l1-l3, l3-l4, l4-l6
     zero_fee = {"fee-base": 0, "fee-per-satoshi": 0}
+    if VALGRIND:
+        # 300 concurrent HTLCs across 6 Valgrind nodes can exceed connectd's 5s wake-delay check.
+        zero_fee["broken_log"] = "connectd: wake delay for"
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(
         6,
         opts=[zero_fee] * 6,
