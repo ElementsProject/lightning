@@ -10,7 +10,6 @@ import decimal
 import flask  # type: ignore
 import json
 import logging
-import socket
 import threading
 import time
 
@@ -84,32 +83,36 @@ class BitcoinRpcProxy(object):
     def start(self):
         d = PathInfoDispatcher({'/': self.app})
         self.server = Server(('127.0.0.1', self.rpcport), d)
+        # Default 0.5s makes ConnectionManager.stop() stall up to 500ms per proxy.
+        self.server.expiration_interval = 0.05
         self.proxy_thread = threading.Thread(target=self.server.start)
         self.proxy_thread.daemon = True
         self.proxy_thread.start()
 
-        if self.rpcport == 0:
-            while self.server.bind_addr[1] == 0:
-                time.sleep(0.01)
-            self.rpcport = self.server.bind_addr[1]
-
+        # Wait for cheroot's prepare() to finish (including setting
+        # server.ready = True); probing TCP connect alone can succeed after
+        # listen() but before server.ready is set, causing a prompt stop()
+        # to no-op and proxy_thread.join() to hang forever.
         deadline = time.time() + 10
         while time.time() < deadline:
-            try:
-                s = socket.create_connection(('127.0.0.1', self.rpcport),
-                                             timeout=0.5)
-                s.close()
+            if self.server.ready:
                 break
-            except OSError:
-                time.sleep(0.05)
+            time.sleep(0.01)
         else:
             raise RuntimeError("BitcoinRpcProxy failed to bind on "
                                "127.0.0.1:{}".format(self.rpcport))
+
+        if self.rpcport == 0:
+            self.rpcport = self.server.bind_addr[1]
+
         logging.debug("BitcoinRpcProxy proxying incoming port {} to {}".format(self.rpcport, self.bitcoind.rpcport))
 
     def stop(self):
         self.server.stop()
-        self.proxy_thread.join()
+        self.proxy_thread.join(timeout=10)
+        if self.proxy_thread.is_alive():
+            self.server.stop()
+            self.proxy_thread.join(timeout=10)
         logging.debug("BitcoinRpcProxy shut down after processing {} requests".format(self.request_count))
 
     def mock_rpc(self, method, response=None):

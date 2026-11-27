@@ -674,10 +674,14 @@ class BitcoinD(TailableProc):
                 self.rpc.loadwallet("lightningd-tests")
 
     def stop(self):
-        for p in self.proxies:
-            p.stop()
+        stop_threads = [threading.Thread(target=p.stop) for p in self.proxies]
+        for t in stop_threads:
+            t.start()
         self.rpc.stop()
-        return TailableProc.stop(self)
+        rc = TailableProc.stop(self)
+        for t in stop_threads:
+            t.join()
+        return rc
 
     def get_proxy(self):
         proxy = BitcoinRpcProxy(self, rpcport=reserve_unused_port())
