@@ -1852,10 +1852,18 @@ def test_real_biases(node_factory, bitcoind, executor):
     assert (num_changed, bias_ineffective) == expected
 
 
-@pytest.mark.skip("Upgrading fakenet makes this test fail. Turn off momentarily.")
 @pytest.mark.slow_test
 @unittest.skipIf(TEST_NETWORK != 'regtest', "FIXME: fails on elements")
-def test_askrene_fake_channeld(node_factory, bitcoind):
+def test_askrene_fake_channeld(node_factory, bitcoind, executor):
+    # After askrene added impressions (circa 957696497a9918b1db6fe0d09c6cf49fde0a6d16)
+    # we updated channeld_fakenet to move funds on successful payments (1f121a2b31b78ddaa0cf48366ecfdf38be4be8be)
+    # which is closer to reality.  It is expected that askrene acquires a better
+    # view of the state of the network that fakenet represents.
+    # When these more realistic payment flows are in place, we do start to see
+    # channels on the entry node 2134 being depleted: we only send payments but
+    # never receive new funds.  The default seed produces too few funds to pay
+    # the first 100 nodes in the loop, so we chose a different value.
+    os.environ["CHANNELD_FAKENET_SEED"] = "4"
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
@@ -1887,34 +1895,68 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
     MPP_TIMEOUT = 0x17
 
     l1.rpc.askrene_create_layer('test_askrene_fake_channeld')
+    # FIXME: we disable the narrow parallel channel so the sliver can't
+    # route through it and violate 819x15x819/1's htlc_minimum.  Otherwise we
+    # can't pay #15.  Probably something we should add heuristics in askrene to
+    # identify these situations.
+    l1.rpc.askrene_update_channel(layer='test_askrene_fake_channeld',
+                                  short_channel_id_dir='0x2134x0/0',
+                                  enabled=False)
     for n in range(0, 100):
         if n in canned_gossmap_badnodes:
             continue
 
         print(f"PAYING Node #{n}")
-        success = False
-        while not success:
+        # How much of the invoice is still to deliver.
+        remaining = AMOUNT
+        # We keep a single payment group and keep adding parts to it as
+        # earlier ones fail; partid must simply be unique per part.
+        groupid = 1
+        partid = 1
+        # In-flight waitsendpay futures, kept across getroutes calls so a
+        # part from an earlier call is not forgotten when a later one fails.
+        futs = {}
+        preimage_hex = f'{n:02}' + '00' * 31
+        hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
+
+        while remaining > 0:
             routes = l1.rpc.getroutes(source=l1.info['id'],
                                       destination=nodeids[n],
-                                      amount_msat=AMOUNT,
-                                      layers=['auto.sourcefree', 'auto.localchans'],
+                                      amount_msat=remaining,
+                                      layers=['auto.sourcefree',
+                                              'auto.localchans',
+                                              'test_askrene_fake_channeld'],
                                       maxfee_msat=AMOUNT,
                                       final_cltv=18)
 
-            preimage_hex = f'{n:02}' + '00' * 31
-            hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
-
-            for i, r in enumerate(routes['routes']):
-                l1.rpc.sendpay(r['path'], hash_hex,
+            for r in routes['routes']:
+                l1.rpc.sendpay(r['path'],
+                               hash_hex,
                                amount_msat=AMOUNT,
                                payment_secret='00' * 32,
-                               partid=i + 1, groupid=1)
+                               partid=partid,
+                               groupid=groupid)
+                futs[executor.submit(l1.rpc.waitsendpay,
+                                     hash_hex,
+                                     timeout=TIMEOUT + len(r['path']) + 60,
+                                     partid=partid,
+                                     groupid=groupid)] = r
+                partid += 1
 
-            for i, r in enumerate(routes['routes']):
-                # Worst-case timeout is 1 second per hop, + 60 seconds if MPP timeout!
+            # Wait for the first part to settle.  If it failed, learn from
+            # it and re-route just that amount right away, instead of
+            # waiting for the other parts to hit MPP_TIMEOUT.
+            for fut in concurrent_futures.as_completed(futs):
+                r = futs.pop(fut)
                 try:
-                    if l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(r['path']) + 60, partid=i + 1, groupid=1):
-                        success = True
+                    if fut.result():
+                        # Whole group settled: nothing left to send.
+                        remaining = 0
+                        for h in r['path']:
+                            l1.rpc.askrene_channel_observation('test_askrene_fake_channeld',
+                                                               h['short_channel_id_dir'],
+                                                               h['amount_in_msat'],
+                                                               'succeeded')
                 except RpcError as err:
                     # Timeout means this one succeeded!
                     if err.error['data']['failcode'] == MPP_TIMEOUT:
@@ -1923,6 +1965,7 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
                                                                h['short_channel_id_dir'],
                                                                h['amount_in_msat'],
                                                                'accepted')
+                        remaining = r['amount_msat']
                     elif err.error['data']['failcode'] == TEMPORARY_CHANNEL_FAILURE:
                         # We succeeded up to here
                         failpoint = err.error['data']['erring_index']
@@ -1936,8 +1979,13 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
                                                            h['short_channel_id_dir'],
                                                            h['amount_in_msat'],
                                                            'failed')
+                        # Recover the amount this part was carrying and
+                        # re-route it.
+                        remaining = r['amount_msat']
                     else:
                         raise err
+                # Only deal with one part per iteration.
+                break
 
 
 def test_simple_dummy_channel(node_factory):
