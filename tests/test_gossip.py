@@ -2,7 +2,7 @@ from collections import Counter
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
-from pyln.testing.utils import reserve_unused_port, drop_unused_port
+from pyln.testing.utils import reserve_unused_port, drop_unused_port, VALGRIND
 from utils import (
     wait_for, TIMEOUT, only_one, sync_blockheight,
     expected_node_features,
@@ -2222,10 +2222,17 @@ def test_dump_own_gossip(node_factory):
 
 def test_gossip_throttle(node_factory, bitcoind, chainparams):
     """Make some gossip, test it gets throttled"""
+    l4_opts = {
+        'broken_log': 'Throttling (incoming|outgoing) peer',
+        'dev-throttle-gossip': None,
+    }
+    if VALGRIND:
+        # Keep the 1000-byte/s traffic throttle active without letting
+        # Valgrind's ~20x CPU overhead blow the 1500usec dev CPU budget
+        # and stall until connectd's ping timeout hangs up on gossipwith.
+        l4_opts['dev-gossip-cpu-budget'] = 500000
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
-                                             opts=[{}, {}, {},
-                                                   {'broken_log': 'Throttling (incoming|outgoing) peer',
-                                                    'dev-throttle-gossip': None}])
+                                             opts=[{}, {}, {}, l4_opts])
 
     # We expect: self-advertizement (3 messages for l1 and l4) plus
     # 4 node announcements, 3 channel announcements and 6 channel updates.
