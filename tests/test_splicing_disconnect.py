@@ -308,6 +308,12 @@ def test_splice_upgrade_with_pending_splice(node_factory, bitcoind):
     assert [r['funding_tx_index'] for r in
             l1.db_query("SELECT funding_tx_index FROM channel_funding_inflights;")] == [1]
 
+    # Ensure l1 and l2 reconnect and reestablish before confirming the splice,
+    # otherwise l2 can process all 6 blocks while channeld is detached.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+
     bitcoind.generate_block(6)
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
