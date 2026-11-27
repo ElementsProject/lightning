@@ -1,4 +1,5 @@
 import fcntl
+import json
 import os
 import pytest
 import shutil
@@ -6,6 +7,85 @@ import tempfile
 import time
 
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, VALGRIND, SLOW_MACHINE
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--balanced-group",
+        action="store",
+        default=None,
+        help="Run shard G of N using duration-balanced LPT bin-packing (format: G/N, 1-indexed)",
+    )
+
+
+def _will_be_skipped(item):
+    open_versions = [mark.args[0] for mark in item.iter_markers(name="openchannel")]
+    if open_versions:
+        if "v1" not in open_versions and not EXPERIMENTAL_DUAL_FUND:
+            return True
+        if "v2" not in open_versions and EXPERIMENTAL_DUAL_FUND:
+            return True
+    elif EXPERIMENTAL_DUAL_FUND:
+        return True
+    if "slow_test" in item.keywords and VALGRIND and SLOW_MACHINE:
+        return True
+    return False
+
+
+def pytest_collection_modifyitems(config, items):
+    spec = config.getoption("--balanced-group")
+    if not spec:
+        return
+    try:
+        group_s, count_s = spec.split("/", 1)
+        group = int(group_s)
+        count = int(count_s)
+        if not (1 <= group <= count):
+            raise ValueError
+    except ValueError:
+        raise pytest.UsageError(
+            f"--balanced-group expects G/N with 1 <= G <= N, got {spec!r}"
+        )
+
+    if count == 1:
+        return
+
+    dur_file = "test_durations_valgrind.json" if VALGRIND else "test_durations.json"
+    dur_path = os.path.join(os.path.dirname(__file__), dur_file)
+    try:
+        with open(dur_path, "r") as f:
+            durations = json.load(f)
+    except OSError:
+        durations = {}
+
+    default_dur = 20.0 if VALGRIND else 3.0
+
+    def weight(item):
+        if _will_be_skipped(item):
+            return 0.001
+        nid = item.nodeid
+        if nid.startswith("tests/"):
+            nid = nid[len("tests/"):]
+        return float(durations.get(nid, default_dur))
+
+    # Longest Processing Time first (LPT) greedy bin-packing across shards.
+    # Preserve original collection order within each shard so heavy/multi-node
+    # tests are spread naturally instead of all launching simultaneously at t=0.
+    orig_pos = {id(it): pos for pos, it in enumerate(items)}
+    weighted = sorted(
+        ((weight(it), it.nodeid, it) for it in items),
+        key=lambda t: (-t[0], t[1]),
+    )
+    loads = [0.0] * count
+    buckets = [[] for _ in range(count)]
+    for w, _, it in weighted:
+        idx = min(range(count), key=lambda i: (loads[i], i))
+        buckets[idx].append(it)
+        loads[idx] += w
+
+    selected = buckets[group - 1]
+    selected.sort(key=lambda it: orig_pos[id(it)])
+    items[:] = selected
 
 
 def _mem_available_mb():
