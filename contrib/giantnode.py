@@ -14,33 +14,6 @@ import time
 import multiprocessing
 from pyln.client import LightningRpc, RpcError
 
-parser = argparse.ArgumentParser(
-    description='Flood three funded startup_regtest nodes'
-)
-parser.add_argument('--fail-forward', action="store_true",
-                    help='Create failed forward attempts',
-                    default=False)
-parser.add_argument('--fail-pay', action="store_true",
-                    help='Allow some failed pay attempts (faster!)',
-                    default=False)
-parser.add_argument('--inv-runners', type=int,
-                    help='How many invoice-generation processes to run at once',
-                    default=1)
-parser.add_argument('--pay-runners', type=int,
-                    help='How many invoice-paying processes to run at once',
-                    default=8)
-parser.add_argument('--check-runners', type=int,
-                    help='How many pay-checking processes to run at once',
-                    default=1)
-parser.add_argument('--allow-bookkeeper', action="store_true",
-                    help="Don't stop if bookkeeper is running",
-                    default=False)
-parser.add_argument('num', type=int, nargs='?',
-                    help='number to attempt',
-                    default=1000000)
-
-args = parser.parse_args()
-
 nodes = (LightningRpc('/tmp/l1/regtest/lightning-rpc'),
          LightningRpc('/tmp/l2/regtest/lightning-rpc'),
          LightningRpc('/tmp/l3/regtest/lightning-rpc'))
@@ -49,23 +22,6 @@ nodes = (LightningRpc('/tmp/l1/regtest/lightning-rpc'),
 l1 = nodes[0]
 l2 = nodes[1]
 l3 = nodes[2]
-
-if not args.allow_bookkeeper:
-    if any([p['name'].endswith('bookkeeper') for p in l1.plugin_list()['plugins']]):
-        print("""
-Bookkeeper is running on l1, will slow things down!  Run this:
-
-echo 'disable-plugin=bookkeeper' >> /tmp/l1/regtest/config
-echo 'disable-plugin=bookkeeper' >> /tmp/l2/regtest/config
-echo 'disable-plugin=bookkeeper' >> /tmp/l3/regtest/config
-stop_ln
-start_ln 3
-""")
-        sys.exit(1)
-
-route = l1.getroute(l3.getinfo()['id'], 1, 1)['route']
-if args.fail_forward:
-    route[1]['channel'] = '1x1x1'
 
 
 def get_invs(inv_q, num, report_q):
@@ -78,10 +34,14 @@ def get_invs(inv_q, num, report_q):
         report_q.put('i')
 
 
-def send_pay(inv_q, num, done_q, report_q):
+def send_pay(inv_q, done_q, report_q, route, inflight_sem):
     """Runner to fetch invoices from queue and send"""
-    for i in range(num):
+    while True:
         inv = inv_q.get()
+        if inv is None:
+            break
+        if inflight_sem is not None:
+            inflight_sem.acquire()
         l1.sendpay(route,
                    inv['payment_hash'],
                    payment_secret=inv['payment_secret'])
@@ -89,44 +49,25 @@ def send_pay(inv_q, num, done_q, report_q):
         done_q.put(inv)
 
 
-def checker(num, inv_q, done_q, report_q):
+def checker(inv_q, done_q, report_q, fail_pay, fail_forward, inflight_sem):
     """Runner which checks that invs didn't fail (TOO_MANY_HTLCS!), and requeues if they did!"""
-    for i in range(num):
+    while True:
         inv = done_q.get()
+        if inv is None:
+            break
         try:
             res = l1.waitsendpay(inv['payment_hash'])
         except RpcError:
+            if inflight_sem is not None:
+                inflight_sem.release()
             report_q.put('f')
-            if not args.fail_pay and not args.fail_forward:
+            if not fail_pay and not fail_forward:
                 inv_q.put(inv)
             continue
+        if inflight_sem is not None:
+            inflight_sem.release()
         assert res['status'] == 'complete'
         report_q.put('w')
-
-
-inv_q = multiprocessing.Queue()
-done_q = multiprocessing.Queue()
-report_q = multiprocessing.Queue()
-
-# In case it doesn't divide
-extra_prod = (args.num % args.inv_runners,) + (0,) * (args.inv_runners - 1)
-inv_producers = [multiprocessing.Process(target=get_invs, args=(inv_q, args.num // args.inv_runners + extra_prod[i], report_q)) for i in range(args.inv_runners)]
-extra_cons = (args.num % args.pay_runners,) + (0,) * (args.pay_runners - 1)
-inv_consumers = [multiprocessing.Process(target=send_pay, args=(inv_q, args.num // args.pay_runners + extra_cons[i], done_q, report_q)) for i in range(args.pay_runners)]
-
-extra_checks = (args.num % args.check_runners,) + (0,) * (args.check_runners - 1)
-checkers = [multiprocessing.Process(target=checker, args=(args.num // args.check_runners + extra_checks[i], inv_q, done_q, report_q)) for i in range(args.check_runners)]
-
-prev = start = time.time()
-for i in inv_producers + inv_consumers + checkers:
-    i.start()
-
-num_total = 0
-num_successes = 0
-num_invs = 0
-num_pays = 0
-num_retries = 0
-prev_total = 0
 
 
 def timefmt(number, time):
@@ -143,37 +84,130 @@ def timefmt(number, time):
     return '{} seconds'.format(int(seconds))
 
 
-while num_total < args.num:
-    letter = report_q.get()
-    if letter == 'i':
-        num_invs += 1
-    elif letter == 'p':
-        num_pays += 1
-    elif letter == 'f':
-        num_retries += 1
-    elif letter == 'w':
-        num_successes += 1
-    else:
-        assert False
+def main():
+    parser = argparse.ArgumentParser(
+        description='Flood three funded startup_regtest nodes'
+    )
+    parser.add_argument('--fail-forward', action="store_true",
+                        help='Create failed forward attempts',
+                        default=False)
+    parser.add_argument('--fail-pay', action="store_true",
+                        help='Allow some failed pay attempts (faster!)',
+                        default=False)
+    parser.add_argument('--inv-runners', type=int,
+                        help='How many invoice-generation processes to run at once',
+                        default=1)
+    parser.add_argument('--pay-runners', type=int,
+                        help='How many invoice-paying processes to run at once',
+                        default=8)
+    parser.add_argument('--check-runners', type=int,
+                        help='How many pay-checking processes to run at once',
+                        default=4)
+    parser.add_argument('--max-inflight', type=int,
+                        help='Maximum concurrent in-flight payments (0 for unlimited)',
+                        default=480)
+    parser.add_argument('--allow-bookkeeper', action="store_true",
+                        help="Don't stop if bookkeeper is running",
+                        default=False)
+    parser.add_argument('num', type=int, nargs='?',
+                        help='number to attempt',
+                        default=1000000)
 
-    if args.fail_pay or args.fail_forward:
-        num_total = num_pays
-    else:
-        num_total = num_successes
+    args = parser.parse_args()
 
-    now = time.time()
-    if now > prev + 10:
-        current_rate = (num_total - prev_total) / (now - prev)
-        prev = now
-        prev_total = num_total
-        total_rate = num_total / (now - start)
-        print("{}/{} complete {}/sec ({} invs, {} pays, {} retries) in {} seconds. {}-{} remaining."
-              .format(num_total, args.num, format(current_rate, ".2f"),
-                      num_invs, num_pays, num_retries, int(now - start),
-                      timefmt(args.num - num_total, total_rate),
-                      timefmt(args.num - num_total, current_rate)))
+    if not args.allow_bookkeeper:
+        if any([p['name'].endswith('bookkeeper') for p in l1.plugin_list()['plugins']]):
+            print("""
+Bookkeeper is running on l1, will slow things down!  Run this:
 
-for i in inv_producers + inv_consumers + checkers:
-    i.join()
+echo 'disable-plugin=bookkeeper' >> /tmp/l1/regtest/config
+echo 'disable-plugin=bookkeeper' >> /tmp/l2/regtest/config
+echo 'disable-plugin=bookkeeper' >> /tmp/l3/regtest/config
+stop_ln
+start_ln 3
+""")
+            sys.exit(1)
 
-print("done")
+    route = l1.getroutes(
+        source=l1.getinfo()['id'],
+        destination=l3.getinfo()['id'],
+        amount_msat=1,
+        layers=['auto.localchans', 'auto.sourcefree'],
+        maxfee_msat=10000000,
+        final_cltv=18,
+        maxparts=1,
+    )['routes'][0]['path']
+    if args.fail_forward:
+        route[1]['short_channel_id_dir'] = '1x1x1/0'
+
+    inv_q = multiprocessing.Queue()
+    done_q = multiprocessing.Queue()
+    report_q = multiprocessing.Queue()
+    inflight_sem = (multiprocessing.Semaphore(args.max_inflight)
+                    if args.max_inflight > 0 else None)
+
+    # In case it doesn't divide
+    extra_prod = (args.num % args.inv_runners,) + (0,) * (args.inv_runners - 1)
+    inv_producers = [multiprocessing.Process(target=get_invs, args=(inv_q, args.num // args.inv_runners + extra_prod[i], report_q)) for i in range(args.inv_runners)]
+    inv_consumers = [multiprocessing.Process(target=send_pay, args=(inv_q, done_q, report_q, route, inflight_sem)) for _ in range(args.pay_runners)]
+    checkers = [multiprocessing.Process(target=checker, args=(inv_q, done_q, report_q, args.fail_pay, args.fail_forward, inflight_sem)) for _ in range(args.check_runners)]
+
+    prev = start = time.time()
+    for i in inv_producers + inv_consumers + checkers:
+        i.start()
+
+    num_total = 0
+    num_successes = 0
+    num_invs = 0
+    num_pays = 0
+    num_retries = 0
+    prev_total = 0
+
+    while num_total < args.num:
+        letter = report_q.get()
+        if letter == 'i':
+            num_invs += 1
+        elif letter == 'p':
+            num_pays += 1
+        elif letter == 'f':
+            num_retries += 1
+        elif letter == 'w':
+            num_successes += 1
+        else:
+            assert False
+
+        if args.fail_pay or args.fail_forward:
+            num_total = num_successes + num_retries
+        else:
+            num_total = num_successes
+
+        now = time.time()
+        if now > prev + 10:
+            current_rate = (num_total - prev_total) / (now - prev)
+            prev = now
+            prev_total = num_total
+            total_rate = num_total / (now - start)
+            print("{}/{} complete {}/sec ({} invs, {} pays, {} retries) in {} seconds. {}-{} remaining."
+                  .format(num_total, args.num, format(current_rate, ".2f"),
+                          num_invs, num_pays, num_retries, int(now - start),
+                          timefmt(args.num - num_total, total_rate),
+                          timefmt(args.num - num_total, current_rate)))
+
+    for i in inv_producers:
+        i.join()
+
+    for _ in inv_consumers:
+        inv_q.put(None)
+    for i in inv_consumers:
+        i.join()
+
+    for _ in checkers:
+        done_q.put(None)
+    for i in checkers:
+        i.join()
+
+    print("done")
+
+
+if __name__ == '__main__':
+    main()
