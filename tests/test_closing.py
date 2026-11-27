@@ -220,14 +220,14 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > numfunds)
 
     # Create them in a batch, for speed!
-    peers = []
-    for feerate in feerates:
-        for b in balance:
-            p = node_factory.get_node(feerates=feerate)
-            p.feerate = feerate
-            p.balance = b
-            l1.rpc.connect(p.info['id'], 'localhost', p.port)
-            peers.append(p)
+    peer_configs = [(feerate, b) for feerate in feerates for b in balance]
+    peers = node_factory.get_nodes(
+        len(peer_configs), opts=[{'feerates': feerate, 'allow_bad_gossip': True} for feerate, _ in peer_configs]
+    )
+    for p, (feerate, b) in zip(peers, peer_configs):
+        p.feerate = feerate
+        p.balance = b
+        l1.rpc.connect(p.info['id'], 'localhost', p.port)
 
     for p in peers:
         p.channel = l1.rpc.fundchannel(p.info['id'], 10**6, minconf=0)['channel_id']
