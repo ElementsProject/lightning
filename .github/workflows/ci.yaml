@@ -287,6 +287,7 @@ jobs:
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
           # We're going to check BOLT quotes, so get the latest version
@@ -426,6 +427,7 @@ jobs:
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -436,7 +438,6 @@ jobs:
 
       - name: Unpack prebuilt binaries
         run: |
-          git submodule sync && git submodule update --init --recursive
           # Make sure source appears older than what we're about to unpack
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
@@ -518,6 +519,7 @@ jobs:
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -528,7 +530,6 @@ jobs:
 
       - name: Unpack prebuilt binaries
         run: |
-          git submodule sync && git submodule update --init --recursive
           # Make sure source appears older than what we're about to unpack
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
@@ -543,11 +544,11 @@ jobs:
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
-          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           env
           cat config.vars
-          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --balanced-group=${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -557,7 +558,7 @@ jobs:
           if-no-files-found: ignore
 
   full-integration:
-    name: Test CLN ${{ matrix.name }} Full Integration
+    name: Test CLN ${{ matrix.NAME }} (${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -575,6 +576,22 @@ jobs:
             COMPILER: gcc
             TEST_DB_PROVIDER: postgres
             TEST_NETWORK: regtest
+            GROUP: 1
+            GROUP_COUNT: 3
+          - NAME: postgres
+            CFG: compile-gcc-O3
+            COMPILER: gcc
+            TEST_DB_PROVIDER: postgres
+            TEST_NETWORK: regtest
+            GROUP: 2
+            GROUP_COUNT: 3
+          - NAME: postgres
+            CFG: compile-gcc-O3
+            COMPILER: gcc
+            TEST_DB_PROVIDER: postgres
+            TEST_NETWORK: regtest
+            GROUP: 3
+            GROUP_COUNT: 3
           # And don't forget about elements (like cdecker did when
           # reworking the CI...)
           - NAME: liquid
@@ -582,6 +599,22 @@ jobs:
             COMPILER: gcc
             TEST_NETWORK: liquid-regtest
             TEST_DB_PROVIDER: sqlite3
+            GROUP: 1
+            GROUP_COUNT: 3
+          - NAME: liquid
+            CFG: compile-gcc-O3
+            COMPILER: gcc
+            TEST_NETWORK: liquid-regtest
+            TEST_DB_PROVIDER: sqlite3
+            GROUP: 2
+            GROUP_COUNT: 3
+          - NAME: liquid
+            CFG: compile-gcc-O3
+            COMPILER: gcc
+            TEST_NETWORK: liquid-regtest
+            TEST_DB_PROVIDER: sqlite3
+            GROUP: 3
+            GROUP_COUNT: 3
           # And dual funding!
           - NAME: dual-fund
             CFG: compile-gcc
@@ -589,6 +622,8 @@ jobs:
             COMPILER: gcc
             TEST_NETWORK: regtest
             EXPERIMENTAL_DUAL_FUND: 1
+            GROUP: 1
+            GROUP_COUNT: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -609,6 +644,7 @@ jobs:
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -619,7 +655,6 @@ jobs:
 
       - name: Unpack prebuilt binaries
         run: |
-          git submodule sync && git submodule update --init --recursive
           # Make sure source appears older than what we're about to unpack
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
@@ -645,12 +680,12 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --balanced-group=${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pytest-results-integration-${{ matrix.name }}
+          name: pytest-results-integration-${{ matrix.NAME }}-${{ matrix.GROUP }}
           path: report.xml
           if-no-files-found: ignore
 
@@ -661,13 +696,13 @@ jobs:
     env:
       RUST_PROFILE: small # Has to match the one in the compile step
     needs:
-      - check-compiled-source
+      - compile
     strategy:
       fail-fast: false
       matrix:
         CFG: [compile-gcc-O1]
-        GROUP: [1,2,3,4,5,6,7,8,9,10,11,12]
-        GROUP_COUNT: [12]
+        GROUP: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+        GROUP_COUNT: [16]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -686,6 +721,8 @@ jobs:
           key: apt-${{ runner.os }}
 
       - name: Install dependencies
+        env:
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -696,7 +733,6 @@ jobs:
 
       - name: Unpack prebuilt binaries
         run: |
-          git submodule sync && git submodule update --init --recursive
           # Make sure source appears older than what we're about to unpack
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
@@ -705,14 +741,15 @@ jobs:
         env:
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
-          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
+          PYTEST_MIN_AVAIL_MB: "4096"
         run: |
           .github/scripts/mem-monitor.sh &
           mem_pid=$!
           trap 'kill $mem_pid 2>/dev/null' EXIT
           # -n $(nproc) rather than $(nproc)+1: one fewer parallel node-cluster
           # keeps peak RSS under the 16GB hosted-runner ceiling.
-          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) ${PYTEST_OPTS} --balanced-group=${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -757,6 +794,7 @@ jobs:
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -767,14 +805,13 @@ jobs:
 
       - name: Unpack prebuilt binaries
         run: |
-          git submodule sync && git submodule update --init --recursive
           # Make sure source appears older than what we're about to unpack
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Test
         env:
-          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
           # Cap per-process ASan quarantine (default 256MB) to cut daemon RSS by
           # ~25-45% while keeping all sanitizer checks enabled, and throttle new
           # xdist worker starts if runner MemAvailable dips below 4 GB.
@@ -785,7 +822,7 @@ jobs:
           mem_pid=$!
           trap 'kill $mem_pid 2>/dev/null' EXIT
           # loadgroup: tests marked heavy run one at a time on a single worker.
-          sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) --dist loadgroup ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+          sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) --dist loadgroup ${PYTEST_OPTS} --balanced-group=${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -825,6 +862,8 @@ jobs:
           key: apt-${{ runner.os }}
 
       - name: Install dependencies
+        env:
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -899,7 +938,7 @@ jobs:
           if-no-files-found: ignore
 
   min-btc-support:
-    name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
+    name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }} (${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -916,6 +955,16 @@ jobs:
             COMPILER: clang
             TEST_NETWORK: regtest
             MIN_BTC_VERSION: "25.0"
+            GROUP: 1
+            GROUP_COUNT: 2
+          - NAME: clang
+            CFG: compile-clang
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: clang
+            TEST_NETWORK: regtest
+            MIN_BTC_VERSION: "25.0"
+            GROUP: 2
+            GROUP_COUNT: 2
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -936,6 +985,7 @@ jobs:
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          TEST_ONLY: 1
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -958,7 +1008,6 @@ jobs:
 
       - name: Unpack prebuilt binaries
         run: |
-          git submodule sync && git submodule update --init --recursive
           # Make sure source appears older than what we're about to unpack
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
@@ -976,12 +1025,12 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --balanced-group=${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pytest-results-min-btc-support-${{ matrix.NAME }}
+          name: pytest-results-min-btc-support-${{ matrix.NAME }}-${{ matrix.GROUP }}
           path: report.xml
           if-no-files-found: ignore
 
