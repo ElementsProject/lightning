@@ -334,7 +334,12 @@ class Invoice(object):
             data_length = len(tagdata) / 5
 
             if tag == 'r':
-                inv.route_hints = RouteHintSet.from_bytes(trim_to_bytes(tagdata))
+                # There can be several `r` fields, don't let the last one win.
+                hints = RouteHintSet.from_bytes(trim_to_bytes(tagdata))
+                if inv.route_hints is None:
+                    inv.route_hints = hints
+                else:
+                    inv.route_hints.route_hints.extend(hints.route_hints)
                 continue
                 if data_length != 82:
                     inv.unknown_tags.append((tag, tagdata))

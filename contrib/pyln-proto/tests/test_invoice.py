@@ -1,4 +1,5 @@
 from pyln.proto import Invoice
+from pyln.proto.invoice import RouteHint, RouteHintSet
 from decimal import Decimal
 from bitstring import ConstBitStream
 import binascii
@@ -25,3 +26,21 @@ def test_encode():
     privkey = 'c28a9f80738f770d527803a566cf6fc3edf6cea586c4fc4a5223a5ad797e1ac3'
     i = inv.encode(privkey)
     assert(i == 'lnbc1u1p0zyt04pp5wcnjhxu4k98td0kw8ng9zqrd3246cc7r559a063tk5mp9v9fxf9sdpqw3jhxazlwpshjhmjda6hgetzdahhxapjxqyjw5q0s43wfg4f6yl200hc805kc9u97dp7m6j98fz33uzf4t6kp73trcz8fxkrpass063j2j4quxjr4th2r72lk27tm2aw383zgnl8zpgajsq5kmll8')
+
+
+def test_decode_multiple_route_hints():
+    """Every `r` field is its own route, so decoding must keep all of them."""
+    inv = Invoice(paymenthash=bytes(32), tags=[('d', 'two hints')], date=1579298293)
+    inv.route_hints = RouteHintSet()
+    for n in (1, 2):
+        rh = RouteHint()
+        rh.pubkey = bytes([2] + [n] * 32)
+        rh.short_channel_id = n
+        rh.fee_base_msat = 1000
+        rh.fee_proportional_millionths = 10
+        rh.cltv_expiry_delta = 6
+        inv.route_hints.add(rh)
+
+    privkey = 'c28a9f80738f770d527803a566cf6fc3edf6cea586c4fc4a5223a5ad797e1ac3'
+    decoded = Invoice.decode(inv.encode(privkey))
+    assert [rh.short_channel_id for rh in decoded.route_hints.route_hints] == [1, 2]
