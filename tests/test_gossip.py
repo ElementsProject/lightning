@@ -7,7 +7,8 @@ from utils import (
     wait_for, TIMEOUT, only_one, sync_blockheight,
     expected_node_features,
     mine_funding_to_announce, default_ln_port, CHANNEL_SIZE,
-    first_scid, generate_gossip_store, GenChannel
+    first_scid, generate_gossip_store, GenChannel,
+    channel_direction, get_channel_update_hex
 )
 
 import json
@@ -159,6 +160,25 @@ def test_gossip_disable_channels(node_factory, bitcoind):
 
     wait_for(lambda: count_active(l1) == 2)
     wait_for(lambda: count_active(l2) == 2)
+
+
+def test_gossip_disable_on_disconnect_own_direction(node_factory, bitcoind):
+    """Our own channel direction is disabled in gossip while the peer is
+    disconnected, and re-enabled on reconnect."""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True,
+                                         opts={'may_reconnect': True,
+                                               'dev-no-reconnect': None})
+    scid = l2.get_channel_scid(l3)
+    l2_dir = channel_direction(l2, l3)
+
+    wait_for(lambda: get_channel_update_hex(l2, scid, l2_dir, disabled=False) is not None)
+
+    l3.stop()
+    wait_for(lambda: get_channel_update_hex(l2, scid, l2_dir, disabled=True) is not None)
+
+    l3.start()
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    wait_for(lambda: get_channel_update_hex(l2, scid, l2_dir, disabled=False) is not None)
 
 
 def test_announce_address(node_factory, bitcoind):

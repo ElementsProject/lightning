@@ -4,6 +4,7 @@ import bitstring
 from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from pyln.proto.onion import TlvPayload
+import os
 import struct
 import subprocess
 import tempfile
@@ -14,6 +15,38 @@ COMPAT = env("COMPAT", "1") == "1"
 # Big enough to make channels with 10k effective capacity, including Elements channels
 # which have bigger txns
 CHANNEL_SIZE = 50000
+
+# Byte offsets inside a channel_update message.
+_CU_TS_OFF = 98
+_CU_CHANFLAGS_OFF = 111
+
+
+def channel_direction(node, peer):
+    """Direction of the node->peer channel (0 if node's id sorts first)."""
+    return 0 if node.info['id'] < peer.info['id'] else 1
+
+
+def get_channel_update_hex(node, scid, direction, disabled=None):
+    """Return the hex of the newest channel_update for scid/direction from
+    node's gossip_store, optionally matching the disabled flag.
+    """
+    gs = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    out = subprocess.run(['devtools/dump-gossipstore', gs], check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE)
+    best, best_ts = None, -1
+    for line in out.stdout.decode().splitlines():
+        if 'channel_update(' not in line or f'{scid}/{direction})' not in line:
+            continue
+        h = line.rsplit(': ', 1)[-1].strip()
+        if not h.startswith('0102'):
+            continue
+        raw = bytes.fromhex(h)
+        if disabled is not None and bool(raw[_CU_CHANFLAGS_OFF] & 2) != disabled:
+            continue
+        ts = struct.unpack_from('>I', raw, _CU_TS_OFF)[0]
+        if ts > best_ts:
+            best, best_ts = h, ts
+    return best
 
 
 def default_ln_port(network: str) -> int:
