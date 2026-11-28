@@ -759,3 +759,37 @@ def test_strict_mode_with_old_database(node_factory, bitcoind):
         "WHERE typeof(faildetail) = 'blob'"
     )
     assert result[0]['count'] == 0, "Found BLOB-typed faildetail after migration"
+
+PRE_FORWARD_FEES_REPAIR_DB_VERSION = 293
+
+
+def test_deleted_forward_fees_64bit(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'may_reconnect': True})
+
+    l1.rpc.pay(l3.rpc.invoice(100000, 'fwd', 'fwd')['bolt11'])
+    fwd = only_one(l2.rpc.listforwards()['forwards'])
+    wait_for(lambda: only_one(l2.rpc.listforwards()['forwards'])['status'] == 'settled')
+    fee = l2.rpc.getinfo()['fees_collected_msat']
+    assert fee > 0
+
+    l2.stop()
+    l2.db.execute("DELETE FROM vars WHERE name = 'deleted_forward_fees';")
+    l2.db.execute("INSERT INTO vars (name, intval)"
+                  " VALUES ('deleted_forward_fees', -1);")
+    l2.db.execute("UPDATE version SET version = {}"
+                  .format(PRE_FORWARD_FEES_REPAIR_DB_VERSION))
+    l2.daemon.opts['database-upgrade'] = 'true'
+    l2.start()
+
+    big = 2**32 - 1
+    assert l2.rpc.getinfo()['fees_collected_msat'] == big + fee
+
+    l2.rpc.delforward(fwd['in_channel'], fwd['in_htlc_id'], 'settled')
+    assert l2.rpc.listforwards()['forwards'] == []
+    assert l2.rpc.getinfo()['fees_collected_msat'] == big + fee
+
+    l2.restart()
+    assert l2.rpc.getinfo()['fees_collected_msat'] == big + fee
+    assert only_one(l2.db_query("SELECT intval FROM vars"
+                                " WHERE name = 'deleted_forward_fees'"))['intval'] == big + fee
