@@ -5570,3 +5570,28 @@ def test_long_logs(node_factory):
 
     l1 = node_factory.get_node(inline_plugin=setup)
     l1.rpc.call("produce-log")
+
+
+def test_min_capacity_sat_overflow(node_factory, bitcoind):
+    """min-capacity-sat is converted to msat when we open/accept a channel:
+    a value which overflows used to crash lightningd there."""
+    for bad in ['-1', '18446744073709552']:
+        l1 = node_factory.get_node(start=False, expect_fail=True,
+                                   options={'min-capacity-sat': bad})
+        l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+        assert l1.daemon.wait() != 0
+        assert l1.daemon.is_in_stderr(r"--min-capacity-sat={0}: '{0}' is out of range".format(bad))
+
+    l1, l2 = node_factory.get_nodes(2)
+    with pytest.raises(RpcError, match='is out of range'):
+        l1.rpc.setconfig(config='min-capacity-sat', val=18446744073709552)
+    assert l1.rpc.listconfigs('min-capacity-sat')['configs']['min-capacity-sat']['value_int'] == 10000
+
+    # Largest value which fits is fine (we just refuse every channel).
+    l1.rpc.setconfig(config='min-capacity-sat', val=18446744073709551)
+    l1.fundwallet(10**7)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError, match='which is below'):
+        l1.rpc.fundchannel(l2.info['id'], 2001569)
+    # Inputs were released, and we're still alive.
+    assert [o for o in l1.rpc.listfunds()['outputs'] if o['reserved']] == []
