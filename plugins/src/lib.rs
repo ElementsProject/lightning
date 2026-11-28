@@ -138,7 +138,7 @@ where
     /// "configuration" field of "init" message sent by cln
     configuration: Configuration,
     /// A signal that allows us to wait on the plugin's shutdown.
-    wait_handle: tokio::sync::broadcast::Sender<()>,
+    wait_handle: tokio::sync::watch::Sender<bool>,
 
     sender: tokio::sync::mpsc::Sender<serde_json::Value>,
 }
@@ -799,7 +799,7 @@ where
     pub async fn start(mut self, state: S) -> Result<Plugin<S>, anyhow::Error> {
         let output = self.output;
         let input = self.input;
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+        let (wait_handle, _) = tokio::sync::watch::channel(false);
 
         // An MPSC pair used by anything that needs to send messages
         // to the main daemon.
@@ -839,14 +839,18 @@ where
         let joiner = plugin.wait_handle.clone();
         // Start the PluginDriver to handle plugin IO
         tokio::spawn(async move {
+            struct ShutdownGuard(tokio::sync::watch::Sender<bool>);
+            impl Drop for ShutdownGuard {
+                fn drop(&mut self) {
+                    self.0.send_replace(true);
+                }
+            }
+
+            let _keep_output = output.clone();
+            let _guard = ShutdownGuard(joiner);
             if let Err(e) = driver.run(receiver, input, output).await {
                 log::warn!("Plugin loop returned error {:?}", e);
             }
-
-            // Now that we have left the reader loop its time to
-            // notify any waiting tasks. This most likely will cause
-            // the main task to exit and the plugin to terminate.
-            joiner.send(())
         });
         Ok(plugin)
     }
@@ -932,12 +936,21 @@ where
         I: Send + AsyncReadExt + Unpin,
         O: Send + AsyncWriteExt + Unpin,
     {
+        let mut shutdown_rx = self.plugin.wait_handle.subscribe();
         loop {
+            if *shutdown_rx.borrow_and_update() {
+                return Ok(());
+            }
             // If we encounter any error reading or writing from/to
             // the master we hand them up, so we can return control to
             // the user-code, which may require some cleanups or
             // similar.
             tokio::select! {
+                res = shutdown_rx.changed() => {
+                    if res.is_err() || *shutdown_rx.borrow_and_update() {
+                        return Ok(());
+                    }
+                },
                 msg = input.next() => {
                     if let Some(reply) = self.dispatch_message(msg, &self.plugin)? {
                         output.lock().await.send(reply).await?;
@@ -1280,16 +1293,15 @@ where
     pub async fn join(&self) -> Result<(), Error> {
         self.wait_handle
             .subscribe()
-            .recv()
+            .wait_for(|&done| done)
             .await
-            .context("error waiting for shutdown")
+            .context("error waiting for shutdown")?;
+        Ok(())
     }
 
     /// Request plugin shutdown
     pub fn shutdown(&self) -> Result<(), Error> {
-        self.wait_handle
-            .send(())
-            .context("error waiting for shutdown")?;
+        self.wait_handle.send_replace(true);
         Ok(())
     }
 }
@@ -1410,7 +1422,7 @@ mod test {
         let (mut client_write, server_read) = tokio::io::duplex(1024);
         let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
         let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+        let (wait_handle, _) = tokio::sync::watch::channel(false);
 
         let plugin = Plugin {
             state: (),
@@ -1455,7 +1467,7 @@ mod test {
         let (mut client_write, server_read) = tokio::io::duplex(1024);
         let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
         let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+        let (wait_handle, _) = tokio::sync::watch::channel(false);
 
         let plugin = Plugin {
             state: (),
@@ -1527,7 +1539,7 @@ mod test {
         let (mut client_write, server_read) = tokio::io::duplex(1024);
         let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
         let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+        let (wait_handle, _) = tokio::sync::watch::channel(false);
 
         let plugin = Plugin {
             state: (),
@@ -1570,7 +1582,7 @@ mod test {
         let (mut client_write, server_read) = tokio::io::duplex(1024);
         let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
         let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+        let (wait_handle, _) = tokio::sync::watch::channel(false);
 
         let plugin = Plugin {
             state: (),
@@ -1615,7 +1627,7 @@ mod test {
         let (mut client_write, server_read) = tokio::io::duplex(1024);
         let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
         let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+        let (wait_handle, _) = tokio::sync::watch::channel(false);
 
         let plugin = Plugin {
             state: (),
@@ -1790,7 +1802,7 @@ mod test {
         let mut master_read = FramedRead::new(master_read, JsonCodec::default());
 
         let (sender, receiver) = tokio::sync::mpsc::channel(4);
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+        let (wait_handle, _) = tokio::sync::watch::channel(false);
 
         let plugin = Plugin {
             state: (),
@@ -1874,5 +1886,89 @@ mod test {
         producer.await.unwrap();
         drop(master_write);
         let _ = driver_handle.await.unwrap();
+    }
+
+    async fn start_test_plugin() -> (
+        Plugin<()>,
+        tokio::io::DuplexStream,
+        FramedRead<tokio::io::DuplexStream, JsonCodec>,
+    ) {
+        let (mut master_write, plugin_read) = tokio::io::duplex(4096);
+        let (plugin_write, master_read) = tokio::io::duplex(4096);
+        let mut master_read = FramedRead::new(master_read, JsonCodec::default());
+
+        let start_fut = Builder::new(plugin_read, plugin_write)
+            .with_logging(false)
+            .start(());
+
+        let handshake_fut = async {
+            master_write
+                .write_all(
+                    b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getmanifest\",\"params\":{}}\n\n",
+                )
+                .await
+                .unwrap();
+            let manifest_resp = master_read.next().await.unwrap().unwrap().unwrap();
+            assert_eq!(manifest_resp["id"], 1);
+
+            master_write
+                .write_all(
+                    concat!(
+                        "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"init\",\"params\":{",
+                        "\"options\":{},",
+                        "\"configuration\":{",
+                        "\"lightning-dir\":\"/tmp\",",
+                        "\"rpc-file\":\"lightning-rpc\",",
+                        "\"startup\":true,",
+                        "\"network\":\"regtest\",",
+                        "\"feature_set\":{}",
+                        "}}}\n\n"
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+            let init_resp = master_read.next().await.unwrap().unwrap().unwrap();
+            assert_eq!(init_resp["id"], 2);
+        };
+
+        let (plugin, ()) = tokio::join!(start_fut, handshake_fut);
+        (plugin.unwrap().unwrap(), master_write, master_read)
+    }
+
+    #[tokio::test]
+    async fn test_join_after_driver_exits_does_not_hang() {
+        let (plugin, master_write, mut master_read) = start_test_plugin().await;
+
+        drop(master_write);
+        assert!(master_read.next().await.is_none());
+
+        assert!(plugin.join().now_or_never().is_some_and(|r| r.is_ok()));
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_before_join_stops_driver_and_wakes_join() {
+        let (plugin, _master_write, mut master_read) = start_test_plugin().await;
+
+        plugin.shutdown().unwrap();
+        assert!(master_read.next().await.is_none());
+
+        assert!(plugin.join().now_or_never().is_some_and(|r| r.is_ok()));
+        // Repeated join/shutdown calls stay idempotent after shutdown.
+        assert!(plugin.join().now_or_never().is_some_and(|r| r.is_ok()));
+        plugin.shutdown().unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_wakes_waiting_join() {
+        let (plugin, _master_write, mut master_read) = start_test_plugin().await;
+
+        let join_plugin = plugin.clone();
+        let join_task = tokio::spawn(async move { join_plugin.join().await });
+        tokio::task::yield_now().await;
+
+        plugin.shutdown().unwrap();
+        join_task.await.unwrap().unwrap();
+        assert!(master_read.next().await.is_none());
     }
 }
