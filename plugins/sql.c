@@ -70,7 +70,7 @@ static const struct fieldtypemap fieldtypemap[] = {
 	{ "boolean", "INTEGER" }, /* FIELD_BOOL */
 	{ "number", "REAL" }, /* FIELD_NUMBER */
 	{ "string", "TEXT" }, /* FIELD_STRING */
-	{ "short_channel_id", "TEXT" }, /* FIELD_SCID */
+	{ "short_channel_id", "SCID" }, /* FIELD_SCID */
 	{ "outpoint", "TEXT" }, /* FIELD_OUTPOINT */
 };
 
@@ -250,6 +250,84 @@ static enum fieldtype find_fieldtype(const jsmntok_t *name)
 	     name->end - name->start, schemas + name->start);
 }
 
+/* short_channel_id_from_str() uses sscanf and ignores trailing junk.
+ * Require the canonical form so '100x2x3-backup' is not '100x2x3'. */
+static bool scid_str_exact(const char *str, struct short_channel_id *scid)
+{
+	char *canon;
+
+	if (!short_channel_id_from_str(str, strlen(str), scid))
+		return false;
+	canon = fmt_short_channel_id(tmpctx, *scid);
+	return streq(str, canon);
+}
+
+/* scid('NNNxNNNxNNN') -> u64.  An integer argument is returned unchanged,
+ * so scid(scid('1x2x3')) is harmless.  Query text is not rewritten. */
+static void sql_scid_func(sqlite3_context *ctx, int argc, sqlite3_value **argv)
+{
+	struct short_channel_id scid;
+	const char *str;
+	int typ;
+
+	if (argc != 1) {
+		sqlite3_result_error(ctx, "scid() requires exactly one argument", -1);
+		return;
+	}
+
+	typ = sqlite3_value_type(argv[0]);
+	if (typ == SQLITE_NULL) {
+		sqlite3_result_null(ctx);
+		return;
+	}
+	if (typ == SQLITE_INTEGER) {
+		sqlite3_result_int64(ctx, sqlite3_value_int64(argv[0]));
+		return;
+	}
+	if (typ != SQLITE_TEXT) {
+		sqlite3_result_error(ctx, "scid() requires a string or an integer", -1);
+		return;
+	}
+
+	str = (const char *)sqlite3_value_text(argv[0]);
+	if (!str || !scid_str_exact(str, &scid)) {
+		sqlite3_result_error(ctx,
+				     "invalid short_channel_id, expected NNNxNNNxNNN",
+				     -1);
+		return;
+	}
+
+	sqlite3_result_int64(ctx, scid.u64);
+}
+
+/* fmt_scid(u64) -> 'NNNxNNNxNNN'.  Non-integer input is an error:
+ * sqlite3_value_int64() would turn text into 0. */
+static void sql_fmt_scid_func(sqlite3_context *ctx, int argc, sqlite3_value **argv)
+{
+	struct short_channel_id scid;
+	char *str;
+	int typ;
+
+	if (argc != 1) {
+		sqlite3_result_error(ctx, "fmt_scid() requires exactly one argument", -1);
+		return;
+	}
+
+	typ = sqlite3_value_type(argv[0]);
+	if (typ == SQLITE_NULL) {
+		sqlite3_result_null(ctx);
+		return;
+	}
+	if (typ != SQLITE_INTEGER) {
+		sqlite3_result_error(ctx, "fmt_scid() requires an integer", -1);
+		return;
+	}
+
+	scid.u64 = sqlite3_value_int64(argv[0]);
+	str = fmt_short_channel_id(tmpctx, scid);
+	sqlite3_result_text(ctx, str, -1, SQLITE_TRANSIENT);
+}
+
 static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 {
 	int err;
@@ -305,6 +383,12 @@ static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 		if (err != SQLITE_OK)
 			plugin_err(plugin, "Could not disable sync: %s", errmsg);
 	}
+
+	/* Register custom SCID functions for integer<->text conversion */
+	sqlite3_create_function(db, "scid", 1, SQLITE_UTF8, NULL,
+				sql_scid_func, NULL, NULL);
+	sqlite3_create_function(db, "fmt_scid", 1, SQLITE_UTF8, NULL,
+				sql_fmt_scid_func, NULL, NULL);
 
 	return db;
 }
@@ -429,6 +513,10 @@ static int sqlite_authorize(void *dbq_, int code,
 			return SQLITE_OK;
 		if (streq(b, "json_group_array"))
 			return SQLITE_OK;
+		if (streq(b, "scid"))
+			return SQLITE_OK;
+		if (streq(b, "fmt_scid"))
+			return SQLITE_OK;
 	}
 
 	/* See https://www.sqlite.org/c3ref/c_alter_table.html to decode these! */
@@ -449,8 +537,17 @@ static struct command_result *refresh_complete(struct command *cmd,
 	int err, num_cols;
 	size_t num_rows;
 	struct json_stream *ret;
+	bool *is_scid;
 
 	num_cols = sqlite3_column_count(dbq->stmt);
+
+	/* decltype is fixed for the statement, not per row. */
+	is_scid = tal_arr(tmpctx, bool, num_cols);
+	for (int i = 0; i < num_cols; i++) {
+		const char *decltype = sqlite3_column_decltype(dbq->stmt, i);
+
+		is_scid[i] = decltype && streq(decltype, "SCID");
+	}
 
 	/* We normally hit an error immediately, so return a simple error then */
 	ret = NULL;
@@ -470,7 +567,14 @@ static struct command_result *refresh_complete(struct command *cmd,
 			switch (sqlite3_column_type(dbq->stmt, i)) {
 			case SQLITE_INTEGER: {
 				s64 v = sqlite3_column_int64(dbq->stmt, i);
-				json_add_s64(ret, NULL, v);
+				if (is_scid[i]) {
+					struct short_channel_id scid;
+					scid.u64 = (u64)v;
+					json_add_string(ret, NULL,
+							fmt_short_channel_id(tmpctx, scid));
+				} else {
+					json_add_s64(ret, NULL, v);
+				}
 				break;
 			}
 			case SQLITE_FLOAT: {
@@ -795,7 +899,18 @@ static struct command_result *process_json_obj(struct command *cmd,
 				}
 				sqlite3_bind_int64(stmt, (*sqloff)++, valmsat.millisatoshis /* Raw: db */);
 				break;
-			case FIELD_SCID:
+			case FIELD_SCID: {
+				struct short_channel_id scid;
+				if (!json_to_short_channel_id(buf, coltok, &scid)) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "column %zu row %zu not a valid short_channel_id: %.*s",
+							    i, row,
+							    json_tok_full_len(coltok),
+							    json_tok_full(buf, coltok));
+				}
+				sqlite3_bind_int64(stmt, (*sqloff)++, scid.u64);
+				break;
+			}
 			case FIELD_STRING:
 			case FIELD_OUTPOINT:
 				sqlite3_bind_text(stmt, (*sqloff)++, buf + coltok->start,
@@ -1034,8 +1149,8 @@ static void delete_channel_from_db(struct command *cmd,
 	err = sqlite3_exec(sql->db,
 			   tal_fmt(tmpctx,
 				   "DELETE FROM channels"
-				   " WHERE short_channel_id = '%s'",
-				   fmt_short_channel_id(tmpctx, scid)),
+				   " WHERE short_channel_id = %"PRIu64,
+				   scid.u64),
 			   NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
 		plugin_err(cmd->plugin, "Could not delete from channels: %s",
