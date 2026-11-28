@@ -332,11 +332,19 @@ impl ClnRpc {
     pub async fn call_enum(&mut self, req: Request) -> Result<Response, RpcError> {
         trace!("call : Serialize and deserialize request {:?}", req);
         // A little bit hacky. But serialize the request to get the method name
-        let mut ser = serde_json::to_value(&req).unwrap();
+        let mut ser = serde_json::to_value(&req).map_err(|e| RpcError {
+            code: None,
+            message: format!("Failed to serialize request: {}", e),
+            data: None,
+        })?;
         let method: String = if let serde_json::Value::String(method) = ser["method"].take() {
             method
         } else {
-            panic!("Method should be string")
+            return Err(RpcError {
+                code: None,
+                message: "Serialized request is missing a string `method` field".to_string(),
+                data: None,
+            });
         };
         let params: serde_json::Value = ser["params"].take();
 

@@ -61,7 +61,7 @@ pub enum HtlcState {
     SENT_REMOVE_ACK_REVOCATION = 19,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum ChannelTypeName {
     #[serde(rename = "static_remotekey/even")]
@@ -488,17 +488,25 @@ impl<'de> Deserialize<'de> for ShortChannelIdDir {
 impl FromStr for ShortChannelIdDir {
     type Err = crate::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Result<Vec<String>, _> = s.split('/').map(|p| p.parse()).collect();
-        let parts = parts.with_context(|| format!("Malformed short_channel_id_dir: {}", s))?;
-        if parts.len() != 2 {
+        let (scid_str, dir_str) = s
+            .split_once('/')
+            .ok_or_else(|| anyhow!("Malformed short_channel_id_dir: element count mismatch"))?;
+        if dir_str.contains('/') {
             return Err(anyhow!(
                 "Malformed short_channel_id_dir: element count mismatch"
             ));
         }
+        let direction = dir_str.parse::<u32>()?;
+        if direction > 1 {
+            return Err(anyhow!(
+                "Malformed short_channel_id_dir: direction {} out of range",
+                direction
+            ));
+        }
 
         Ok(ShortChannelIdDir {
-            short_channel_id: ShortChannelId::from_str(&parts[0])?,
-            direction: parts[1].parse::<u32>()?,
+            short_channel_id: ShortChannelId::from_str(scid_str)?,
+            direction,
         })
     }
 }
@@ -674,16 +682,18 @@ impl Display for ChannelState {
     }
 }
 
-impl From<i32> for ChannelTypeName {
-    fn from(value: i32) -> Self {
+impl TryFrom<i32> for ChannelTypeName {
+    type Error = crate::Error;
+
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
         match value {
-            0 => ChannelTypeName::STATIC_REMOTEKEY_EVEN,
-            1 => ChannelTypeName::ANCHOR_OUTPUTS_EVEN,
-            2 => ChannelTypeName::ANCHORS_ZERO_FEE_HTLC_TX_EVEN,
-            3 => ChannelTypeName::SCID_ALIAS_EVEN,
-            4 => ChannelTypeName::ZEROCONF_EVEN,
-            5 => ChannelTypeName::ANCHORS_EVEN,
-            o => panic!("Unmapped ChannelTypeName {}", o),
+            0 => Ok(ChannelTypeName::STATIC_REMOTEKEY_EVEN),
+            1 => Ok(ChannelTypeName::ANCHOR_OUTPUTS_EVEN),
+            2 => Ok(ChannelTypeName::ANCHORS_ZERO_FEE_HTLC_TX_EVEN),
+            3 => Ok(ChannelTypeName::SCID_ALIAS_EVEN),
+            4 => Ok(ChannelTypeName::ZEROCONF_EVEN),
+            5 => Ok(ChannelTypeName::ANCHORS_EVEN),
+            o => Err(anyhow!("Unmapped ChannelTypeName {}", o)),
         }
     }
 }
@@ -716,31 +726,32 @@ impl Display for ChannelTypeName {
     }
 }
 
-impl From<i32> for HtlcState {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => HtlcState::SENT_ADD_HTLC,
-            1 => HtlcState::SENT_ADD_COMMIT,
-            2 => HtlcState::RCVD_ADD_REVOCATION,
-            3 => HtlcState::RCVD_ADD_ACK_COMMIT,
-            4 => HtlcState::SENT_ADD_ACK_REVOCATION,
-            5 => HtlcState::RCVD_ADD_ACK_REVOCATION,
-            6 => HtlcState::RCVD_REMOVE_HTLC,
-            7 => HtlcState::RCVD_REMOVE_COMMIT,
-            8 => HtlcState::SENT_REMOVE_REVOCATION,
-            9 => HtlcState::SENT_REMOVE_ACK_COMMIT,
-            10 => HtlcState::RCVD_REMOVE_ACK_REVOCATION,
-            11 => HtlcState::RCVD_ADD_HTLC,
-            12 => HtlcState::RCVD_ADD_COMMIT,
-            13 => HtlcState::SENT_ADD_REVOCATION,
-            14 => HtlcState::SENT_ADD_ACK_COMMIT,
-            15 => HtlcState::SENT_REMOVE_HTLC,
-            16 => HtlcState::SENT_REMOVE_COMMIT,
-            17 => HtlcState::RCVD_REMOVE_REVOCATION,
-            18 => HtlcState::RCVD_REMOVE_ACK_COMMIT,
-            19 => HtlcState::SENT_REMOVE_ACK_REVOCATION,
+impl TryFrom<i32> for HtlcState {
+    type Error = crate::Error;
 
-            n => panic!("Unmapped HtlcState variant: {}", n),
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(HtlcState::SENT_ADD_HTLC),
+            1 => Ok(HtlcState::SENT_ADD_COMMIT),
+            2 => Ok(HtlcState::RCVD_ADD_REVOCATION),
+            3 => Ok(HtlcState::RCVD_ADD_ACK_COMMIT),
+            4 => Ok(HtlcState::SENT_ADD_ACK_REVOCATION),
+            5 => Ok(HtlcState::RCVD_ADD_ACK_REVOCATION),
+            6 => Ok(HtlcState::RCVD_REMOVE_HTLC),
+            7 => Ok(HtlcState::RCVD_REMOVE_COMMIT),
+            8 => Ok(HtlcState::SENT_REMOVE_REVOCATION),
+            9 => Ok(HtlcState::SENT_REMOVE_ACK_COMMIT),
+            10 => Ok(HtlcState::RCVD_REMOVE_ACK_REVOCATION),
+            11 => Ok(HtlcState::RCVD_ADD_HTLC),
+            12 => Ok(HtlcState::RCVD_ADD_COMMIT),
+            13 => Ok(HtlcState::SENT_ADD_REVOCATION),
+            14 => Ok(HtlcState::SENT_ADD_ACK_COMMIT),
+            15 => Ok(HtlcState::SENT_REMOVE_HTLC),
+            16 => Ok(HtlcState::SENT_REMOVE_COMMIT),
+            17 => Ok(HtlcState::RCVD_REMOVE_REVOCATION),
+            18 => Ok(HtlcState::RCVD_REMOVE_ACK_COMMIT),
+            19 => Ok(HtlcState::SENT_REMOVE_ACK_REVOCATION),
+            n => Err(anyhow!("Unmapped HtlcState variant: {}", n)),
         }
     }
 }
@@ -837,26 +848,34 @@ pub enum Feerate {
 impl TryFrom<&str> for Feerate {
     type Error = Error;
     fn try_from(s: &str) -> Result<Feerate> {
-        let number: u32 = s
-            .chars()
-            .map(|c| c.to_digit(10))
-            .take_while(|opt| opt.is_some())
-            .fold(0, |acc, digit| acc * 10 + (digit.unwrap() as u32));
-
-        let s = s.to_lowercase();
-        if s.ends_with("perkw") {
-            Ok(Feerate::PerKw(number))
-        } else if s.ends_with("perkb") {
-            Ok(Feerate::PerKb(number))
-        } else if s == "slow" {
-            Ok(Feerate::Slow)
-        } else if s == "normal" {
-            Ok(Feerate::Normal)
-        } else if s == "urgent" {
-            Ok(Feerate::Urgent)
-        } else {
-            Err(anyhow!("Unable to parse feerate from string: {}", s))
+        if s.eq_ignore_ascii_case("slow") {
+            return Ok(Feerate::Slow);
+        } else if s.eq_ignore_ascii_case("normal") {
+            return Ok(Feerate::Normal);
+        } else if s.eq_ignore_ascii_case("urgent") {
+            return Ok(Feerate::Urgent);
         }
+
+        let bytes = s.as_bytes();
+        if bytes.len() > 5 {
+            let split = bytes.len() - 5;
+            let suffix = &bytes[split..];
+            let parse_rate = |num_str: &str| -> Result<u32> {
+                if !num_str.bytes().all(|b| b.is_ascii_digit()) {
+                    return Err(anyhow!("Unable to parse feerate from string: {}", s));
+                }
+                num_str
+                    .parse::<u32>()
+                    .with_context(|| format!("Unable to parse feerate from string: {}", s))
+            };
+            if suffix.eq_ignore_ascii_case(b"perkw") {
+                return Ok(Feerate::PerKw(parse_rate(&s[..split])?));
+            } else if suffix.eq_ignore_ascii_case(b"perkb") {
+                return Ok(Feerate::PerKb(parse_rate(&s[..split])?));
+            }
+        }
+
+        Err(anyhow!("Unable to parse feerate from string: {}", s))
     }
 }
 
@@ -928,6 +947,42 @@ mod test {
     }
 
     #[test]
+    fn test_short_channel_id_dir_from_str() {
+        let d0 = ShortChannelIdDir::from_str("1x2x3/0").unwrap();
+        assert_eq!(d0.short_channel_id.to_string(), "1x2x3");
+        assert_eq!(d0.direction, 0);
+
+        let d1 = ShortChannelIdDir::from_str("1x2x3/1").unwrap();
+        assert_eq!(d1.direction, 1);
+
+        for bad in ["1x2x3", "1x2x3/2", "1x2x3/-1", "1x2x3/0/1", "1x2x3/a"] {
+            assert!(ShortChannelIdDir::from_str(bad).is_err(), "{} parsed", bad);
+        }
+    }
+
+    #[test]
+    fn test_enum_try_from_i32() {
+        assert_eq!(
+            ChannelTypeName::try_from(0).unwrap(),
+            ChannelTypeName::STATIC_REMOTEKEY_EVEN
+        );
+        assert_eq!(
+            ChannelTypeName::try_from(5).unwrap(),
+            ChannelTypeName::ANCHORS_EVEN
+        );
+        assert!(ChannelTypeName::try_from(-1).is_err());
+        assert!(ChannelTypeName::try_from(6).is_err());
+
+        assert_eq!(HtlcState::try_from(0).unwrap(), HtlcState::SENT_ADD_HTLC);
+        assert_eq!(
+            HtlcState::try_from(19).unwrap(),
+            HtlcState::SENT_REMOVE_ACK_REVOCATION
+        );
+        assert!(HtlcState::try_from(-1).is_err());
+        assert!(HtlcState::try_from(20).is_err());
+    }
+
+    #[test]
     fn test_amount_serde() {
         #[derive(Serialize, PartialEq, Debug, Deserialize)]
         struct T {
@@ -993,6 +1048,7 @@ mod test {
             ("urgent", Feerate::Urgent),
             ("12345perkb", Feerate::PerKb(12345)),
             ("54321perkw", Feerate::PerKw(54321)),
+            ("4294967295perkw", Feerate::PerKw(u32::MAX)),
         ];
 
         for (input, output) in tests.into_iter() {
@@ -1000,6 +1056,29 @@ mod test {
             assert_eq!(parsed, output);
             let serialized: String = (&parsed).into();
             assert_eq!(serialized, input);
+        }
+
+        assert_eq!(Feerate::try_from("SLOW").unwrap(), Feerate::Slow);
+        assert_eq!(Feerate::try_from("100PerKW").unwrap(), Feerate::PerKw(100));
+
+        for bad in [
+            "",
+            "perkw",
+            "perkb",
+            "abcperkb",
+            "-500perkw",
+            "+500perkw",
+            "123garbageperkw",
+            "4294967296perkw",
+            "99999999999perkb",
+            "🚀perkw",
+            "ééé",
+        ] {
+            assert!(
+                Feerate::try_from(bad).is_err(),
+                "expected error for {:?}",
+                bad
+            );
         }
     }
 
@@ -1017,6 +1096,9 @@ mod test {
         );
         let serialized: String = serde_json::to_string(&od).unwrap();
         assert_eq!(a, serialized);
+
+        assert!(serde_json::from_str::<OutputDesc>(r#"{}"#).is_err());
+        assert!(serde_json::from_str::<OutputDesc>(r#"{"a":1,"b":2}"#).is_err());
     }
 
     #[test]
@@ -1036,6 +1118,32 @@ mod test {
 
         let res = serde_json::to_string(&stream).unwrap();
         assert_eq!(res, "{\"31337\":\"0102030405\",\"42\":\"\"}");
+
+        // Deserialization sorts numerically ascending by `typ` (BOLT 1) rather than
+        // HashMap random order or lexicographical key order ("10" < "2").
+        let parsed: TlvStream =
+            serde_json::from_str(r#"{"31337":"0102030405","10":"0a","2":"02","42":""}"#).unwrap();
+        let types: Vec<u64> = parsed.entries.iter().map(|e| e.typ).collect();
+        assert_eq!(types, vec![2, 10, 42, 31337]);
+        assert_eq!(parsed.entries[0].value, vec![0x02]);
+        assert_eq!(parsed.entries[1].value, vec![0x0a]);
+        assert_eq!(parsed.entries[2].value, Vec::<u8>::new());
+        assert_eq!(parsed.entries[3].value, vec![1, 2, 3, 4, 5]);
+
+        let empty: TlvStream = serde_json::from_str("{}").unwrap();
+        assert!(empty.entries.is_empty());
+
+        for bad in [
+            r#"{"42":"zzzz"}"#,
+            r#"{"42":"abc"}"#,
+            r#"{"42":"01","42":"02"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<TlvStream>(bad).is_err(),
+                "expected error for {}",
+                bad
+            );
+        }
     }
 
     #[test]
@@ -1126,15 +1234,32 @@ impl<'de> Deserialize<'de> for OutputDesc {
     where
         D: Deserializer<'de>,
     {
-        let map: std::collections::HashMap<String, Amount> =
-            Deserialize::deserialize(deserializer)?;
+        struct OutputDescVisitor;
 
-        let (address, amount) = map.iter().next().unwrap();
+        impl<'de> serde::de::Visitor<'de> for OutputDescVisitor {
+            type Value = OutputDesc;
 
-        Ok(OutputDesc {
-            address: address.to_string(),
-            amount: *amount,
-        })
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a single-entry map of address to amount")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let (address, amount) = map
+                    .next_entry::<String, Amount>()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                if map.next_entry::<String, Amount>()?.is_some() {
+                    return Err(serde::de::Error::custom(
+                        "OutputDesc must contain exactly one entry",
+                    ));
+                }
+                Ok(OutputDesc { address, amount })
+            }
+        }
+
+        deserializer.deserialize_map(OutputDescVisitor)
     }
 }
 
@@ -1324,17 +1449,38 @@ impl<'de> Deserialize<'de> for TlvStream {
     where
         D: Deserializer<'de>,
     {
-        let map: std::collections::HashMap<u64, String> = Deserialize::deserialize(deserializer)?;
+        struct TlvStreamVisitor;
 
-        let entries = map
-            .iter()
-            .map(|(k, v)| TlvEntry {
-                typ: *k,
-                value: hex::decode(v).unwrap(),
-            })
-            .collect();
+        impl<'de> serde::de::Visitor<'de> for TlvStreamVisitor {
+            type Value = TlvStream;
 
-        Ok(TlvStream { entries })
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a map of TLV type numbers to hex-encoded values")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut entries = Vec::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some((typ, hex_val)) = map.next_entry::<u64, String>()? {
+                    let value = hex::decode(&hex_val).map_err(|e| {
+                        serde::de::Error::custom(format!("Invalid hex for TLV type {}: {}", typ, e))
+                    })?;
+                    entries.push(TlvEntry { typ, value });
+                }
+                entries.sort_by_key(|e| e.typ);
+                if let Some(dup) = entries.windows(2).find(|w| w[0].typ == w[1].typ) {
+                    return Err(serde::de::Error::custom(format!(
+                        "Duplicate TLV type {}",
+                        dup[0].typ
+                    )));
+                }
+                Ok(TlvStream { entries })
+            }
+        }
+
+        deserializer.deserialize_map(TlvStreamVisitor)
     }
 }
 
