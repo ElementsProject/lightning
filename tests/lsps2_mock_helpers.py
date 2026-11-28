@@ -7,11 +7,11 @@ import os
 LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
 
 
-def lsps2_mock_nodes(node_factory, client_opts=None):
+def lsps2_mock_nodes(node_factory, client_opts=None, lsp_opts=None):
     """Client l1, LSP l2 running the mock service, payer l3.
 
     l3 has a public channel to l2; l1 is only connected to l2.
-    `client_opts` are added to l1's options.
+    `client_opts` are added to l1's options, `lsp_opts` to l2's.
     """
     l1, l2, l3 = node_factory.get_nodes(
         3,
@@ -22,6 +22,7 @@ def lsps2_mock_nodes(node_factory, client_opts=None):
                 # The mock deducts the opening fee; no forwarding fee on top.
                 "fee-base": 0,
                 "fee-per-satoshi": 0,
+                **(lsp_opts or {}),
             },
             {},
         ],
@@ -84,6 +85,13 @@ def lsps2_mock_pay_var_invoice(l1, l2, l3, amt, label="lsp-jit-channel-0"):
     inv = l1.rpc.lsps_lsps2_invoice(
         lsp_id=l2.info["id"], amount_msat="any", description=label, label=label
     )
+    return lsps2_mock_pay(l1, l2, l3, inv, amt)
+
+
+def lsps2_mock_pay(l1, l2, l3, inv, amt):
+    """l3 pays `amt` through l2 to l1's JIT invoice `inv`.
+
+    Returns the result of waitsendpay; raises if the payment failed."""
     dec = l3.rpc.decode(inv["bolt11"])
     routehint = only_one(only_one(dec["routes"]))
     chanid = only_one(l3.rpc.listpeerchannels(l2.info["id"])["channels"])[
