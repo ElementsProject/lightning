@@ -70,6 +70,14 @@ common/test/run-gossmap_local:				\
 	wire/tlvstream.o				\
 	wire/towire.o
 
+common/test/run-gossmap_local-routehint:		\
+	common/base32.o					\
+	common/wireaddr.o				\
+	wire/fromwire.o					\
+	wire/peer_wiregen.o				\
+	wire/tlvstream.o				\
+	wire/towire.o
+
 common/test/run-gossmap_canned:				\
 	common/base32.o					\
 	common/wireaddr.o				\
